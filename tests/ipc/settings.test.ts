@@ -7,6 +7,7 @@ import type { IpcMainLike } from '../../src/main/ipc/result'
 import { createSettingsHandlers, registerSettingsHandlers, type SettingsHandlers } from '../../src/main/ipc/settings'
 import { defaultLayout, moveCard } from '../../src/shared/home/layout'
 import { IPC } from '../../src/shared/ipc'
+import { DEFAULT_PIE_SLOTS } from '../../src/shared/pie/actions'
 
 interface Setup {
   db: DatabaseSync
@@ -53,6 +54,21 @@ describe('settings IPC handlers', () => {
 
     expect(handlers.get('nav.collapsed')).toEqual({ ok: true, data: true })
     expect(handlers.get('home.layout')).toEqual({ ok: true, data: layout })
+  })
+
+  it('pie.slots: saves eight known actions and refuses the rest', () => {
+    const { handlers, db } = s()
+    const custom = [...DEFAULT_PIE_SLOTS.slice(0, 7), 'nav:settings']
+
+    expect(handlers.get('pie.slots')).toEqual({ ok: true, data: [...DEFAULT_PIE_SLOTS] })
+    expect(handlers.set('pie.slots', custom)).toEqual({ ok: true, data: custom })
+    expect(handlers.get('pie.slots')).toEqual({ ok: true, data: custom })
+
+    invalid(handlers.set('pie.slots', DEFAULT_PIE_SLOTS.slice(0, 7)), 'value')
+    invalid(handlers.set('pie.slots', [...custom.slice(0, 7), 'rm -rf']), 'value')
+    invalid(handlers.set('pie.slots', 'command'), 'value')
+    expect(handlers.get('pie.slots')).toEqual({ ok: true, data: custom })
+    expect(db.prepare("SELECT COUNT(*) AS n FROM app_meta WHERE key = 'settings.pie.slots'").get()).toEqual({ n: 1 })
   })
 
   it('rejects keys it does not know', () => {
