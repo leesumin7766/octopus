@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { IpcError, IpcResult } from '../../shared/ipc'
+import type { Memo } from '../../shared/memos/types'
 import type { TasksApi } from '../../shared/tasks/ipcApi'
 import type { Task, TaskFields, TaskView, TodayView } from '../../shared/tasks/types'
+import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
 import { DetailPanel } from './DetailPanel'
-import { errorMessage } from './errors'
 import { msUntilNextMidnight, todayString } from './format'
 import { OverdueSection } from './OverdueSection'
 import { QuickInput } from './QuickInput'
@@ -59,19 +60,22 @@ function findTask(lists: Lists | null, id: string | null): Task | null {
 const api = (): TasksApi => window.octopus.tasks
 
 interface TasksScreenProps {
+  /** 처음 보여 줄 보기(기본 오늘) */
+  initialView?: TaskView
   /** 완료 체크 뒤 목록에서 사라지기까지 흐려지는 시간 */
   fadeMs?: number
   /** 입력을 멈춘 뒤 미리보기를 요청하기까지의 대기 시간 */
   previewDebounceMs?: number
 }
 
-export function TasksScreen({ fadeMs = 350, previewDebounceMs = 250 }: TasksScreenProps) {
-  const [view, setView] = useState<TaskView>(() => window.octopus.initialView ?? 'today')
+export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250 }: TasksScreenProps) {
+  const [view, setView] = useState<TaskView>(initialView ?? 'today')
   const [lists, setLists] = useState<Lists | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pending, setPending] = useState<ReadonlyMap<string, boolean>>(new Map())
   const [dayTick, setDayTick] = useState(0)
+  const [linkedMemo, setLinkedMemo] = useState<Memo | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const loadSeq = useRef(0)
@@ -95,6 +99,21 @@ export function TasksScreen({ fadeMs = 350, previewDebounceMs = 250 }: TasksScre
       pendingTimers.forEach((timer) => window.clearTimeout(timer))
     }
   }, [refresh])
+
+  // 열어 둔 할 일에 연결된 메모가 있으면 상세 패널에 보여 주려고 찾는다.
+  useEffect(() => {
+    if (selectedId === null) {
+      setLinkedMemo(null)
+      return
+    }
+    let cancelled = false
+    void window.octopus.memos.list().then((result) => {
+      if (!cancelled) setLinkedMemo(result.ok ? (result.data.find((memo) => memo.taskId === selectedId) ?? null) : null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId])
 
   // 창이 다시 포커스될 때 목록을 새로고침한다.
   useEffect(() => {
@@ -255,7 +274,7 @@ export function TasksScreen({ fadeMs = 350, previewDebounceMs = 250 }: TasksScre
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900">
+    <div className="flex h-full bg-slate-50 text-slate-900">
       <Sidebar view={view} counts={counts} onSelect={setView} />
 
       <main className="flex min-w-0 flex-1 flex-col">
@@ -263,14 +282,7 @@ export function TasksScreen({ fadeMs = 350, previewDebounceMs = 250 }: TasksScre
           <QuickInput inputRef={inputRef} onSubmit={quickAdd} debounceMs={previewDebounceMs} />
         </header>
 
-        {error && (
-          <div role="alert" className="flex items-start justify-between gap-3 bg-red-50 px-5 py-2 text-sm text-red-800">
-            <span>{errorMessage(error)}</span>
-            <button type="button" onClick={() => setError(null)} className="shrink-0 text-xs underline">
-              {t.errors.dismiss}
-            </button>
-          </div>
-        )}
+        {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
 
         <section aria-label={t.views[view]} className="flex-1 overflow-y-auto px-5 py-4">
           <h1 className="mb-3 text-lg font-semibold">{t.views[view]}</h1>
@@ -282,6 +294,7 @@ export function TasksScreen({ fadeMs = 350, previewDebounceMs = 250 }: TasksScre
         <DetailPanel
           key={selectedTask.id}
           task={selectedTask}
+          linkedMemo={linkedMemo}
           onSave={(patch) => saveDetail(selectedTask.id, patch)}
           onRemove={() => removeTask(selectedTask.id)}
           onClose={() => setSelectedId(null)}

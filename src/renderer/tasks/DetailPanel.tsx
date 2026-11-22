@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import type { IpcResult } from '../../shared/ipc'
+import type { Memo } from '../../shared/memos/types'
 import type { Task, TaskBucket, TaskFields, TaskPriority } from '../../shared/tasks/types'
 import { ko } from '../i18n/ko'
 import { fieldErrorsFrom, type FieldErrors } from './errors'
@@ -13,6 +14,8 @@ interface DetailPanelProps {
   onSave: (patch: Partial<TaskFields>) => Promise<IpcResult<Task>>
   onRemove: () => Promise<void>
   onClose: () => void
+  /** 이 할 일로 만든 메모가 있으면 읽기 전용으로 보여 준다. */
+  linkedMemo?: Memo | null
 }
 
 const inputClass =
@@ -34,7 +37,7 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
   )
 }
 
-export function DetailPanel({ task, onSave, onRemove, onClose }: DetailPanelProps) {
+export function DetailPanel({ task, onSave, onRemove, onClose, linkedMemo }: DetailPanelProps) {
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes)
   const [bucket, setBucket] = useState<TaskBucket>(task.bucket)
@@ -49,6 +52,8 @@ export function DetailPanel({ task, onSave, onRemove, onClose }: DetailPanelProp
   const [confirmingRemove, setConfirmingRemove] = useState(false)
 
   const repeating = task.repeat !== null
+  // 루틴 항목은 그날 날짜에 묶여 있어서 날짜·보관함을 바꿀 수 없다.
+  const fromRoutine = task.routineId !== null
 
   // 날짜를 넣으면 예정, 날짜를 지우면 수신함으로 맞춰 준다(보관함과 날짜는 서로 맞아야 저장된다).
   function changeDate(value: string): void {
@@ -125,7 +130,7 @@ export function DetailPanel({ task, onSave, onRemove, onClose }: DetailPanelProp
           <select
             id="task-bucket"
             value={bucket}
-            disabled={repeating}
+            disabled={repeating || fromRoutine}
             onChange={(e) => changeBucket(e.target.value as TaskBucket)}
             className={inputClass}
           >
@@ -136,6 +141,7 @@ export function DetailPanel({ task, onSave, onRemove, onClose }: DetailPanelProp
             ))}
           </select>
           {repeating && <p className="mt-1 text-xs text-slate-500">{t.repeatLocksBucket}</p>}
+          {fromRoutine && <p className="mt-1 text-xs text-slate-500">{t.routineLocksDate}</p>}
         </Field>
 
         <div className="grid grid-cols-2 gap-2">
@@ -144,6 +150,7 @@ export function DetailPanel({ task, onSave, onRemove, onClose }: DetailPanelProp
               id="task-date"
               type="date"
               value={date}
+              disabled={fromRoutine}
               onChange={(e) => changeDate(e.target.value)}
               className={inputClass}
             />
@@ -180,6 +187,14 @@ export function DetailPanel({ task, onSave, onRemove, onClose }: DetailPanelProp
         <Field id="task-tags" label={t.tags} error={errors.tags}>
           <input id="task-tags" value={tags} onChange={(e) => setTags(e.target.value)} className={inputClass} />
         </Field>
+
+        {linkedMemo && (
+          <section aria-label={t.linkedMemo} className="rounded-md border border-slate-200 bg-slate-50 p-2">
+            <h3 className="mb-1 text-xs font-medium text-slate-500">{t.linkedMemo}</h3>
+            {/* 메모 본문은 HTML 로 해석하지 않고 글자 그대로, 줄바꿈만 보존해 보여 준다. */}
+            <p className="whitespace-pre-wrap break-words text-sm text-slate-700">{linkedMemo.body}</p>
+          </section>
+        )}
 
         {task.repeat && (
           <p className="text-xs text-slate-500">

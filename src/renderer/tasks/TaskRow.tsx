@@ -71,6 +71,9 @@ export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen
             <span className={`font-medium ${PRIORITY_STYLE[task.priority]}`}>!{t.priority[task.priority]}</span>
           )}
           {task.repeat && <span>↻ {formatRepeat(task.repeat)}</span>}
+          {task.routineId !== null && (
+            <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">{t.routineBadge}</span>
+          )}
         </span>
       </button>
     </li>

@@ -57,6 +57,23 @@ export function msUntilNextMidnight(now: Date): number {
   return next.getTime() - now.getTime()
 }
 
+/** 루틴 요일 요약: 매일 / 평일 / 주말 / "월 수 금" */
+export function formatDays(days: readonly number[]): string {
+  const sorted = [...new Set(days)].sort((a, b) => a - b)
+  const key = sorted.join()
+  if (sorted.length === 7) return ko.routines.everyDay
+  if (key === '1,2,3,4,5') return ko.routines.weekdays
+  if (key === '0,6') return ko.routines.weekend
+  return sorted.map((d) => ko.routines.weekdayNames[d]).join(' ')
+}
+
+/** ISO 시각을 로컬 "3/10 14:05" 로 */
+export function formatTimestamp(iso: string): string {
+  const d = new Date(iso)
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${minutes}`
+}
+
 /** "a, b, ,a" → ["a", "b"] */
 export function splitTags(text: string): string[] {
   return [...new Set(text.split(',').map((tag) => tag.trim()).filter((tag) => tag !== ''))]

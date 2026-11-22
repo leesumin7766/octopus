@@ -8,6 +8,8 @@ export function errorMessage(error: IpcError): string {
   if (error.code === 'invalid_input') {
     if (error.fields?.includes('title')) return t.errors.emptyTitle
     if (error.fields?.includes('text')) return t.errors.textTooLong
+    if (error.fields?.includes('body')) return t.errors.emptyBody
+    if (error.fields?.includes('taskId')) return t.errors.alreadyLinked
   }
   return t.errors[error.code]
 }
