@@ -14,7 +14,8 @@ export const MAX_TEXT_LENGTH = 1000
 const ULID_PATTERN = /^[0-9A-HJKMNP-TV-Z]{26}$/
 const VIEWS: readonly unknown[] = ['inbox', 'today', 'upcoming', 'someday', 'done']
 const STATUSES: readonly unknown[] = ['open', 'done', 'canceled']
-const FIELD_KEYS: ReadonlySet<string> = new Set(TASK_FIELD_KEYS)
+// routineId 는 루틴 쪽 코드가 정하는 값이라 렌더러가 보내는 입력·수정에서는 받지 않는다.
+const FIELD_KEYS: ReadonlySet<string> = new Set(TASK_FIELD_KEYS.filter((key) => key !== 'routineId'))
 
 /** 성공하면 값, 실패하면 틀린 필드 이름(입력값은 담지 않음). */
 export type Parsed<T> = { ok: true; value: T } | { ok: false; field: string }

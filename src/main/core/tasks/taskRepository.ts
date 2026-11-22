@@ -17,15 +17,13 @@ import {
   validateTaskFields
 } from '../../../shared/validation/task'
 import { withTransaction } from '../db/transaction'
+import { EntityNotFoundError } from '../errors'
 import { rowToTask, SELECT_TASKS } from './taskRows'
 
-export class TaskNotFoundError extends Error {
-  readonly id: string
-
+export class TaskNotFoundError extends EntityNotFoundError {
   constructor(id: string) {
-    super(`task not found: ${id}`)
+    super('task', id)
     this.name = 'TaskNotFoundError'
-    this.id = id
   }
 }
 
@@ -199,7 +197,8 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
       case 'today': {
         const tasks = query(`status = 'open' AND date <= ? ${ORDER_BY}`, today)
         return {
-          overdue: tasks.filter((t) => (t.date as string) < today),
+          // 루틴에서 생긴 지난 항목은 "지난 할 일"이 아니라 기록으로만 남긴다.
+          overdue: tasks.filter((t) => (t.date as string) < today && t.routineId === null),
           today: tasks.filter((t) => t.date === today)
         }
       }
@@ -320,6 +319,7 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
       // 날짜가 없어지므로 시각도 함께 비운다. 반복하는 할 일은 날짜가 필요하므로 옮기지 않는다.
       return bulkUpdate(ids, "bucket = 'someday', date = NULL, time = NULL", [], (task) => {
         if (task.repeat !== null) throw invalid('repeat', 'a repeating task cannot be moved to someday')
+        if (task.routineId !== null) throw invalid('routineId', 'a routine task cannot be moved to someday')
       })
     },
 

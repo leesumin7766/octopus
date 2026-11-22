@@ -1,18 +1,12 @@
 import type { TaskFields } from '../tasks/types'
+import { FieldValidationError, type ValidationIssue } from './issues'
 
-export interface ValidationIssue {
-  field: string
-  message: string
-}
+export type { ValidationIssue }
 
-/** 메시지에는 입력값을 넣지 않는다. 화면 문구는 호출하는 쪽에서 field 로 고른다. */
-export class TaskValidationError extends Error {
-  readonly issues: readonly ValidationIssue[]
-
+export class TaskValidationError extends FieldValidationError {
   constructor(issues: readonly ValidationIssue[]) {
-    super(`invalid task: ${issues.map((i) => `${i.field} ${i.message}`).join('; ')}`)
+    super('task', issues)
     this.name = 'TaskValidationError'
-    this.issues = issues
   }
 }
 
@@ -121,6 +115,11 @@ export function validateTaskFields(fields: Readonly<Record<keyof TaskFields, unk
   // 반복하는 할 일은 날짜가 있어야 하므로 scheduled 여야 한다.
   if (!repeat && fields.repeat !== null && bucketOk && fields.bucket !== 'scheduled') {
     add('repeat', 'requires bucket scheduled with a date')
+  }
+
+  // 루틴에서 생긴 항목도 그날 날짜에 묶여 있으므로 scheduled 여야 한다.
+  if (fields.routineId !== null && typeof fields.routineId === 'string' && bucketOk && fields.bucket !== 'scheduled') {
+    add('routineId', 'requires bucket scheduled with a date')
   }
 
   return issues

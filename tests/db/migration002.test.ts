@@ -1,8 +1,11 @@
 import { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { runMigrations } from '../../src/main/core/db/migrate'
-import { migrations } from '../../src/main/core/db/migrations'
 import { migration001 } from '../../src/main/core/db/migrations/001-app-meta'
+import { migration002 } from '../../src/main/core/db/migrations/002-tasks'
+
+// 002 까지만 적용한 목록(전체 목록은 이후 계속 늘어남)
+const migrations = [migration001, migration002]
 
 function userVersion(db: DatabaseSync): number {
   return (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
