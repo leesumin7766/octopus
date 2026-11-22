@@ -11,13 +11,15 @@ const t = ko.home.todo
 interface TodoCardProps {
   /** 날짜가 바뀌면(자정) 목록을 다시 읽는다. */
   dayKey: string
+  /** 값이 바뀌면 목록을 다시 읽는다(대화상자에서 할 일을 추가했을 때). */
+  refreshKey?: number
   fadeMs: number
   previewDebounceMs: number
   onOpenTasks: () => void
 }
 
 /** 오늘 할 일: 지난 할 일 개수 한 줄, 맨 위 빠른 입력, 체크할 수 있는 오늘 목록(루틴 항목 포함). */
-export function TodoCard({ dayKey, fadeMs, previewDebounceMs, onOpenTasks }: TodoCardProps) {
+export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, onOpenTasks }: TodoCardProps) {
   const [view, setView] = useState<TodayView | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
   const [fading, setFading] = useState<ReadonlySet<string>>(new Set())
@@ -45,7 +47,7 @@ export function TodoCard({ dayKey, fadeMs, previewDebounceMs, onOpenTasks }: Tod
 
   useEffect(() => {
     void refresh()
-  }, [refresh, dayKey])
+  }, [refresh, dayKey, refreshKey])
 
   useEffect(() => {
     const onFocus = (): void => void refresh()

@@ -15,8 +15,70 @@ export const ko = {
     command: '지시하기',
     arms: 'Arms',
     soon: '준비 중',
+    settings: '설정',
     arrange: '화면 배치',
     arrangeHint: '홈 화면에서 카드를 옮기고 크기를 바꿀 수 있어요.'
+  },
+
+  pie: {
+    menuLabel: 'Octopus 메뉴',
+    menuHint: '누르고 끌어서 고르기 · 짧게 누르면 펼침',
+    wedgesLabel: '원형 메뉴',
+    // 원형 메뉴 칸에 쓰는 짧은 이름
+    labels: {
+      'nav:home': '홈',
+      'nav:tasks': '할 일',
+      'nav:routines': '체크리스트',
+      'nav:memos': '메모 보기',
+      'nav:settings': '설정',
+      'task:quickAdd': '할 일 추가',
+      'memo:quickAdd': '메모',
+      command: '지시하기',
+      'arm:google-calendar': '캘린더',
+      'arm:mail': '메일',
+      'arm:obsidian': '옵시디언',
+      wiki: '위키',
+      arms: 'Arms'
+    },
+    // 설정 화면의 목록에 쓰는 설명이 있는 이름
+    longLabels: {
+      'nav:home': '홈 화면',
+      'nav:tasks': '할 일 화면',
+      'nav:routines': '체크리스트 화면',
+      'nav:memos': '메모 화면',
+      'nav:settings': '설정 화면',
+      'task:quickAdd': '할 일 바로 추가',
+      'memo:quickAdd': '메모 바로 쓰기',
+      command: '지시하기',
+      'arm:google-calendar': '캘린더 (Arm 연결 필요)',
+      'arm:mail': '메일 (Arm 연결 필요)',
+      'arm:obsidian': '옵시디언 (Arm 연결 필요)',
+      wiki: '위키',
+      arms: 'Arms 관리'
+    },
+    // 지금 쓸 수 없는 칸에 가리키면 보이는 이유
+    reasons: {
+      command: '지시하기는 곧 만나볼 수 있어요.',
+      'arm:google-calendar': '캘린더 Arm 을 연결하면 쓸 수 있어요.',
+      'arm:mail': '메일 Arm 을 연결하면 쓸 수 있어요.',
+      'arm:obsidian': '옵시디언 Arm 을 연결하면 쓸 수 있어요.',
+      wiki: '위키는 곧 준비돼요.',
+      arms: 'Arms 화면은 곧 준비돼요.'
+    },
+    deletedShortcut: '지워진 바로가기',
+    deletedShortcutReason: '지워진 바로가기예요. 설정에서 다른 동작을 골라 주세요.',
+    shortcutLong: (label: string) => `바로가기: ${label}`
+  },
+
+  settings: {
+    title: '설정',
+    pieTitle: '원형 메뉴',
+    pieHelp: '홈 가운데 원을 누르고 끌면 나오는 8칸이에요. 칸마다 하고 싶은 동작을 골라 주세요.',
+    slotLabel: (n: number, position: string) => `원형 메뉴 ${n}번 칸 (${position})`,
+    // 12시부터 시계 방향
+    positions: ['위', '오른쪽 위', '오른쪽', '오른쪽 아래', '아래', '왼쪽 아래', '왼쪽', '왼쪽 위'],
+    reset: '기본값으로',
+    soon: '준비 중'
   },
 
   home: {
@@ -52,8 +114,43 @@ export const ko = {
       quickPlaceholder: '한 줄 메모 (Enter)',
       viewAll: '전체 보기 →'
     },
+    dialogs: {
+      taskTitle: '할 일 추가',
+      memoTitle: '메모 쓰기',
+      close: '닫기',
+      memoLabel: '메모 내용',
+      memoPlaceholder: '메모를 적고 Ctrl+Enter 로 저장하세요.',
+      save: '저장',
+      taskAdded: '할 일을 추가했어요.',
+      memoSaved: '메모를 저장했어요.'
+    },
     shortcuts: {
-      empty: '자주 쓰는 링크와 폴더를 곧 여기에 모아 둘 수 있어요.'
+      empty: '자주 쓰는 링크, 파일, 폴더를 여기에 모아 두세요.',
+      add: '+ 추가',
+      addMenuLabel: '바로가기 추가',
+      addLink: '링크',
+      addFile: '파일',
+      addFolder: '폴더',
+      urlLabel: '링크 주소',
+      urlPlaceholder: 'https://',
+      nameLabel: '이름 (선택)',
+      submit: '추가',
+      cancel: '취소',
+      manage: '관리',
+      doneManage: '관리 끝',
+      rename: '이름 바꾸기',
+      renameLabel: (name: string) => `이름: ${name}`,
+      save: '저장',
+      moveUp: (name: string) => `위로 옮기기: ${name}`,
+      moveDown: (name: string) => `아래로 옮기기: ${name}`,
+      remove: '삭제',
+      confirmRemove: '이 바로가기를 지울까요? (파일이나 폴더는 지워지지 않아요.)',
+      confirmRemoveYes: '삭제',
+      kinds: { url: '링크', file: '파일', folder: '폴더' },
+      errors: {
+        url: '주소를 확인해 주세요. http:// 또는 https:// 로 시작해야 해요.',
+        label: '이름은 1~100자로 적어 주세요.'
+      }
     }
   },
 

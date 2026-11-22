@@ -3,7 +3,7 @@ import { Icon, LayoutIcon, type IconName } from '../ui/Icon'
 
 const t = ko.nav
 
-export type Screen = 'home' | 'tasks' | 'routines' | 'memos'
+export type Screen = 'home' | 'tasks' | 'routines' | 'memos' | 'settings'
 
 interface NavItem {
   id: Screen | 'command' | 'arms'
@@ -99,6 +99,18 @@ export function NavMenu({ screen, collapsed, onToggleCollapsed, onNavigate, arra
         })}
       </ul>
 
+      <div className="mt-auto flex flex-col gap-0.5">
+        <button
+          type="button"
+          aria-label={t.settings}
+          title={t.settings}
+          aria-current={screen === 'settings' ? 'page' : undefined}
+          onClick={() => onNavigate('settings')}
+          className={`${itemClass} whitespace-nowrap ${screen === 'settings' ? 'bg-white font-semibold text-accent' : 'text-ink hover:bg-black/5'}`}
+        >
+          <Icon name="settings" />
+          {!collapsed && <span>{t.settings}</span>}
+        </button>
       <button
         type="button"
         aria-pressed={arranging}
@@ -106,13 +118,14 @@ export function NavMenu({ screen, collapsed, onToggleCollapsed, onNavigate, arra
         disabled={!canArrange}
         title={canArrange ? t.arrange : `${t.arrange} — ${t.arrangeHint}`}
         onClick={onToggleArranging}
-        className={`mt-auto flex min-h-12 w-full items-center gap-2.5 rounded-[10px] text-[13px] disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`flex min-h-12 w-full items-center gap-2.5 rounded-[10px] text-[13px] disabled:cursor-not-allowed disabled:opacity-40 ${
           collapsed ? 'justify-center px-0' : 'px-2.5'
         } ${arranging ? 'border-2 border-accent bg-white text-accent' : 'border-2 border-transparent text-ink hover:bg-black/5'}`}
       >
         <LayoutIcon />
         {!collapsed && <span className="whitespace-nowrap">{t.arrange}</span>}
       </button>
+      </div>
     </nav>
   )
 }

@@ -57,18 +57,17 @@ describe('home screen', () => {
       expect(slots()).toEqual([t.cards.todo, t.cards.calendar, t.cards.memo, t.cards.shortcuts])
     })
 
-    it('has a 68px circle spot where the two borders meet (it does nothing yet)', async () => {
-      const user = userEvent.setup()
+    it('has a 68px circle button where the two borders meet, inside the card grid, closed at first', async () => {
       open()
       await card(t.cards.todo)
 
-      const spot = screen.getByTestId('center-spot')
-      expect(spot.className).toContain('size-[68px]')
-      expect(spot.className).toContain('rounded-full')
-      expect(spot.getAttribute('aria-hidden')).toBe('true')
-      expect(spot.closest('button')).toBeNull()
-      await user.click(spot)
-      expect(slots()).toEqual([t.cards.todo, t.cards.calendar, t.cards.memo, t.cards.shortcuts])
+      const circle = await screen.findByRole('button', { name: ko.pie.menuLabel })
+      expect(circle.className).toContain('size-[68px]')
+      expect(circle.className).toContain('rounded-full')
+      expect(circle.getAttribute('aria-expanded')).toBe('false')
+      expect(circle.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true') // 인라인 SVG 아이콘
+      expect(circle.closest('.grid')).toBe(colSeparator().parentElement) // 두 경계와 같은 격자 안
+      expect(screen.queryByRole('menu')).toBeNull()
     })
 
     it('has two focusable separators set to 50% within 25-75', async () => {

@@ -18,8 +18,3 @@ export function CalendarCard() {
     </div>
   )
 }
-
-/** 바로가기: 이번에는 빈 상태 카드(다음 항목에서 구현). */
-export function ShortcutsCard() {
-  return <p className="text-sm text-[#5e5d58]">{ko.home.shortcuts.empty}</p>
-}

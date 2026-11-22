@@ -12,10 +12,12 @@ const PREVIEW_COUNT = 5
 
 interface MemoCardProps {
   onOpenMemos: () => void
+  /** 값이 바뀌면 목록을 다시 읽는다(대화상자에서 메모를 저장했을 때). */
+  refreshKey?: number
 }
 
 /** 메모: 고정한 것 먼저 최근 5개의 첫 줄 미리보기, 한 줄 빠른 메모 입력. */
-export function MemoCard({ onOpenMemos }: MemoCardProps) {
+export function MemoCard({ onOpenMemos, refreshKey = 0 }: MemoCardProps) {
   const [memos, setMemos] = useState<Memo[] | null>(null)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<IpcError | null>(null)
@@ -39,7 +41,7 @@ export function MemoCard({ onOpenMemos }: MemoCardProps) {
       mounted.current = false
       window.removeEventListener('focus', onFocus)
     }
-  }, [refresh])
+  }, [refresh, refreshKey])
 
   async function save(): Promise<void> {
     if (draft.trim() === '') return

@@ -4,6 +4,7 @@ import { HomeScreen } from './home/HomeScreen'
 import { MemosScreen } from './memos/MemosScreen'
 import { NavMenu, type Screen } from './nav/NavMenu'
 import { RoutinesScreen } from './routines/RoutinesScreen'
+import { SettingsScreen } from './settings/SettingsScreen'
 import { useSetting } from './settings/useSetting'
 import { TasksScreen } from './tasks/TasksScreen'
 
@@ -12,7 +13,8 @@ type InitialView = NonNullable<typeof window.octopus.initialView>
 /** 앱을 켜면 홈. (개발용 캡처는 initialView 로 다른 화면을 바로 열 수 있다.) */
 function initialScreen(initial: InitialView | null): Screen {
   if (initial === null || initial === 'home' || initial === 'home-arrange') return 'home'
-  if (initial === 'routines' || initial === 'memos') return initial
+  if (initial === 'routines' || initial === 'memos' || initial === 'settings') return initial
+  if (initial === 'home-pie') return 'home'
   return 'tasks'
 }
 
@@ -50,11 +52,17 @@ export function App() {
       />
       <main className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
         {screen === 'home' && (
-          <HomeScreen arranging={arranging} onDoneArranging={() => setArranging(false)} onNavigate={navigate} />
+          <HomeScreen
+            arranging={arranging}
+            onDoneArranging={() => setArranging(false)}
+            onNavigate={navigate}
+            pieDemo={initial === 'home-pie' ? { hover: 1 } : undefined}
+          />
         )}
         {screen === 'tasks' && <TasksScreen initialView={taskView} />}
         {screen === 'routines' && <RoutinesScreen />}
         {screen === 'memos' && <MemosScreen />}
+        {screen === 'settings' && <SettingsScreen />}
       </main>
     </div>
   )

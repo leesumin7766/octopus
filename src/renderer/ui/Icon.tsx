@@ -8,7 +8,17 @@ const PATHS = {
   memo: 'M5 3h10l4 4v14H5zM15 3v4h4M8 12h8M8 16h6',
   command: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5',
   arms: 'M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 9V3M12 15v6M9 12H3M15 12h6',
-  calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4'
+  calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+  mail: 'M3 6h18v12H3zM3 7l9 6 9-6',
+  wiki: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 21V5M8 7h7M8 11h5',
+  obsidian: 'M12 3l6 5-2 12H8L6 8zM6 8h12M12 3l-2 17M12 3l4 17',
+  plus: 'M12 5v14M5 12h14',
+  settings: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4',
+  link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
+  file: 'M6 3h8l4 4v14H6zM14 3v4h4',
+  folder: 'M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z',
+  up: 'M12 19V5M6 11l6-6 6 6',
+  down: 'M12 5v14M6 13l6 6 6-6'
 } as const
 
 export type IconName = keyof typeof PATHS
