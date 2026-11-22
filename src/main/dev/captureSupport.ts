@@ -7,6 +7,7 @@ import type { TaskInput } from '../../shared/tasks/types'
 import type { MemoRepository } from '../core/memos/memoRepository'
 import type { RoutineRepository } from '../core/routines/routineRepository'
 import type { SettingsRepository } from '../core/settings/settingsRepository'
+import type { ShortcutRepository } from '../core/shortcuts/shortcutRepository'
 import type { TaskRepository } from '../core/tasks/taskRepository'
 
 // 개발용 화면 캡처의 순수한 부분. electron 을 쓰지 않아 테스트할 수 있다.
@@ -79,6 +80,12 @@ export const SAMPLE_MEMOS: readonly { body: string; pin?: boolean; toTask?: bool
   { body: '내일 오후 3시 치과 예약 전화하기', toTask: true }
 ]
 
+/** 캡처용 표본 바로가기: 링크 2개. (폴더 하나는 createSampleData 가 받은 경로로 만든다.) 화면에 보이기만 하고 열지는 않는다. */
+export const SAMPLE_SHORTCUT_URLS: readonly { url: string; label: string }[] = [
+  { url: 'https://developer.mozilla.org/ko/', label: 'MDN 문서' },
+  { url: 'https://www.wikipedia.org/', label: '위키백과' }
+]
+
 /** 배치 모드 캡처(home-arrange)에서 보여 줄 배치: 메모 카드를 위로 올리고 경계를 옮겨 둔다. */
 export const SAMPLE_LAYOUT: HomeLayout = { version: 1, order: ['todo', 'memo', 'calendar', 'shortcuts'], col: 62, row: 42 }
 
@@ -94,13 +101,15 @@ export interface SampleRepos {
   tasks: Pick<TaskRepository, 'create' | 'setStatus'>
   routines: Pick<RoutineRepository, 'create' | 'todayItems'>
   memos: Pick<MemoRepository, 'create' | 'togglePin' | 'toTask'>
+  shortcuts: Pick<ShortcutRepository, 'createUrl' | 'createPath'>
 }
 
 /**
  * 캡처용 표본 전체: 할 일, 루틴 3개(첫 번째는 오늘 완료, 지난 며칠의 기록 포함), 메모 3개
- * (하나는 고정, 하나는 할 일로 연결). today 는 YYYY-MM-DD.
+ * (하나는 고정, 하나는 할 일로 연결), 바로가기 3개(링크 2·폴더 1). today 는 YYYY-MM-DD,
+ * folderPath 는 폴더 바로가기가 가리킬 절대 경로(열지 않는다).
  */
-export function createSampleData(repos: SampleRepos, today: string): void {
+export function createSampleData(repos: SampleRepos, today: string, folderPath: string): void {
   createSampleTasks(repos.tasks, today)
 
   const routines = SAMPLE_ROUTINES.map((input) => repos.routines.create(input, today))
@@ -118,6 +127,9 @@ export function createSampleData(repos: SampleRepos, today: string): void {
       if ((index + back) % 3 !== 0) repos.tasks.setStatus(past.id, 'done')
     })
   }
+
+  for (const sample of SAMPLE_SHORTCUT_URLS) repos.shortcuts.createUrl(sample)
+  repos.shortcuts.createPath({ path: folderPath, pathType: 'folder', label: '문서 폴더' })
 
   for (const sample of SAMPLE_MEMOS) {
     const memo = repos.memos.create(sample.body)

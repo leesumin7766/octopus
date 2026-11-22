@@ -1,6 +1,8 @@
 import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
+import { createShortcutRepository, type ShortcutRepository } from '../../src/main/core/shortcuts/shortcutRepository'
+import { tmpdir } from 'node:os'
 import { createRoutineRepository, type RoutineRepository } from '../../src/main/core/routines/routineRepository'
 import { createSettingsRepository } from '../../src/main/core/settings/settingsRepository'
 import { parseLayout } from '../../src/shared/home/layout'
@@ -10,6 +12,7 @@ import {
   createSampleData,
   readCaptureConfig,
   SAMPLE_LAYOUT,
+  SAMPLE_SHORTCUT_URLS,
   seedCaptureSettings,
   SAMPLE_MEMOS,
   SAMPLE_ROUTINES
@@ -22,6 +25,8 @@ describe('capture views', () => {
 
     expect(view('home')).toBe('home')
     expect(view('home-arrange')).toBe('home-arrange')
+    expect(view('home-pie')).toBe('home-pie')
+    expect(view('settings')).toBe('settings')
     expect(view('routines')).toBe('routines')
     expect(view('memos')).toBe('memos')
     expect(view('inbox')).toBe('inbox')
@@ -38,19 +43,21 @@ describe('createSampleData', () => {
   let t: TestRepo
   let routines: RoutineRepository
   let memos: MemoRepository
+  let shortcuts: ShortcutRepository
 
   beforeEach(() => {
     t = createTestRepo()
     const now = () => new Date(2026, 2, 10, 12, 0, 0)
     routines = createRoutineRepository(t.db, { now, tasks: t.repo })
     memos = createMemoRepository(t.db, { now, tasks: t.repo })
+    shortcuts = createShortcutRepository(t.db, { now })
   })
 
   afterEach(() => {
     t.db.close()
   })
 
-  const seed = (today: string): void => createSampleData({ tasks: t.repo, routines, memos }, today)
+  const seed = (today: string): void => createSampleData({ tasks: t.repo, routines, memos, shortcuts }, today, tmpdir())
 
   // 2026-03-10 화, 03-14 토, 03-15 일: 평일 루틴은 주말에 오늘 항목이 없다.
   it.each(['2026-03-10', '2026-03-14', '2026-03-15'])('makes three routines, one done today (today = %s)', (today) => {
@@ -102,14 +109,30 @@ describe('createSampleData', () => {
     })
   })
 
+  it('makes three shortcuts for the home card: two links and one folder, in that order', () => {
+    seed('2026-03-10')
+
+    const list = shortcuts.list()
+    expect(list.map((s) => [s.kind, s.pathType, s.label])).toEqual([
+      ['url', null, 'MDN 문서'],
+      ['url', null, '위키백과'],
+      ['path', 'folder', '문서 폴더']
+    ])
+    expect(list[2].target).toBe(tmpdir())
+    expect(SAMPLE_SHORTCUT_URLS.every((s) => s.url.startsWith('https://'))).toBe(true)
+  })
+
   it('every sample passes the real validation (nothing throws on any weekday)', () => {
     for (let day = 8; day <= 14; day++) {
       const env = createTestRepo()
       const now = () => new Date(2026, 2, 10, 12, 0, 0)
       const r = createRoutineRepository(env.db, { now, tasks: env.repo })
       const m = createMemoRepository(env.db, { now, tasks: env.repo })
+      const sc = createShortcutRepository(env.db, { now })
 
-      expect(() => createSampleData({ tasks: env.repo, routines: r, memos: m }, `2026-03-${String(day).padStart(2, '0')}`)).not.toThrow()
+      expect(() =>
+        createSampleData({ tasks: env.repo, routines: r, memos: m, shortcuts: sc }, `2026-03-${String(day).padStart(2, '0')}`, tmpdir())
+      ).not.toThrow()
       env.db.close()
     }
   })

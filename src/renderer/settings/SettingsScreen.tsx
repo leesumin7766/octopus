@@ -62,7 +62,7 @@ export function SettingsScreen() {
           <ol className="flex flex-col gap-2">
             {slots.map((action, index) => (
               <li key={index} className="flex items-center gap-3">
-                <span className="w-24 shrink-0 text-[13px] text-[#5e5d58]">
+                <span className="w-36 shrink-0 whitespace-nowrap text-[13px] text-[#5e5d58]">
                   {index + 1}번 · {t.positions[index]}
                 </span>
                 <select

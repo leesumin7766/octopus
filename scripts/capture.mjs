@@ -16,6 +16,8 @@ const outDir = join(root, '.captures')
 const SHOTS = [
   ['home', 'home'],
   ['home-arrange', 'home-layout'],
+  ['home-pie', 'home-pie'],
+  ['settings', 'settings'],
   ['today', 'today'],
   ['routines', 'routines'],
   ['memos', 'memos']

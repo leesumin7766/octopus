@@ -89,10 +89,11 @@ function createWindow(): void {
 
 void app.whenReady().then(() => {
   initDatabase()
-  if (captureSession && taskRepository && routineRepository && memoRepository) {
+  if (captureSession && taskRepository && routineRepository && memoRepository && shortcutRepository) {
     createSampleData(
-      { tasks: taskRepository, routines: routineRepository, memos: memoRepository },
-      localDateString(new Date())
+      { tasks: taskRepository, routines: routineRepository, memos: memoRepository, shortcuts: shortcutRepository },
+      localDateString(new Date()),
+      app.getPath('documents')
     )
     if (settingsRepository) seedCaptureSettings(settingsRepository, captureSession.config.view)
   }
