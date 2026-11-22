@@ -44,15 +44,19 @@ function isIntInRange(value: unknown, min: number, max: number): boolean {
   return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max
 }
 
-function repeatProblem(value: unknown): string | null {
+/** 반복 규칙의 모양·범위를 검사한다. 문제가 없으면 null. */
+export function repeatRuleProblem(value: unknown): string | null {
   if (value === null) return null
   if (typeof value !== 'object' || Array.isArray(value)) return 'must be an object or null'
   const rule = value as Record<string, unknown>
   if (!FREQS.includes(rule['freq'])) return 'freq must be daily, weekly, monthly or yearly'
   if (!isIntInRange(rule['interval'], 1, Number.MAX_SAFE_INTEGER)) return 'interval must be a positive integer'
   const weekdays = rule['byWeekday']
-  if (weekdays !== undefined && !(Array.isArray(weekdays) && weekdays.every((d) => isIntInRange(d, 0, 6)))) {
-    return 'byWeekday must be an array of integers 0-6'
+  if (
+    weekdays !== undefined &&
+    !(Array.isArray(weekdays) && weekdays.length > 0 && weekdays.every((d) => isIntInRange(d, 0, 6)))
+  ) {
+    return 'byWeekday must be a non-empty array of integers 0-6'
   }
   const monthDay = rule['byMonthDay']
   if (monthDay !== undefined && !isIntInRange(monthDay, 1, 31)) return 'byMonthDay must be an integer 1-31'
@@ -101,7 +105,7 @@ export function validateTaskFields(fields: Readonly<Record<keyof TaskFields, unk
     add('routineId', 'must be a string or null')
   }
 
-  const repeat = repeatProblem(fields.repeat)
+  const repeat = repeatRuleProblem(fields.repeat)
   if (repeat) add('repeat', repeat)
   const source = sourceProblem(fields.source)
   if (source) add('source', source)
@@ -112,6 +116,11 @@ export function validateTaskFields(fields: Readonly<Record<keyof TaskFields, unk
     if (fields.bucket !== 'scheduled' && fields.date !== null) {
       add('date', 'must be null when bucket is inbox or someday')
     }
+  }
+
+  // 반복하는 할 일은 날짜가 있어야 하므로 scheduled 여야 한다.
+  if (!repeat && fields.repeat !== null && bucketOk && fields.bucket !== 'scheduled') {
+    add('repeat', 'requires bucket scheduled with a date')
   }
 
   return issues

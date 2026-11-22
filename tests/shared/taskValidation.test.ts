@@ -90,9 +90,23 @@ describe('validateTaskFields', () => {
   })
 
   it('requires no date when the bucket is inbox or someday', () => {
-    expect(problemFields({ bucket: 'inbox', date: '2026-03-10' })).toEqual(['date'])
-    expect(problemFields({ bucket: 'someday', date: '2026-03-10' })).toEqual(['date'])
-    expect(problemFields({ bucket: 'someday', date: null })).toEqual([])
+    // 기본 입력의 반복 규칙은 scheduled 에서만 허용되므로 여기서는 뺀다.
+    expect(problemFields({ bucket: 'inbox', date: '2026-03-10', repeat: null })).toEqual(['date'])
+    expect(problemFields({ bucket: 'someday', date: '2026-03-10', repeat: null })).toEqual(['date'])
+    expect(problemFields({ bucket: 'someday', date: null, repeat: null })).toEqual([])
+  })
+
+  it('requires bucket scheduled for a repeating task', () => {
+    const rule = { freq: 'daily', interval: 1 }
+
+    expect(problemFields({ bucket: 'inbox', date: null, repeat: rule })).toEqual(['repeat'])
+    expect(problemFields({ bucket: 'someday', date: null, repeat: rule })).toEqual(['repeat'])
+    expect(problemFields({ bucket: 'scheduled', date: null, repeat: rule })).toEqual(['date'])
+    expect(problemFields({ bucket: 'scheduled', date: '2026-03-10', repeat: rule })).toEqual([])
+  })
+
+  it('rejects an empty byWeekday list', () => {
+    expect(problemFields({ repeat: { freq: 'weekly', interval: 1, byWeekday: [] } })).toEqual(['repeat'])
   })
 
   it('rejects an unknown bucket', () => {
