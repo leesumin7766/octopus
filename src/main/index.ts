@@ -1,7 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
-import { ko } from '../renderer/i18n/ko'
 import { IPC } from '../shared/ipc'
 import { buildWebPreferences } from '../shared/securityOptions'
 import { openDatabase } from './core/db/connection'
@@ -22,7 +21,7 @@ function initDatabase(): void {
     database = db
   } catch (error) {
     // 아직 화면에는 보여 주지 않는다. 로그만 남기고 앱은 계속 뜬다.
-    console.error(`[octopus] ${ko.dbOpenFailed}`, error)
+    console.error('[octopus] failed to open the database or run migrations', error)
   }
 }
 
@@ -30,7 +29,7 @@ function createWindow(): void {
   const win = new BrowserWindow({
     width: 900,
     height: 600,
-    title: ko.appTitle,
+    title: 'Octopus',
     webPreferences: buildWebPreferences(join(__dirname, '../preload/index.js'))
   })
 
