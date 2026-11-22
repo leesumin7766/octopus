@@ -2,11 +2,15 @@ import { resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
 import { createRoutineRepository, type RoutineRepository } from '../../src/main/core/routines/routineRepository'
+import { createSettingsRepository } from '../../src/main/core/settings/settingsRepository'
+import { parseLayout } from '../../src/shared/home/layout'
 import {
   CAPTURE_ENV,
   CAPTURE_VIEW_ENV,
   createSampleData,
   readCaptureConfig,
+  SAMPLE_LAYOUT,
+  seedCaptureSettings,
   SAMPLE_MEMOS,
   SAMPLE_ROUTINES
 } from '../../src/main/dev/captureSupport'
@@ -16,6 +20,8 @@ describe('capture views', () => {
   it('can open the checklist and memo screens, besides the task views', () => {
     const view = (value: string) => readCaptureConfig({ [CAPTURE_ENV]: 'a.png', [CAPTURE_VIEW_ENV]: value }, false)?.view
 
+    expect(view('home')).toBe('home')
+    expect(view('home-arrange')).toBe('home-arrange')
     expect(view('routines')).toBe('routines')
     expect(view('memos')).toBe('memos')
     expect(view('inbox')).toBe('inbox')
@@ -106,5 +112,27 @@ describe('createSampleData', () => {
       expect(() => createSampleData({ tasks: env.repo, routines: r, memos: m }, `2026-03-${String(day).padStart(2, '0')}`)).not.toThrow()
       env.db.close()
     }
+  })
+})
+
+describe('capture settings', () => {
+  it('the sample layout is a valid layout that differs from the default', () => {
+    expect(parseLayout(SAMPLE_LAYOUT)).toEqual(SAMPLE_LAYOUT)
+    expect(SAMPLE_LAYOUT.order).not.toEqual(['todo', 'calendar', 'memo', 'shortcuts'])
+    expect(SAMPLE_LAYOUT.col).not.toBe(50)
+    expect(SAMPLE_LAYOUT.row).not.toBe(50)
+  })
+
+  it('home-arrange saves the sample layout; the other screens leave the settings alone', () => {
+    const t = createTestRepo()
+    const settings = createSettingsRepository(t.db)
+
+    seedCaptureSettings(settings, 'home')
+    seedCaptureSettings(settings, 'memos')
+    expect(settings.get('home.layout')).toMatchObject({ col: 50, row: 50 })
+
+    seedCaptureSettings(settings, 'home-arrange')
+    expect(settings.get('home.layout')).toEqual(SAMPLE_LAYOUT)
+    t.db.close()
   })
 })

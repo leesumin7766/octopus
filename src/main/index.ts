@@ -13,7 +13,7 @@ import { createRoutineRepository, type RoutineRepository } from './core/routines
 import { createSettingsRepository, type SettingsRepository } from './core/settings/settingsRepository'
 import { createTaskRepository, type TaskRepository } from './core/tasks/taskRepository'
 import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
-import { createSampleData } from './dev/captureSupport'
+import { createSampleData, seedCaptureSettings } from './dev/captureSupport'
 import { createMemoHandlers, registerMemoHandlers } from './ipc/memos'
 import { createRoutineHandlers, registerRoutineHandlers } from './ipc/routines'
 import { createSettingsHandlers, registerSettingsHandlers } from './ipc/settings'
@@ -88,6 +88,7 @@ void app.whenReady().then(() => {
       { tasks: taskRepository, routines: routineRepository, memos: memoRepository },
       localDateString(new Date())
     )
+    if (settingsRepository) seedCaptureSettings(settingsRepository, captureSession.config.view)
   }
   ipcMain.handle(IPC.appVersion, () => app.getVersion())
   const logError = (channel: string, error: unknown): void => console.error(`[octopus] ${channel} failed`, error)

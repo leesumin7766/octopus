@@ -12,7 +12,14 @@ import { cleanElectronEnv } from './devEnv.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, '.captures')
-const VIEWS = ['today', 'routines', 'memos']
+// [처음 화면, 저장할 파일 이름]
+const SHOTS = [
+  ['home', 'home'],
+  ['home-arrange', 'home-layout'],
+  ['today', 'today'],
+  ['routines', 'routines'],
+  ['memos', 'memos']
+]
 const TIMEOUT_MS = 60_000
 const TEMP_PREFIX = 'octopus-capture-'
 
@@ -56,8 +63,8 @@ if (!process.argv.includes('--no-build')) {
 mkdirSync(outDir, { recursive: true })
 let failed = false
 
-for (const view of VIEWS) {
-  const output = join(outDir, `${view}.png`)
+for (const [view, name] of SHOTS) {
+  const output = join(outDir, `${name}.png`)
   rmSync(output, { force: true }) // 예전 파일이 남아 성공처럼 보이지 않게
 
   const before = tempDirs()
@@ -74,10 +81,10 @@ for (const view of VIEWS) {
     // 파일이 없음
   }
   if (code !== 0 || size === 0) {
-    console.error(`capture: ${view} failed (exit ${code}, ${size} bytes)`)
+    console.error(`capture: ${name} failed (exit ${code}, ${size} bytes)`)
     failed = true
   } else {
-    console.log(`capture: ${view} -> ${output} (${size} bytes)`)
+    console.log(`capture: ${name} -> ${output} (${size} bytes)`)
   }
 }
 

@@ -1,10 +1,12 @@
 import { resolve } from 'node:path'
+import type { HomeLayout } from '../../shared/home/layout'
 import { parseInitialView, type InitialView } from '../../shared/initialView'
 import type { RoutineInput } from '../../shared/routines/types'
 import { addDays, weekdayOf } from '../../shared/tasks/dates'
 import type { TaskInput } from '../../shared/tasks/types'
 import type { MemoRepository } from '../core/memos/memoRepository'
 import type { RoutineRepository } from '../core/routines/routineRepository'
+import type { SettingsRepository } from '../core/settings/settingsRepository'
 import type { TaskRepository } from '../core/tasks/taskRepository'
 
 // 개발용 화면 캡처의 순수한 부분. electron 을 쓰지 않아 테스트할 수 있다.
@@ -76,6 +78,14 @@ export const SAMPLE_MEMOS: readonly { body: string; pin?: boolean; toTask?: bool
   { body: '다음 주 팀 회의 안건\n1. 분기 계획 점검\n2. 일정 조율\n3. 휴가 일정 공유' },
   { body: '내일 오후 3시 치과 예약 전화하기', toTask: true }
 ]
+
+/** 배치 모드 캡처(home-arrange)에서 보여 줄 배치: 메모 카드를 위로 올리고 경계를 옮겨 둔다. */
+export const SAMPLE_LAYOUT: HomeLayout = { version: 1, order: ['todo', 'memo', 'calendar', 'shortcuts'], col: 62, row: 42 }
+
+/** 캡처 화면에 맞는 설정을 (임시 userData 의) 설정 저장소에 넣는다. */
+export function seedCaptureSettings(settings: Pick<SettingsRepository, 'set'>, view: InitialView): void {
+  if (view === 'home-arrange') settings.set('home.layout', SAMPLE_LAYOUT)
+}
 
 /** 캡처용으로 거슬러 올라가 기록을 만들 날 수 */
 const HISTORY_DAYS = 6
