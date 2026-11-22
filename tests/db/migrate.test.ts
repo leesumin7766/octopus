@@ -71,9 +71,9 @@ describe('runMigrations', () => {
   })
 
   it('refuses a database that is newer than the app', () => {
-    db.exec('PRAGMA user_version = 5')
+    db.exec('PRAGMA user_version = 99')
 
     expect(() => runMigrations(db, migrations)).toThrow(/newer than this app supports/)
-    expect(userVersion(db)).toBe(5)
+    expect(userVersion(db)).toBe(99)
   })
 })

@@ -91,15 +91,15 @@ describe('migration 004 (memos)', () => {
   it('applies from version 3: user_version=4 and the memos table exists', () => {
     runMigrations(db, migrations.slice(0, 3))
 
-    expect(runMigrations(db, migrations)).toBe(4)
+    expect(runMigrations(db, migrations.slice(0, 4))).toBe(4)
 
     expect(userVersion(db)).toBe(4)
     const columns = (db.prepare('PRAGMA table_info(memos)').all() as { name: string }[]).map((c) => c.name)
     expect(columns).toEqual(['id', 'body', 'pinned', 'task_id', 'created_at', 'updated_at'])
   })
 
-  it('the full list reaches version 4 on an empty database', () => {
-    expect(runMigrations(db, migrations)).toBe(4)
+  it('four migrations reach version 4 on an empty database', () => {
+    expect(runMigrations(db, migrations.slice(0, 4))).toBe(4)
   })
 
   it('pinned only takes 0 or 1', () => {
