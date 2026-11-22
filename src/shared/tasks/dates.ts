@@ -33,6 +33,11 @@ function fromUtc(ms: number): string {
   return formatDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate())
 }
 
+/** a 에서 b 를 뺀 일 수. */
+export function diffDays(a: string, b: string): number {
+  return Math.round((toUtc(a) - toUtc(b)) / MS_PER_DAY)
+}
+
 export function addDays(date: string, days: number): string {
   return fromUtc(toUtc(date) + days * MS_PER_DAY)
 }

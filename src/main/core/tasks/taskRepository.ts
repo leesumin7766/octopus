@@ -8,7 +8,7 @@ import {
   type TaskView,
   type TodayView
 } from '../../../shared/tasks/types'
-import { localDateString } from '../../../shared/tasks/dates'
+import { addDays, diffDays, localDateString } from '../../../shared/tasks/dates'
 import { nextOccurrenceFrom } from '../../../shared/tasks/repeat'
 import { createUlidGenerator } from '../../../shared/tasks/ulid'
 import {
@@ -128,13 +128,15 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
 
     // 원래 날짜보다 뒤이면서 오늘(로컬 날짜) 이상인 첫 회차
     const date = nextOccurrenceFrom(done.repeat, done.date, localDateString(now))
+    // 마감일은 날짜가 밀린 만큼 같이 민다.
+    const deadline = done.deadline === null ? null : addDays(done.deadline, diffDays(date, done.date))
     const fields = assertValidFields({
       title: done.title,
       notes: done.notes,
       bucket: 'scheduled',
       date,
       time: done.time,
-      deadline: done.deadline,
+      deadline,
       priority: done.priority,
       project: done.project,
       tags: done.tags,
@@ -143,6 +145,23 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
       source: done.source
     })
     insertTask(fields, now)
+  }
+
+  /**
+   * 반복 할 일의 완료를 되돌릴 때, 그 완료로 생긴 다음 회차가 아직 손대지 않은 상태면 지운다.
+   * 같은 now() 로 찍혔으므로 createdAt 이 원래 할 일의 doneAt 과 같고, 손대지 않았으면
+   * updatedAt 이 createdAt 과 같다. 고쳤거나 이미 완료한 회차는 그대로 둔다.
+   */
+  function removeUntouchedNextOccurrence(done: Task): void {
+    if (done.doneAt === null || done.repeat === null) return
+
+    const repeat = JSON.stringify(done.repeat)
+    const candidates = query("status = 'open' AND created_at = ? AND updated_at = created_at", done.doneAt)
+    for (const candidate of candidates) {
+      if (candidate.id === done.id || candidate.title !== done.title) continue
+      if (JSON.stringify(candidate.repeat) !== repeat) continue
+      db.prepare('DELETE FROM tasks WHERE id = ?').run(candidate.id)
+    }
   }
 
   /**
@@ -252,10 +271,14 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
           iso,
           id
         )
-        // 반복하는 할 일이 새로 done 이 되면 다음 회차를 같은 트랜잭션에서 만든다.
-        // (done → open → done 을 반복하면 회차가 또 생긴다. 아직 막지 않음.)
-        if (status === 'done' && existing.status !== 'done' && existing.repeat !== null) {
-          insertNextOccurrence(existing, now)
+        if (existing.repeat !== null) {
+          if (status === 'done' && existing.status !== 'done') {
+            // 반복하는 할 일이 새로 done 이 되면 다음 회차를 같은 트랜잭션에서 만든다.
+            insertNextOccurrence(existing, now)
+          } else if (status === 'open' && existing.status === 'done') {
+            // 완료를 되돌리면 그때 생긴 손대지 않은 회차를 지워 중복을 막는다.
+            removeUntouchedNextOccurrence(existing)
+          }
         }
       })
       return mustGet(id)

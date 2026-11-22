@@ -254,13 +254,19 @@ export function parseQuickInput(text: string, today: string): QuickParseResult {
     else if (state.time) date = today
   }
 
+  // 날짜 없이 "매월" 만 쓴 경우: 정해진 날짜의 일을 매월 날짜로 삼는다(31일이 짧은 달에 밀려도 돌아오도록).
+  let repeat = state.repeat
+  if (repeat?.freq === 'monthly' && repeat.byMonthDay === undefined && date !== null) {
+    repeat = { ...repeat, byMonthDay: parseDate(date).day }
+  }
+
   return {
     title: titleWords.length > 0 ? titleWords.join(' ') : original,
     date,
     time: state.time,
     project: state.project,
     priority: state.priority,
-    repeat: state.repeat,
+    repeat,
     bucket: date === null ? 'inbox' : 'scheduled'
   }
 }

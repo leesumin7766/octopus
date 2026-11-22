@@ -243,11 +243,23 @@ describe('parseQuickInput', () => {
       expect(parse('매월 25일 청구서').date).toBe('2026-11-25')
     })
 
-    it('매월 without a valid day', () => {
-      expect(parse('매월 청구서').repeat).toEqual({ freq: 'monthly', interval: 1 })
+    it('매월 without a day uses the day of the decided date', () => {
+      expect(parse('매월 청구서')).toMatchObject({
+        title: '청구서',
+        date: '2026-11-22',
+        repeat: { freq: 'monthly', interval: 1, byMonthDay: 22 }
+      })
+      expect(parse('내일 매월 청구서')).toMatchObject({
+        date: '2026-11-23',
+        repeat: { freq: 'monthly', interval: 1, byMonthDay: 23 }
+      })
+      expect(parse('1/31 매월 청구서').repeat).toEqual({ freq: 'monthly', interval: 1, byMonthDay: 31 })
+    })
+
+    it('매월 with an invalid day: the day stays in the title', () => {
       expect(parse('매월 32일 청구서')).toMatchObject({
         title: '32일 청구서',
-        repeat: { freq: 'monthly', interval: 1 }
+        repeat: { freq: 'monthly', interval: 1, byMonthDay: 22 }
       })
     })
 

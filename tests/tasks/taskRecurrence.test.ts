@@ -57,7 +57,7 @@ describe('completing a repeating task', () => {
       bucket: 'scheduled',
       date: '2026-03-16',
       time: '10:00',
-      deadline: '2026-03-20',
+      deadline: '2026-03-27', // 날짜가 7일 밀린 만큼 같이 밀림
       priority: 2,
       project: '업무',
       tags: ['보고', '주간'],
@@ -126,6 +126,30 @@ describe('completing a repeating task', () => {
     expect(count()).toBe(1)
   })
 
+  it('moves the deadline by the same number of days as the date', () => {
+    const original = t.repo.create({
+      title: '밀린 일',
+      date: '2026-01-05',
+      deadline: '2026-01-10', // 할 날 5일 뒤
+      repeat: MONDAYS
+    })
+    t.setNow(localNoon(2026, 3, 10))
+
+    t.repo.setStatus(original.id, 'done')
+
+    // 1/5 → 3/16 은 70일, 마감도 70일 뒤
+    expect(t.repo.listView('upcoming', '2026-03-10')[0]).toMatchObject({ date: '2026-03-16', deadline: '2026-03-21' })
+  })
+
+  it('keeps a missing deadline missing', () => {
+    const original = t.repo.create({ title: '운동', date: '2026-03-10', repeat: DAILY })
+    t.setNow(localNoon(2026, 3, 10))
+
+    t.repo.setStatus(original.id, 'done')
+
+    expect(t.repo.listView('upcoming', '2026-03-10')[0].deadline).toBeNull()
+  })
+
   it('does not create another one when an already-done task is set to done again', () => {
     const original = t.repo.create({ title: '운동', date: '2026-03-10', repeat: DAILY })
     t.repo.setStatus(original.id, 'done')
@@ -133,6 +157,89 @@ describe('completing a repeating task', () => {
     t.repo.setStatus(original.id, 'done')
 
     expect(count()).toBe(2)
+  })
+
+  describe('reopening a completed repeating task', () => {
+    function setup() {
+      const original = t.repo.create({ title: '운동', date: '2026-03-10', repeat: DAILY })
+      t.setNow(localNoon(2026, 3, 10))
+      t.repo.setStatus(original.id, 'done')
+      const [next] = t.repo.listView('upcoming', '2026-03-10')
+      return { original, next }
+    }
+
+    it('removes the untouched next occurrence', () => {
+      const { original, next } = setup()
+      expect(count()).toBe(2)
+
+      t.setNow(localNoon(2026, 3, 10))
+      const reopened = t.repo.setStatus(original.id, 'open')
+
+      expect(reopened).toMatchObject({ status: 'open', doneAt: null })
+      expect(t.repo.get(next.id)).toBeUndefined()
+      expect(count()).toBe(1)
+    })
+
+    it('removes it even when time has passed since the completion', () => {
+      const { original, next } = setup()
+
+      t.setNow(localNoon(2026, 3, 12))
+      t.repo.setStatus(original.id, 'open')
+
+      expect(t.repo.get(next.id)).toBeUndefined()
+    })
+
+    it('keeps an occurrence the user has edited', () => {
+      const { original, next } = setup()
+      t.setNow(localNoon(2026, 3, 10).replace('T', 'T').replace(/:00\.000Z$/, ':30.000Z'))
+      t.repo.update(next.id, { notes: '손댐' })
+
+      t.setNow(localNoon(2026, 3, 11))
+      t.repo.setStatus(original.id, 'open')
+
+      expect(t.repo.get(next.id)).toMatchObject({ notes: '손댐', status: 'open' })
+      expect(count()).toBe(2)
+    })
+
+    it('keeps an occurrence that was already completed', () => {
+      const { original, next } = setup()
+      t.setNow(localNoon(2026, 3, 11))
+      t.repo.setStatus(next.id, 'done') // 이 완료로 또 다음 회차가 생김
+      const before = count()
+
+      t.repo.setStatus(original.id, 'open')
+
+      expect(t.repo.get(next.id)).toMatchObject({ status: 'done' })
+      expect(count()).toBe(before)
+    })
+
+    it('done → open → done leaves exactly one open next occurrence', () => {
+      const { original } = setup()
+
+      t.setNow(localNoon(2026, 3, 11))
+      t.repo.setStatus(original.id, 'open')
+      t.setNow(localNoon(2026, 3, 12))
+      t.repo.setStatus(original.id, 'done')
+
+      const openOthers = t.db
+        .prepare("SELECT COUNT(*) AS n FROM tasks WHERE status = 'open' AND id != ?")
+        .get(original.id) as { n: number }
+      expect(openOthers.n).toBe(1)
+      expect(count()).toBe(2)
+      // 3/12 에 끝냈고 원래 날짜(3/10) 뒤의 첫 회차가 오늘(3/12) 이상이므로 3/12
+      expect(t.repo.listView('today', '2026-03-12').today.map((task) => task.date)).toEqual(['2026-03-12'])
+    })
+
+    it('does not touch non-repeating tasks', () => {
+      const plain = t.repo.create({ title: '한 번만', date: '2026-03-10' })
+      const other = t.repo.create({ title: '한 번만', date: '2026-03-10' })
+      t.repo.setStatus(plain.id, 'done')
+
+      t.repo.setStatus(plain.id, 'open')
+
+      expect(t.repo.get(other.id)).toBeDefined()
+      expect(count()).toBe(2)
+    })
   })
 
   it('rolls the status change back when the next occurrence cannot be made', () => {
