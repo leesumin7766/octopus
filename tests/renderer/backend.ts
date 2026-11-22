@@ -2,14 +2,18 @@ import { vi, type Mock } from 'vitest'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
 import { createRoutineRepository, type RoutineRepository } from '../../src/main/core/routines/routineRepository'
 import { createSettingsRepository, type SettingsRepository } from '../../src/main/core/settings/settingsRepository'
+import { createShortcutRepository, type ShortcutRepository } from '../../src/main/core/shortcuts/shortcutRepository'
 import { createMemoHandlers } from '../../src/main/ipc/memos'
 import { createRoutineHandlers } from '../../src/main/ipc/routines'
 import { createSettingsHandlers } from '../../src/main/ipc/settings'
+import { createShortcutHandlers } from '../../src/main/ipc/shortcuts'
+import type { ShortcutPlatform } from '../../src/main/platform/shortcutPlatform'
 import { createTaskHandlers } from '../../src/main/ipc/tasks'
 import type { OctopusApi } from '../../src/shared/api'
 import type { MemosApi } from '../../src/shared/memos/ipcApi'
 import type { RoutinesApi } from '../../src/shared/routines/ipcApi'
 import type { SettingsApi } from '../../src/shared/settings/ipcApi'
+import type { ShortcutsApi } from '../../src/shared/shortcuts/ipcApi'
 import type { TasksApi } from '../../src/shared/tasks/ipcApi'
 import { createTestRepo, type TestRepo } from '../tasks/helpers'
 
@@ -20,17 +24,24 @@ export type TaskSpies = { [K in keyof TasksApi]: Mock<TasksApi[K]> }
 export type RoutineSpies = { [K in keyof RoutinesApi]: Mock<RoutinesApi[K]> }
 export type MemoSpies = { [K in keyof MemosApi]: Mock<MemosApi[K]> }
 export type SettingsSpies = { [K in keyof SettingsApi]: Mock<SettingsApi[K]> }
+export type ShortcutSpies = { [K in keyof ShortcutsApi]: Mock<ShortcutsApi[K]> }
+
+/** 운영체제와 닿는 동작의 가짜. 테스트가 실제로 무언가를 열 일은 없다. */
+export type FakePlatform = { [K in keyof ShortcutPlatform]: Mock<ShortcutPlatform[K]> }
 
 export interface Backend {
   t: TestRepo
   routineRepo: RoutineRepository
   memoRepo: MemoRepository
   settingsRepo: SettingsRepository
+  shortcutRepo: ShortcutRepository
+  platform: FakePlatform
   /** window.octopus.tasks 로 들어가는 함수들. 호출 인자를 확인하거나 결과를 바꿀 수 있다. */
   tasks: TaskSpies
   routines: RoutineSpies
   memos: MemoSpies
   settings: SettingsSpies
+  shortcuts: ShortcutSpies
 }
 
 /**
@@ -43,6 +54,14 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
   const routineRepo = createRoutineRepository(t.db, { now, tasks: t.repo })
   const memoRepo = createMemoRepository(t.db, { now, tasks: t.repo })
   const settingsRepo = createSettingsRepository(t.db)
+  const shortcutRepo = createShortcutRepository(t.db, { now })
+  const platform: FakePlatform = {
+    openExternal: vi.fn(async () => {}),
+    openPath: vi.fn(async () => ''),
+    pathExists: vi.fn(() => true),
+    pickPath: vi.fn(async () => null),
+    confirmRunExecutable: vi.fn(async () => true)
+  }
   const logError = (): void => {}
 
   const taskHandlers = createTaskHandlers({
@@ -54,6 +73,7 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
   const routineHandlers = createRoutineHandlers({ getRepository: () => routineRepo, now, logError })
   const memoHandlers = createMemoHandlers({ getRepository: () => memoRepo, now, logError })
   const settingsHandlers = createSettingsHandlers({ getRepository: () => settingsRepo, logError })
+  const shortcutHandlers = createShortcutHandlers({ getRepository: () => shortcutRepo, platform, logError })
 
   const tasks = {
     list: vi.fn(async (view: unknown) => taskHandlers.list(view)),
@@ -92,15 +112,26 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     set: vi.fn(async (key: unknown, value: unknown) => settingsHandlers.set(key, value))
   } as unknown as SettingsSpies
 
+  const shortcuts = {
+    list: vi.fn(async () => shortcutHandlers.list()),
+    addUrl: vi.fn(async (input: unknown) => shortcutHandlers.addUrl(input)),
+    pickPath: vi.fn(async (kind: unknown) => shortcutHandlers.pickPath(kind)),
+    open: vi.fn(async (id: unknown) => shortcutHandlers.open(id)),
+    rename: vi.fn(async (id: unknown, label: unknown) => shortcutHandlers.rename(id, label)),
+    remove: vi.fn(async (id: unknown) => shortcutHandlers.remove(id)),
+    move: vi.fn(async (id: unknown, direction: unknown) => shortcutHandlers.move(id, direction))
+  } as unknown as ShortcutSpies
+
   const api: OctopusApi = {
     getAppVersion: async () => '0.0.0-test',
     initialView,
     tasks: tasks as unknown as TasksApi,
     routines: routines as unknown as RoutinesApi,
     memos: memos as unknown as MemosApi,
-    settings: settings as unknown as SettingsApi
+    settings: settings as unknown as SettingsApi,
+    shortcuts: shortcuts as unknown as ShortcutsApi
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, tasks, routines, memos, settings }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts }
 }

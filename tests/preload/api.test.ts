@@ -20,6 +20,7 @@ type Api = {
   routines: Fns
   memos: Fns
   settings: Fns
+  shortcuts: Fns
 }
 
 describe('preload', () => {
@@ -37,11 +38,15 @@ describe('preload', () => {
   })
 
   it('exposes only getAppVersion, initialView, tasks, routines and memos (no ipcRenderer, no generic invoke)', () => {
-    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'initialView', 'memos', 'routines', 'settings', 'tasks'])
+    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'initialView', 'memos', 'routines', 'settings', 'shortcuts', 'tasks'])
     for (const key of ['ipcRenderer', 'invoke', 'send', 'on', 'electron']) {
       expect(key in api).toBe(false)
-      for (const group of [api.tasks, api.routines, api.memos, api.settings]) expect(key in group).toBe(false)
+      for (const group of [api.tasks, api.routines, api.memos, api.settings, api.shortcuts]) expect(key in group).toBe(false)
     }
+  })
+
+  it('exposes exactly the shortcut functions, none of which takes a path or an address to open', () => {
+    expect(Object.keys(api.shortcuts).sort()).toEqual(['addUrl', 'list', 'move', 'open', 'pickPath', 'remove', 'rename'])
   })
 
   it('exposes exactly get and set for settings', () => {
@@ -68,7 +73,14 @@ describe('preload', () => {
     ['memos', 'search', ['검색'], IPC.memosSearch],
     ['memos', 'toTask', ['ID'], IPC.memosToTask],
     ['settings', 'get', ['nav.collapsed'], IPC.settingsGet],
-    ['settings', 'set', ['nav.collapsed', true], IPC.settingsSet]
+    ['settings', 'set', ['nav.collapsed', true], IPC.settingsSet],
+    ['shortcuts', 'list', [], IPC.shortcutsList],
+    ['shortcuts', 'addUrl', [{ url: 'https://example.com' }], IPC.shortcutsAddUrl],
+    ['shortcuts', 'pickPath', ['file'], IPC.shortcutsPickPath],
+    ['shortcuts', 'open', ['ID'], IPC.shortcutsOpen],
+    ['shortcuts', 'rename', ['ID', '이름'], IPC.shortcutsRename],
+    ['shortcuts', 'remove', ['ID'], IPC.shortcutsRemove],
+    ['shortcuts', 'move', ['ID', 'up'], IPC.shortcutsMove]
   ] as const)('%s.%s forwards its arguments to the matching channel', async (group, method, args, channel) => {
     mocks.invoke.mockClear()
 

@@ -25,10 +25,18 @@ export const IPC = {
   memosSearch: 'memos:search',
   memosToTask: 'memos:toTask',
   settingsGet: 'settings:get',
-  settingsSet: 'settings:set'
+  settingsSet: 'settings:set',
+  shortcutsList: 'shortcuts:list',
+  shortcutsAddUrl: 'shortcuts:addUrl',
+  shortcutsPickPath: 'shortcuts:pickPath',
+  shortcutsOpen: 'shortcuts:open',
+  shortcutsRename: 'shortcuts:rename',
+  shortcutsRemove: 'shortcuts:remove',
+  shortcutsMove: 'shortcuts:move'
 } as const
 
-export type IpcErrorCode = 'invalid_input' | 'not_found' | 'db_unavailable' | 'internal'
+/** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. */
+export type IpcErrorCode = 'invalid_input' | 'not_found' | 'not_found_path' | 'db_unavailable' | 'internal'
 
 export interface IpcError {
   code: IpcErrorCode

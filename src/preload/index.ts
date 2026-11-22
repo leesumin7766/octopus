@@ -40,6 +40,15 @@ const api: OctopusApi = {
   settings: {
     get: (key) => ipcRenderer.invoke(IPC.settingsGet, key),
     set: (key, value) => ipcRenderer.invoke(IPC.settingsSet, key, value)
+  },
+  shortcuts: {
+    list: () => ipcRenderer.invoke(IPC.shortcutsList),
+    addUrl: (input) => ipcRenderer.invoke(IPC.shortcutsAddUrl, input),
+    pickPath: (kind) => ipcRenderer.invoke(IPC.shortcutsPickPath, kind),
+    open: (id) => ipcRenderer.invoke(IPC.shortcutsOpen, id),
+    rename: (id, label) => ipcRenderer.invoke(IPC.shortcutsRename, id, label),
+    remove: (id) => ipcRenderer.invoke(IPC.shortcutsRemove, id),
+    move: (id, direction) => ipcRenderer.invoke(IPC.shortcutsMove, id, direction)
   }
 }
 

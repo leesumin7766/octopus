@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { existsSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
 import { initialViewArgument } from '../shared/initialView'
@@ -11,12 +12,15 @@ import { migrations } from './core/db/migrations'
 import { createMemoRepository, type MemoRepository } from './core/memos/memoRepository'
 import { createRoutineRepository, type RoutineRepository } from './core/routines/routineRepository'
 import { createSettingsRepository, type SettingsRepository } from './core/settings/settingsRepository'
+import { createShortcutRepository, type ShortcutRepository } from './core/shortcuts/shortcutRepository'
 import { createTaskRepository, type TaskRepository } from './core/tasks/taskRepository'
 import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
 import { createSampleData, seedCaptureSettings } from './dev/captureSupport'
 import { createMemoHandlers, registerMemoHandlers } from './ipc/memos'
 import { createRoutineHandlers, registerRoutineHandlers } from './ipc/routines'
 import { createSettingsHandlers, registerSettingsHandlers } from './ipc/settings'
+import { createShortcutHandlers, registerShortcutHandlers } from './ipc/shortcuts'
+import { createShortcutPlatform } from './platform/shortcutPlatform'
 import { createTaskHandlers, registerTaskHandlers } from './ipc/tasks'
 
 // 개발용 화면 캡처(OCTOPUS_CAPTURE). userData 를 임시 폴더로 옮기므로 app ready 전에 먼저 부른다.
@@ -28,6 +32,7 @@ let taskRepository: TaskRepository | null = null
 let routineRepository: RoutineRepository | null = null
 let memoRepository: MemoRepository | null = null
 let settingsRepository: SettingsRepository | null = null
+let shortcutRepository: ShortcutRepository | null = null
 
 function initDatabase(): void {
   try {
@@ -44,6 +49,7 @@ function initDatabase(): void {
     routineRepository = createRoutineRepository(db, { now, tasks: taskRepository })
     memoRepository = createMemoRepository(db, { now, tasks: taskRepository })
     settingsRepository = createSettingsRepository(db)
+    shortcutRepository = createShortcutRepository(db, { now })
     // 앱을 켜면 오늘의 루틴 항목을 보장한다. 실패해도 앱은 계속 뜬다.
     try {
       routineRepository.ensureTodayTasks(localDateString(now()))
@@ -107,6 +113,19 @@ void app.whenReady().then(() => {
   )
   registerMemoHandlers(ipcMain, createMemoHandlers({ getRepository: () => memoRepository, now: () => new Date(), logError }))
   registerSettingsHandlers(ipcMain, createSettingsHandlers({ getRepository: () => settingsRepository, logError }))
+  registerShortcutHandlers(
+    ipcMain,
+    createShortcutHandlers({
+      getRepository: () => shortcutRepository,
+      logError,
+      platform: createShortcutPlatform({
+        shell,
+        dialog,
+        getWindow: () => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null,
+        pathExists: existsSync
+      })
+    })
+  )
   createWindow()
 
   app.on('activate', () => {
@@ -119,6 +138,7 @@ app.on('will-quit', () => {
   routineRepository = null
   memoRepository = null
   settingsRepository = null
+  shortcutRepository = null
   database?.close()
   cleanupCapture(captureSession)
 })

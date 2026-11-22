@@ -1,6 +1,7 @@
 import type { MemosApi } from './memos/ipcApi'
 import type { RoutinesApi } from './routines/ipcApi'
 import type { SettingsApi } from './settings/ipcApi'
+import type { ShortcutsApi } from './shortcuts/ipcApi'
 import type { TasksApi } from './tasks/ipcApi'
 import type { InitialView } from './initialView'
 
@@ -13,4 +14,5 @@ export interface OctopusApi {
   routines: RoutinesApi
   memos: MemosApi
   settings: SettingsApi
+  shortcuts: ShortcutsApi
 }
