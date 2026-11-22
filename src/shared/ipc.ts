@@ -1,4 +1,26 @@
-// IPC 채널 이름. main, preload 가 같은 상수를 쓴다.
+// IPC 채널 이름과 응답 형식. main, preload 가 같은 상수를 쓴다.
 export const IPC = {
-  appVersion: 'app:version'
+  appVersion: 'app:version',
+  tasksList: 'tasks:list',
+  tasksQuickAdd: 'tasks:quickAdd',
+  tasksCreate: 'tasks:create',
+  tasksUpdate: 'tasks:update',
+  tasksSetStatus: 'tasks:setStatus',
+  tasksRemove: 'tasks:remove',
+  tasksReorder: 'tasks:reorder',
+  tasksMoveToToday: 'tasks:moveToToday',
+  tasksMoveToSomeday: 'tasks:moveToSomeday',
+  tasksReschedule: 'tasks:reschedule',
+  tasksParsePreview: 'tasks:parsePreview'
 } as const
+
+export type IpcErrorCode = 'invalid_input' | 'not_found' | 'db_unavailable' | 'internal'
+
+export interface IpcError {
+  code: IpcErrorCode
+  /** invalid_input 일 때 어느 필드가 틀렸는지. 입력값은 담지 않는다. */
+  fields?: string[]
+}
+
+/** 예외 대신 돌려주는 결과. 오류에는 사용자 입력이나 내부 메시지를 넣지 않는다. */
+export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: IpcError }
