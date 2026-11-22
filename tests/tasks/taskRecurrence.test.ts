@@ -191,7 +191,7 @@ describe('completing a repeating task', () => {
 
     it('keeps an occurrence the user has edited', () => {
       const { original, next } = setup()
-      t.setNow(localNoon(2026, 3, 10).replace('T', 'T').replace(/:00\.000Z$/, ':30.000Z'))
+      t.setNow(new Date(2026, 2, 10, 12, 0, 30).toISOString()) // 완료 30초 뒤에 고침
       t.repo.update(next.id, { notes: '손댐' })
 
       t.setNow(localNoon(2026, 3, 11))
