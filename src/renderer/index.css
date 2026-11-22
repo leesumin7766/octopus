@@ -1,1 +1,26 @@
 @import 'tailwindcss';
+
+/* 디자인 목업(docs/design/mockup)의 색·글꼴. 글꼴은 웹에서 받지 않고 시스템 글꼴 순서로만 쓴다. */
+@theme {
+  --font-sans: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-accent: #3346c8;
+  --color-accent-strong: #2937a3;
+  --color-accent-soft: #eef0fb;
+  --color-page: #f6f6f3;
+  --color-nav: #dcdcd9;
+  --color-line: #e4e3de;
+  --color-ink: #1b1b19;
+
+  /* 이미 만든 화면이 쓰는 indigo·slate 도 같은 계열로 맞춘다. */
+  --color-indigo-50: #eef0fb;
+  --color-indigo-100: #dde1f6;
+  --color-indigo-200: #bcc4ec;
+  --color-indigo-400: #7a88dc;
+  --color-indigo-500: #3346c8;
+  --color-indigo-600: #3346c8;
+  --color-indigo-700: #2937a3;
+  --color-slate-50: #f6f6f3;
+  --color-slate-200: #e4e3de;
+  --color-slate-300: #dad9d4;
+}
