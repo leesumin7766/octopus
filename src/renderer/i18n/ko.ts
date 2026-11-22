@@ -162,7 +162,8 @@ export const ko = {
       confirmRemoveYes: '삭제',
       close: '닫기',
       linkedMemo: '연결된 메모',
-      routineLocksDate: '루틴 항목은 날짜와 보관함을 바꿀 수 없어요. 체크리스트 탭에서 루틴 설정을 바꿔 주세요.'
+      routineLocksDate: '루틴 항목은 날짜와 보관함을 바꿀 수 없어요. 체크리스트 화면에서 루틴 설정을 바꿔 주세요.',
+      routineManage: '루틴 항목은 체크리스트에서 관리해요.'
     },
 
     fieldErrors: {

@@ -217,13 +217,18 @@ export function DetailPanel({ task, onSave, onRemove, onClose, linkedMemo }: Det
           >
             {t.cancel}
           </button>
-          <button
-            type="button"
-            onClick={() => setConfirmingRemove(true)}
-            className="ml-auto rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-          >
-            {t.remove}
-          </button>
+          {fromRoutine ? (
+            // 루틴 항목은 지울 수 없다(지워도 다음에 다시 생김). 루틴 설정에서 끄거나 지운다.
+            <span className="ml-auto text-xs text-slate-500">{t.routineManage}</span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingRemove(true)}
+              className="ml-auto rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            >
+              {t.remove}
+            </button>
+          )}
         </div>
 
         {confirmingRemove && (
