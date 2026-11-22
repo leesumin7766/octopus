@@ -121,6 +121,56 @@ export function RoutinesScreen() {
           )}
         </section>
 
+        <section aria-label={historyTitle}>
+          <h2 className="mb-2 text-base font-semibold">{historyTitle}</h2>
+          {!history || history.routines.length === 0 ? (
+            <p className="text-sm text-slate-500">{t.historyEmpty}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2">
+              <table aria-label={historyTitle} className="border-collapse text-xs">
+                <thead>
+                  <tr>
+                    <th className="pr-3 text-left font-medium text-slate-500" scope="col" />
+                    {history.dates.map((date) => (
+                      <th
+                        key={date}
+                        scope="col"
+                        title={date}
+                        className={`w-7 text-center font-normal ${date === today ? 'text-indigo-600' : 'text-slate-500'}`}
+                      >
+                        {Number(date.slice(8))}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.routines.map((row) => (
+                    <tr key={row.id}>
+                      <th scope="row" className={`max-w-40 truncate pr-3 text-left font-normal ${row.active ? '' : 'text-slate-400'}`}>
+                        {row.title}
+                      </th>
+                      {history.dates.map((date, index) => {
+                        const kind = cellKind(row.cells[index], date)
+                        return (
+                          <td
+                            key={date}
+                            aria-label={`${row.title} ${date}: ${t.cell[kind]}`}
+                            title={`${date} ${t.cell[kind]}`}
+                            className={`h-7 w-7 text-center ${CELL_STYLE[kind]}`}
+                          >
+                            {CELL_SYMBOL[kind]}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs text-slate-500">{t.legend}</p>
+            </div>
+          )}
+        </section>
+
         <section aria-label={t.manageTitle}>
           <h2 className="mb-2 text-base font-semibold">{t.manageTitle}</h2>
           <div className="mb-3 rounded-lg border border-slate-200 bg-white p-3">
@@ -198,56 +248,6 @@ export function RoutinesScreen() {
               </li>
             ))}
           </ul>
-        </section>
-
-        <section aria-label={historyTitle}>
-          <h2 className="mb-2 text-base font-semibold">{historyTitle}</h2>
-          {!history || history.routines.length === 0 ? (
-            <p className="text-sm text-slate-500">{t.historyEmpty}</p>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white p-2">
-              <table aria-label={historyTitle} className="border-collapse text-xs">
-                <thead>
-                  <tr>
-                    <th className="pr-3 text-left font-medium text-slate-500" scope="col" />
-                    {history.dates.map((date) => (
-                      <th
-                        key={date}
-                        scope="col"
-                        title={date}
-                        className={`w-7 text-center font-normal ${date === today ? 'text-indigo-600' : 'text-slate-500'}`}
-                      >
-                        {Number(date.slice(8))}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.routines.map((row) => (
-                    <tr key={row.id}>
-                      <th scope="row" className={`max-w-40 truncate pr-3 text-left font-normal ${row.active ? '' : 'text-slate-400'}`}>
-                        {row.title}
-                      </th>
-                      {history.dates.map((date, index) => {
-                        const kind = cellKind(row.cells[index], date)
-                        return (
-                          <td
-                            key={date}
-                            aria-label={`${row.title} ${date}: ${t.cell[kind]}`}
-                            title={`${date} ${t.cell[kind]}`}
-                            className={`h-7 w-7 text-center ${CELL_STYLE[kind]}`}
-                          >
-                            {CELL_SYMBOL[kind]}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="mt-2 text-xs text-slate-500">{t.legend}</p>
-            </div>
-          )}
         </section>
       </div>
     </div>
