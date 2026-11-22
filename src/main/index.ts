@@ -1,13 +1,20 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
+import { initialViewArgument } from '../shared/initialView'
 import { IPC } from '../shared/ipc'
+import { localDateString } from '../shared/tasks/dates'
 import { buildWebPreferences } from '../shared/securityOptions'
 import { openDatabase } from './core/db/connection'
 import { runMigrations } from './core/db/migrate'
 import { migrations } from './core/db/migrations'
 import { createTaskRepository, type TaskRepository } from './core/tasks/taskRepository'
+import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
+import { createSampleTasks } from './dev/captureSupport'
 import { createTaskHandlers, registerTaskHandlers } from './ipc/tasks'
+
+// 개발용 화면 캡처(OCTOPUS_CAPTURE). userData 를 임시 폴더로 옮기므로 app ready 전에 먼저 부른다.
+const captureSession = prepareCapture(app)
 
 let database: DatabaseSync | null = null
 // DB 를 열지 못하면 null 로 남고, 할 일 IPC 는 db_unavailable 을 돌려준다.
@@ -33,10 +40,15 @@ function initDatabase(): void {
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 900,
-    height: 600,
+    height: 700,
     title: 'Octopus',
-    webPreferences: buildWebPreferences(join(__dirname, '../preload/index.js'))
+    webPreferences: buildWebPreferences(
+      join(__dirname, '../preload/index.js'),
+      captureSession ? [initialViewArgument(captureSession.config.view)] : []
+    )
   })
+
+  if (captureSession) captureWhenLoaded(win, captureSession, app)
 
   win.webContents.on('did-finish-load', () => {
     console.log('[octopus] window loaded')
@@ -52,6 +64,7 @@ function createWindow(): void {
 
 void app.whenReady().then(() => {
   initDatabase()
+  if (captureSession && taskRepository) createSampleTasks(taskRepository, localDateString(new Date()))
   ipcMain.handle(IPC.appVersion, () => app.getVersion())
   registerTaskHandlers(
     ipcMain,
@@ -71,6 +84,7 @@ void app.whenReady().then(() => {
 app.on('will-quit', () => {
   taskRepository = null
   database?.close()
+  cleanupCapture(captureSession)
 })
 
 app.on('window-all-closed', () => {
