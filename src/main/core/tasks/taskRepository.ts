@@ -8,6 +8,8 @@ import {
   type TaskView,
   type TodayView
 } from '../../../shared/tasks/types'
+import { localDateString } from '../../../shared/tasks/dates'
+import { nextOccurrenceFrom } from '../../../shared/tasks/repeat'
 import { createUlidGenerator } from '../../../shared/tasks/ulid'
 import {
   isValidDateString,
@@ -107,8 +109,52 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
       .map(rowToTask)
   }
 
-  /** ids 전체를 한 트랜잭션으로 고친다. 하나라도 없으면 전부 되돌린다. */
-  function bulkUpdate(ids: readonly string[], setSql: string, setParams: string[]): Task[] {
+  /** 새 할 일 한 줄을 넣고 id 를 돌려준다. order 는 맨 끝, status 는 open. */
+  function insertTask(fields: TaskFields, now: Date): string {
+    const iso = now.toISOString()
+    const id = nextId(now.getTime())
+    db.prepare(
+      `INSERT INTO tasks (title, notes, bucket, date, time, deadline, priority, project, tags, repeat,
+                          routine_id, source, id, status, sort_order, created_at, updated_at, done_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open',
+               (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM tasks), ?, ?, NULL)`
+    ).run(...fieldParams(fields), id, iso, iso)
+    return id
+  }
+
+  /** 반복하는 할 일을 끝냈을 때 다음 회차를 새 할 일로 만든다. 실패하면 던진다(호출한 트랜잭션이 되돌림). */
+  function insertNextOccurrence(done: Task, now: Date): void {
+    if (done.repeat === null || done.date === null) throw new Error('task has no repeat rule or date')
+
+    // 원래 날짜보다 뒤이면서 오늘(로컬 날짜) 이상인 첫 회차
+    const date = nextOccurrenceFrom(done.repeat, done.date, localDateString(now))
+    const fields = assertValidFields({
+      title: done.title,
+      notes: done.notes,
+      bucket: 'scheduled',
+      date,
+      time: done.time,
+      deadline: done.deadline,
+      priority: done.priority,
+      project: done.project,
+      tags: done.tags,
+      repeat: done.repeat,
+      routineId: done.routineId,
+      source: done.source
+    })
+    insertTask(fields, now)
+  }
+
+  /**
+   * ids 전체를 한 트랜잭션으로 고친다. 하나라도 없거나 guard 가 던지면 전부 되돌린다.
+   * guard 는 고치기 전의 할 일을 받아 허용되지 않으면 예외를 던진다.
+   */
+  function bulkUpdate(
+    ids: readonly string[],
+    setSql: string,
+    setParams: string[],
+    guard?: (task: Task) => void
+  ): Task[] {
     const unique = [...new Set(ids)]
     if (unique.length === 0) return []
 
@@ -116,6 +162,7 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
     withTransaction(db, () => {
       const statement = db.prepare(`UPDATE tasks SET ${setSql}, updated_at = ? WHERE id = ?`)
       for (const id of unique) {
+        if (guard) guard(mustGet(id))
         if (Number(statement.run(...setParams, updatedAt, id).changes) !== 1) throw new TaskNotFoundError(id)
       }
     })
@@ -152,7 +199,6 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
   return {
     create(input) {
       const now = deps.now()
-      const iso = now.toISOString()
       const date = input.date ?? null
       const fields = assertValidFields(
         withTrimmedTitle({
@@ -171,14 +217,7 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
         })
       )
 
-      const id = nextId(now.getTime())
-      db.prepare(
-        `INSERT INTO tasks (title, notes, bucket, date, time, deadline, priority, project, tags, repeat,
-                            routine_id, source, id, status, sort_order, created_at, updated_at, done_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open',
-                 (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM tasks), ?, ?, NULL)`
-      ).run(...fieldParams(fields), id, iso, iso)
-      return mustGet(id)
+      return mustGet(insertTask(fields, now))
     },
 
     get,
@@ -201,15 +240,24 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
       if (!STATUSES.includes(status)) throw invalid('status', 'must be open, done or canceled')
 
       const existing = mustGet(id)
-      const iso = deps.now().toISOString()
+      const now = deps.now()
+      const iso = now.toISOString()
       // done 일 때만 완료 시각을 기록한다. 이미 done 이면 처음 시각을 유지한다.
       const doneAt = status === 'done' ? (existing.doneAt ?? iso) : null
-      db.prepare('UPDATE tasks SET status = ?, done_at = ?, updated_at = ? WHERE id = ?').run(
-        status,
-        doneAt,
-        iso,
-        id
-      )
+
+      withTransaction(db, () => {
+        db.prepare('UPDATE tasks SET status = ?, done_at = ?, updated_at = ? WHERE id = ?').run(
+          status,
+          doneAt,
+          iso,
+          id
+        )
+        // 반복하는 할 일이 새로 done 이 되면 다음 회차를 같은 트랜잭션에서 만든다.
+        // (done → open → done 을 반복하면 회차가 또 생긴다. 아직 막지 않음.)
+        if (status === 'done' && existing.status !== 'done' && existing.repeat !== null) {
+          insertNextOccurrence(existing, now)
+        }
+      })
       return mustGet(id)
     },
 
@@ -246,8 +294,10 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
     },
 
     moveToSomeday(ids) {
-      // 날짜가 없어지므로 시각도 함께 비운다.
-      return bulkUpdate(ids, "bucket = 'someday', date = NULL, time = NULL", [])
+      // 날짜가 없어지므로 시각도 함께 비운다. 반복하는 할 일은 날짜가 필요하므로 옮기지 않는다.
+      return bulkUpdate(ids, "bucket = 'someday', date = NULL, time = NULL", [], (task) => {
+        if (task.repeat !== null) throw invalid('repeat', 'a repeating task cannot be moved to someday')
+      })
     },
 
     reschedule(ids, date) {
