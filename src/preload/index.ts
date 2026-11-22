@@ -20,6 +20,22 @@ const api: OctopusApi = {
     moveToSomeday: (ids) => ipcRenderer.invoke(IPC.tasksMoveToSomeday, ids),
     reschedule: (ids, date) => ipcRenderer.invoke(IPC.tasksReschedule, ids, date),
     parsePreview: (text) => ipcRenderer.invoke(IPC.tasksParsePreview, text)
+  },
+  routines: {
+    list: () => ipcRenderer.invoke(IPC.routinesList),
+    create: (input) => ipcRenderer.invoke(IPC.routinesCreate, input),
+    update: (id, patch) => ipcRenderer.invoke(IPC.routinesUpdate, id, patch),
+    remove: (id) => ipcRenderer.invoke(IPC.routinesRemove, id),
+    history: (days) => ipcRenderer.invoke(IPC.routinesHistory, days)
+  },
+  memos: {
+    list: () => ipcRenderer.invoke(IPC.memosList),
+    create: (body) => ipcRenderer.invoke(IPC.memosCreate, body),
+    update: (id, body) => ipcRenderer.invoke(IPC.memosUpdate, id, body),
+    remove: (id) => ipcRenderer.invoke(IPC.memosRemove, id),
+    togglePin: (id) => ipcRenderer.invoke(IPC.memosTogglePin, id),
+    search: (query) => ipcRenderer.invoke(IPC.memosSearch, query),
+    toTask: (id) => ipcRenderer.invoke(IPC.memosToTask, id)
   }
 }
 

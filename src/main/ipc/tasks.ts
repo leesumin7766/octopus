@@ -1,4 +1,4 @@
-import { IPC, type IpcError, type IpcResult } from '../../shared/ipc'
+import { IPC, type IpcResult } from '../../shared/ipc'
 import { localDateString } from '../../shared/tasks/dates'
 import { parseQuickInput, type QuickParseResult } from '../../shared/tasks/quickParse'
 import type { Task, TodayView } from '../../shared/tasks/types'
@@ -11,8 +11,10 @@ import {
   parseText,
   parseView
 } from '../../shared/validation/taskIpc'
-import { TaskValidationError } from '../../shared/validation/task'
 import { TaskNotFoundError, type TaskRepository } from '../core/tasks/taskRepository'
+import { dbUnavailable, invalidInput, runGuarded, type ErrorLogger, type IpcMainLike } from './result'
+
+export type { IpcMainLike }
 
 export interface TaskHandlerDeps {
   /** DB 를 열지 못했으면 null */
@@ -20,7 +22,9 @@ export interface TaskHandlerDeps {
   /** 오늘은 여기서 구한다(렌더러가 보내지 않음). */
   now: () => Date
   /** 예상 못 한 예외의 자세한 내용은 여기에만 남긴다. */
-  logError: (channel: string, error: unknown) => void
+  logError: ErrorLogger
+  /** 오늘 보기를 읽기 전에 오늘의 루틴 항목을 보장한다(여러 번 불러도 하나). 루틴이 없으면 생략. */
+  ensureRoutineTasks?: (today: string) => void
 }
 
 /** 채널마다 받은 인자를 그대로(unknown) 받아 검사한 뒤 결과 객체를 돌려준다. electron 을 쓰지 않는다. */
@@ -38,36 +42,12 @@ export interface TaskHandlers {
   parsePreview(text: unknown): IpcResult<QuickParseResult>
 }
 
-function failure(error: IpcError): IpcResult<never> {
-  return { ok: false, error }
-}
-
-function invalidInput(...fields: string[]): IpcResult<never> {
-  return failure({ code: 'invalid_input', fields })
-}
-
 export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
-  /** 저장소 예외를 결과 객체로 바꾼다. 입력값·메시지·스택은 응답에 넣지 않는다. */
-  function toFailure(channel: string, error: unknown): IpcResult<never> {
-    if (error instanceof TaskValidationError) {
-      return invalidInput(...new Set(error.issues.map((issue) => issue.field)))
-    }
-    if (error instanceof TaskNotFoundError) return failure({ code: 'not_found' })
-    deps.logError(channel, error)
-    return failure({ code: 'internal' })
-  }
-
-  function guarded<T>(channel: string, fn: () => T): IpcResult<T> {
-    try {
-      return { ok: true, data: fn() }
-    } catch (error) {
-      return toFailure(channel, error)
-    }
-  }
+  const guarded = <T>(channel: string, fn: () => T): IpcResult<T> => runGuarded(channel, deps.logError, fn)
 
   function withRepository<T>(channel: string, fn: (repo: TaskRepository) => T): IpcResult<T> {
     const repo = deps.getRepository()
-    if (!repo) return failure({ code: 'db_unavailable' })
+    if (!repo) return dbUnavailable()
     return guarded(channel, () => fn(repo))
   }
 
@@ -78,9 +58,12 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
       const parsed = parseView(view)
       if (!parsed.ok) return invalidInput(parsed.field)
       const name = parsed.value
-      return withRepository(IPC.tasksList, (repo) =>
-        name === 'today' ? repo.listView('today', today()) : repo.listView(name, today())
-      )
+      return withRepository(IPC.tasksList, (repo) => {
+        const day = today()
+        if (name !== 'today') return repo.listView(name, day)
+        deps.ensureRoutineTasks?.(day)
+        return repo.listView('today', day)
+      })
     },
 
     quickAdd(text) {
@@ -166,11 +149,6 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
       return guarded(IPC.tasksParsePreview, () => parseQuickInput(parsed.value, today()))
     }
   }
-}
-
-/** ipcMain 이 가진 handle 만 필요하다. electron 을 import 하지 않고 테스트할 수 있게 좁혀 둔다. */
-export interface IpcMainLike {
-  handle(channel: string, listener: (event: unknown, ...args: unknown[]) => unknown): void
 }
 
 /** 채널과 핸들러를 잇기만 하는 얇은 등록 함수. */

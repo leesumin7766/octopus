@@ -20,11 +20,11 @@ const FIELD_KEYS: ReadonlySet<string> = new Set(TASK_FIELD_KEYS.filter((key) => 
 /** 성공하면 값, 실패하면 틀린 필드 이름(입력값은 담지 않음). */
 export type Parsed<T> = { ok: true; value: T } | { ok: false; field: string }
 
-function good<T>(value: T): Parsed<T> {
+export function good<T>(value: T): Parsed<T> {
   return { ok: true, value }
 }
 
-function bad(field: string): Parsed<never> {
+export function bad(field: string): Parsed<never> {
   return { ok: false, field }
 }
 
@@ -32,7 +32,7 @@ export function isUlid(value: unknown): value is string {
   return typeof value === 'string' && ULID_PATTERN.test(value)
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const prototype = Object.getPrototypeOf(value) as unknown
   return prototype === Object.prototype || prototype === null

@@ -8,9 +8,13 @@ import { buildWebPreferences } from '../shared/securityOptions'
 import { openDatabase } from './core/db/connection'
 import { runMigrations } from './core/db/migrate'
 import { migrations } from './core/db/migrations'
+import { createMemoRepository, type MemoRepository } from './core/memos/memoRepository'
+import { createRoutineRepository, type RoutineRepository } from './core/routines/routineRepository'
 import { createTaskRepository, type TaskRepository } from './core/tasks/taskRepository'
 import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
 import { createSampleTasks } from './dev/captureSupport'
+import { createMemoHandlers, registerMemoHandlers } from './ipc/memos'
+import { createRoutineHandlers, registerRoutineHandlers } from './ipc/routines'
 import { createTaskHandlers, registerTaskHandlers } from './ipc/tasks'
 
 // 개발용 화면 캡처(OCTOPUS_CAPTURE). userData 를 임시 폴더로 옮기므로 app ready 전에 먼저 부른다.
@@ -19,6 +23,8 @@ const captureSession = prepareCapture(app)
 let database: DatabaseSync | null = null
 // DB 를 열지 못하면 null 로 남고, 할 일 IPC 는 db_unavailable 을 돌려준다.
 let taskRepository: TaskRepository | null = null
+let routineRepository: RoutineRepository | null = null
+let memoRepository: MemoRepository | null = null
 
 function initDatabase(): void {
   try {
@@ -30,7 +36,16 @@ function initDatabase(): void {
       throw error
     }
     database = db
-    taskRepository = createTaskRepository(db, { now: () => new Date() })
+    const now = (): Date => new Date()
+    taskRepository = createTaskRepository(db, { now })
+    routineRepository = createRoutineRepository(db, { now, tasks: taskRepository })
+    memoRepository = createMemoRepository(db, { now, tasks: taskRepository })
+    // 앱을 켜면 오늘의 루틴 항목을 보장한다. 실패해도 앱은 계속 뜬다.
+    try {
+      routineRepository.ensureTodayTasks(localDateString(now()))
+    } catch (error) {
+      console.error('[octopus] failed to prepare today routine tasks', error)
+    }
   } catch (error) {
     // 아직 화면에는 보여 주지 않는다. 로그만 남기고 앱은 계속 뜬다.
     console.error('[octopus] failed to open the database or run migrations', error)
@@ -66,14 +81,21 @@ void app.whenReady().then(() => {
   initDatabase()
   if (captureSession && taskRepository) createSampleTasks(taskRepository, localDateString(new Date()))
   ipcMain.handle(IPC.appVersion, () => app.getVersion())
+  const logError = (channel: string, error: unknown): void => console.error(`[octopus] ${channel} failed`, error)
   registerTaskHandlers(
     ipcMain,
     createTaskHandlers({
       getRepository: () => taskRepository,
       now: () => new Date(),
-      logError: (channel, error) => console.error(`[octopus] ${channel} failed`, error)
+      logError,
+      ensureRoutineTasks: (today) => void routineRepository?.ensureTodayTasks(today)
     })
   )
+  registerRoutineHandlers(
+    ipcMain,
+    createRoutineHandlers({ getRepository: () => routineRepository, now: () => new Date(), logError })
+  )
+  registerMemoHandlers(ipcMain, createMemoHandlers({ getRepository: () => memoRepository, now: () => new Date(), logError }))
   createWindow()
 
   app.on('activate', () => {
@@ -83,6 +105,8 @@ void app.whenReady().then(() => {
 
 app.on('will-quit', () => {
   taskRepository = null
+  routineRepository = null
+  memoRepository = null
   database?.close()
   cleanupCapture(captureSession)
 })

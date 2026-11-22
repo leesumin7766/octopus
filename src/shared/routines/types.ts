@@ -39,5 +39,13 @@ export interface RoutineHistory {
   routines: RoutineHistoryRow[]
 }
 
+import type { Task } from '../tasks/types'
+
+/** routines:list 의 결과: 모든 루틴과 오늘 날짜의 루틴 항목(체크는 이 할 일의 status) */
+export interface RoutineListData {
+  routines: Routine[]
+  todayItems: Task[]
+}
+
 export const DEFAULT_HISTORY_DAYS = 14
 export const MAX_HISTORY_DAYS = 90

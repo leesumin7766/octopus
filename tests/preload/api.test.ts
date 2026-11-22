@@ -12,10 +12,13 @@ vi.mock('electron', () => ({
   ipcRenderer: { invoke: mocks.invoke }
 }))
 
+type Fns = Record<string, (...args: unknown[]) => Promise<unknown>>
 type Api = {
   getAppVersion: () => Promise<string>
   initialView: unknown
-  tasks: Record<string, (...args: unknown[]) => Promise<unknown>>
+  tasks: Fns
+  routines: Fns
+  memos: Fns
 }
 
 describe('preload', () => {
@@ -32,12 +35,40 @@ describe('preload', () => {
     expect(name).toBe('octopus')
   })
 
-  it('exposes only getAppVersion, initialView and tasks (no ipcRenderer, no generic invoke)', () => {
-    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'initialView', 'tasks'])
+  it('exposes only getAppVersion, initialView, tasks, routines and memos (no ipcRenderer, no generic invoke)', () => {
+    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'initialView', 'memos', 'routines', 'tasks'])
     for (const key of ['ipcRenderer', 'invoke', 'send', 'on', 'electron']) {
       expect(key in api).toBe(false)
-      expect(key in api.tasks).toBe(false)
+      for (const group of [api.tasks, api.routines, api.memos]) expect(key in group).toBe(false)
     }
+  })
+
+  it('exposes exactly the routine and memo functions', () => {
+    expect(Object.keys(api.routines).sort()).toEqual(['create', 'history', 'list', 'remove', 'update'])
+    expect(Object.keys(api.memos).sort()).toEqual(['create', 'list', 'remove', 'search', 'togglePin', 'toTask', 'update'].sort())
+    for (const fn of [...Object.values(api.routines), ...Object.values(api.memos)]) expect(typeof fn).toBe('function')
+  })
+
+  it.each([
+    ['routines', 'list', [], IPC.routinesList],
+    ['routines', 'create', [{ title: 'a', days: [1] }], IPC.routinesCreate],
+    ['routines', 'update', ['ID', { active: false }], IPC.routinesUpdate],
+    ['routines', 'remove', ['ID'], IPC.routinesRemove],
+    ['routines', 'history', [7], IPC.routinesHistory],
+    ['memos', 'list', [], IPC.memosList],
+    ['memos', 'create', ['본문'], IPC.memosCreate],
+    ['memos', 'update', ['ID', '고친 본문'], IPC.memosUpdate],
+    ['memos', 'remove', ['ID'], IPC.memosRemove],
+    ['memos', 'togglePin', ['ID'], IPC.memosTogglePin],
+    ['memos', 'search', ['검색'], IPC.memosSearch],
+    ['memos', 'toTask', ['ID'], IPC.memosToTask]
+  ] as const)('%s.%s forwards its arguments to the matching channel', async (group, method, args, channel) => {
+    mocks.invoke.mockClear()
+
+    await api[group][method](...(args as unknown as unknown[]))
+
+    expect(mocks.invoke).toHaveBeenCalledTimes(1)
+    expect(mocks.invoke).toHaveBeenCalledWith(channel, ...(args as unknown as unknown[]))
   })
 
   it('exposes exactly the task functions', () => {
@@ -62,10 +93,10 @@ describe('preload', () => {
   ])('%s forwards its arguments to the matching channel', async (method, args, channel) => {
     mocks.invoke.mockClear()
 
-    await api.tasks[method](...(args as unknown[]))
+    await api.tasks[method](...(args as unknown as unknown[]))
 
     expect(mocks.invoke).toHaveBeenCalledTimes(1)
-    expect(mocks.invoke).toHaveBeenCalledWith(channel, ...(args as unknown[]))
+    expect(mocks.invoke).toHaveBeenCalledWith(channel, ...(args as unknown as unknown[]))
   })
 
   it('initialView is null when main passed no argument', () => {

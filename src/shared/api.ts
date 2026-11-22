@@ -1,3 +1,5 @@
+import type { MemosApi } from './memos/ipcApi'
+import type { RoutinesApi } from './routines/ipcApi'
 import type { TasksApi } from './tasks/ipcApi'
 import type { TaskView } from './tasks/types'
 
@@ -7,4 +9,6 @@ export interface OctopusApi {
   /** 개발용 캡처에서만 값이 있는 읽기 전용 값. 평소에는 null. */
   initialView: TaskView | null
   tasks: TasksApi
+  routines: RoutinesApi
+  memos: MemosApi
 }

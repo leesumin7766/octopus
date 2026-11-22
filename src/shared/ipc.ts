@@ -11,7 +11,19 @@ export const IPC = {
   tasksMoveToToday: 'tasks:moveToToday',
   tasksMoveToSomeday: 'tasks:moveToSomeday',
   tasksReschedule: 'tasks:reschedule',
-  tasksParsePreview: 'tasks:parsePreview'
+  tasksParsePreview: 'tasks:parsePreview',
+  routinesList: 'routines:list',
+  routinesCreate: 'routines:create',
+  routinesUpdate: 'routines:update',
+  routinesRemove: 'routines:remove',
+  routinesHistory: 'routines:history',
+  memosList: 'memos:list',
+  memosCreate: 'memos:create',
+  memosUpdate: 'memos:update',
+  memosRemove: 'memos:remove',
+  memosTogglePin: 'memos:togglePin',
+  memosSearch: 'memos:search',
+  memosToTask: 'memos:toTask'
 } as const
 
 export type IpcErrorCode = 'invalid_input' | 'not_found' | 'db_unavailable' | 'internal'

@@ -286,6 +286,33 @@ describe('task IPC handlers', () => {
     })
   })
 
+  describe('routine hook', () => {
+    it('list("today") ensures today\'s routine items first, using the date main computes; other views do not', () => {
+      const calls: string[] = []
+      const t = createTestRepo(NOON(10).toISOString())
+      const handlers = createTaskHandlers({
+        getRepository: () => t.repo,
+        now: () => NOON(10),
+        logError: () => {},
+        ensureRoutineTasks: (today) => void calls.push(today)
+      })
+
+      handlers.list('inbox')
+      handlers.list('upcoming')
+      expect(calls).toEqual([])
+
+      handlers.list('today')
+      expect(calls).toEqual(['2026-03-10'])
+      t.db.close()
+    })
+
+    it('works without the hook', () => {
+      const { handlers } = s()
+
+      expect(handlers.list('today').ok).toBe(true)
+    })
+  })
+
   describe('not_found', () => {
     const notFound = { ok: false, error: { code: 'not_found' } }
 
