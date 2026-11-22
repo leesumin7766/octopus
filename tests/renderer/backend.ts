@@ -129,7 +129,8 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     routines: routines as unknown as RoutinesApi,
     memos: memos as unknown as MemosApi,
     settings: settings as unknown as SettingsApi,
-    shortcuts: shortcuts as unknown as ShortcutsApi
+    shortcuts: shortcuts as unknown as ShortcutsApi,
+    command: {} as unknown as OctopusApi['command'] // 지시하기 화면(M4-B)이 생기기 전까지 렌더러 테스트는 쓰지 않는다.
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 

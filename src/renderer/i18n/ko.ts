@@ -334,6 +334,7 @@ export const ko = {
       not_found_path: '파일이 없어요. 바로가기를 고치거나 지우세요.',
       db_unavailable:
         '저장소를 열지 못했어요. 앱을 완전히 종료한 뒤 다시 시작해 주세요. 계속되면 octopus.db 파일을 백업해 두세요.',
+      secure_unavailable: '이 PC 에서는 키를 안전하게 저장할 수 없어요. Windows 에 로그인한 상태인지 확인한 뒤 다시 시도해 주세요.',
       internal: '문제가 생겼어요. 잠시 뒤 다시 시도해 주세요. 계속되면 앱을 다시 시작해 주세요.'
     }
   }

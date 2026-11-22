@@ -49,6 +49,17 @@ const api: OctopusApi = {
     rename: (id, label) => ipcRenderer.invoke(IPC.shortcutsRename, id, label),
     remove: (id) => ipcRenderer.invoke(IPC.shortcutsRemove, id),
     move: (id, direction) => ipcRenderer.invoke(IPC.shortcutsMove, id, direction)
+  },
+  command: {
+    models: () => ipcRenderer.invoke(IPC.commandModels),
+    setKey: (provider, key) => ipcRenderer.invoke(IPC.commandSetKey, provider, key),
+    clearKey: (provider) => ipcRenderer.invoke(IPC.commandClearKey, provider),
+    send: (input) => ipcRenderer.invoke(IPC.commandSend, input),
+    decide: (conversationId, decisions) => ipcRenderer.invoke(IPC.commandDecide, conversationId, decisions),
+    pending: (conversationId) => ipcRenderer.invoke(IPC.commandPending, conversationId),
+    conversations: () => ipcRenderer.invoke(IPC.commandConversations),
+    transcript: (conversationId) => ipcRenderer.invoke(IPC.commandTranscript, conversationId),
+    removeConversation: (conversationId) => ipcRenderer.invoke(IPC.commandRemoveConversation, conversationId)
   }
 }
 

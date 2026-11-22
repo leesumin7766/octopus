@@ -1,0 +1,152 @@
+import type { CommandSession } from '../core/command/session'
+import type { ConversationRepository } from '../core/command/conversationRepository'
+import type { KeyStore } from '../core/command/adapterResolver'
+import { SecureStoreError } from '../platform/secureStore'
+import type { ConversationSummary, ModelEntry, PendingApproval, TranscriptItem, TurnState } from '../../shared/command/types'
+import type { ModelsInfo } from '../../shared/command/ipcApi'
+import { IPC, type IpcResult } from '../../shared/ipc'
+import { parseApiKey, parseDecisions, parseProvider, parseSendInput } from '../../shared/validation/command'
+import { isUlid, parseId } from '../../shared/validation/taskIpc'
+import { dbUnavailable, failure, invalidInput, toFailure, type ErrorLogger, type IpcMainLike } from './result'
+
+export interface CommandHandlerDeps {
+  /** DB 를 열지 못했으면 null */
+  getSession: () => CommandSession | null
+  getRepository: () => ConversationRepository | null
+  getModels: () => ModelEntry[]
+  keys: KeyStore
+  logError: ErrorLogger
+}
+
+/** 채널마다 받은 인자를 그대로(unknown) 받아 검사한다. electron 을 쓰지 않는다. */
+export interface CommandHandlers {
+  models(): IpcResult<ModelsInfo>
+  setKey(provider: unknown, key: unknown): IpcResult<null>
+  clearKey(provider: unknown): IpcResult<null>
+  send(input: unknown): Promise<IpcResult<TurnState>>
+  decide(conversationId: unknown, decisions: unknown): Promise<IpcResult<TurnState>>
+  pending(conversationId: unknown): IpcResult<PendingApproval[]>
+  conversations(): IpcResult<ConversationSummary[]>
+  transcript(conversationId: unknown): IpcResult<TranscriptItem[]>
+  removeConversation(conversationId: unknown): IpcResult<null>
+}
+
+export function createCommandHandlers(deps: CommandHandlerDeps): CommandHandlers {
+  const guarded = <T>(channel: string, fn: () => T): IpcResult<T> => {
+    try {
+      return { ok: true, data: fn() }
+    } catch (error) {
+      return keyFailure(channel, error)
+    }
+  }
+  const keyFailure = (channel: string, error: unknown): IpcResult<never> =>
+    error instanceof SecureStoreError ? failure({ code: 'secure_unavailable' }) : toFailure(channel, error, deps.logError)
+
+  const hasKey = (provider: 'anthropic' | 'openai-compatible'): boolean => {
+    try {
+      return !!deps.keys.get(provider)
+    } catch {
+      return false
+    }
+  }
+
+  return {
+    models() {
+      return guarded(IPC.commandModels, () => ({
+        models: deps.getModels(),
+        hasKey: { anthropic: hasKey('anthropic'), 'openai-compatible': hasKey('openai-compatible') }
+      }))
+    },
+
+    setKey(provider, key) {
+      const p = parseProvider(provider)
+      if (!p.ok) return invalidInput(p.field)
+      const k = parseApiKey(key)
+      if (!k.ok) return invalidInput(k.field)
+      return guarded(IPC.commandSetKey, () => {
+        deps.keys.set(p.value, k.value)
+        return null
+      })
+    },
+
+    clearKey(provider) {
+      const p = parseProvider(provider)
+      if (!p.ok) return invalidInput(p.field)
+      return guarded(IPC.commandClearKey, () => {
+        deps.keys.delete(p.value)
+        return null
+      })
+    },
+
+    async send(input) {
+      const parsed = parseSendInput(input, isUlid)
+      if (!parsed.ok) return invalidInput(parsed.field)
+      const session = deps.getSession()
+      if (!session) return dbUnavailable()
+      try {
+        return { ok: true, data: await session.send(parsed.value) }
+      } catch (error) {
+        return toFailure(IPC.commandSend, error, deps.logError)
+      }
+    },
+
+    async decide(conversationId, decisions) {
+      const id = parseId(conversationId)
+      if (!id.ok) return invalidInput(id.field)
+      const d = parseDecisions(decisions)
+      if (!d.ok) return invalidInput(d.field)
+      const session = deps.getSession()
+      if (!session) return dbUnavailable()
+      try {
+        return { ok: true, data: await session.decide(id.value, d.value) }
+      } catch (error) {
+        return toFailure(IPC.commandDecide, error, deps.logError)
+      }
+    },
+
+    pending(conversationId) {
+      const id = parseId(conversationId)
+      if (!id.ok) return invalidInput(id.field)
+      const session = deps.getSession()
+      if (!session) return dbUnavailable()
+      return guarded(IPC.commandPending, () => session.pending(id.value))
+    },
+
+    conversations() {
+      const repo = deps.getRepository()
+      if (!repo) return dbUnavailable()
+      return guarded(IPC.commandConversations, () => repo.list())
+    },
+
+    transcript(conversationId) {
+      const id = parseId(conversationId)
+      if (!id.ok) return invalidInput(id.field)
+      const session = deps.getSession()
+      if (!session) return dbUnavailable()
+      return guarded(IPC.commandTranscript, () => session.transcript(id.value))
+    },
+
+    removeConversation(conversationId) {
+      const id = parseId(conversationId)
+      if (!id.ok) return invalidInput(id.field)
+      const repo = deps.getRepository()
+      if (!repo) return dbUnavailable()
+      return guarded(IPC.commandRemoveConversation, () => {
+        repo.remove(id.value)
+        return null
+      })
+    }
+  }
+}
+
+export function registerCommandHandlers(ipc: IpcMainLike, h: CommandHandlers): void {
+  ipc.handle(IPC.commandModels, () => h.models())
+  ipc.handle(IPC.commandSetKey, (_e, provider, key) => h.setKey(provider, key))
+  ipc.handle(IPC.commandClearKey, (_e, provider) => h.clearKey(provider))
+  ipc.handle(IPC.commandSend, (_e, input) => h.send(input))
+  ipc.handle(IPC.commandDecide, (_e, id, decisions) => h.decide(id, decisions))
+  ipc.handle(IPC.commandPending, (_e, id) => h.pending(id))
+  ipc.handle(IPC.commandConversations, () => h.conversations())
+  ipc.handle(IPC.commandTranscript, (_e, id) => h.transcript(id))
+  ipc.handle(IPC.commandRemoveConversation, (_e, id) => h.removeConversation(id))
+}

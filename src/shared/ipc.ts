@@ -32,11 +32,20 @@ export const IPC = {
   shortcutsOpen: 'shortcuts:open',
   shortcutsRename: 'shortcuts:rename',
   shortcutsRemove: 'shortcuts:remove',
-  shortcutsMove: 'shortcuts:move'
+  shortcutsMove: 'shortcuts:move',
+  commandModels: 'command:models',
+  commandSetKey: 'command:setKey',
+  commandClearKey: 'command:clearKey',
+  commandSend: 'command:send',
+  commandDecide: 'command:decide',
+  commandPending: 'command:pending',
+  commandConversations: 'command:conversations',
+  commandTranscript: 'command:transcript',
+  commandRemoveConversation: 'command:removeConversation'
 } as const
 
-/** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. */
-export type IpcErrorCode = 'invalid_input' | 'not_found' | 'not_found_path' | 'db_unavailable' | 'internal'
+/** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. secure_unavailable: 이 PC 에서 키를 암호화해 저장할 수 없다. */
+export type IpcErrorCode = 'invalid_input' | 'not_found' | 'not_found_path' | 'db_unavailable' | 'secure_unavailable' | 'internal'
 
 export interface IpcError {
   code: IpcErrorCode

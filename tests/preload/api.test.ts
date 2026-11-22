@@ -21,6 +21,7 @@ type Api = {
   memos: Fns
   settings: Fns
   shortcuts: Fns
+  command: Fns
 }
 
 describe('preload', () => {
@@ -38,15 +39,22 @@ describe('preload', () => {
   })
 
   it('exposes only getAppVersion, initialView, tasks, routines and memos (no ipcRenderer, no generic invoke)', () => {
-    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'initialView', 'memos', 'routines', 'settings', 'shortcuts', 'tasks'])
+    expect(Object.keys(api).sort()).toEqual(['command', 'getAppVersion', 'initialView', 'memos', 'routines', 'settings', 'shortcuts', 'tasks'])
     for (const key of ['ipcRenderer', 'invoke', 'send', 'on', 'electron']) {
       expect(key in api).toBe(false)
       for (const group of [api.tasks, api.routines, api.memos, api.settings, api.shortcuts]) expect(key in group).toBe(false)
+      if (key !== 'send') expect(key in api.command).toBe(false) // command.send 는 지시 보내기(채널 고정)이지 범용 send 가 아니다.
     }
   })
 
   it('exposes exactly the shortcut functions, none of which takes a path or an address to open', () => {
     expect(Object.keys(api.shortcuts).sort()).toEqual(['addUrl', 'list', 'move', 'open', 'pickPath', 'remove', 'rename'])
+  })
+
+  it('exposes exactly the command functions; there is no way to read an API key', () => {
+    expect(Object.keys(api.command).sort()).toEqual(
+      ['clearKey', 'conversations', 'decide', 'models', 'pending', 'removeConversation', 'send', 'setKey', 'transcript'].sort()
+    )
   })
 
   it('exposes exactly get and set for settings', () => {
@@ -80,7 +88,16 @@ describe('preload', () => {
     ['shortcuts', 'open', ['ID'], IPC.shortcutsOpen],
     ['shortcuts', 'rename', ['ID', '이름'], IPC.shortcutsRename],
     ['shortcuts', 'remove', ['ID'], IPC.shortcutsRemove],
-    ['shortcuts', 'move', ['ID', 'up'], IPC.shortcutsMove]
+    ['shortcuts', 'move', ['ID', 'up'], IPC.shortcutsMove],
+    ['command', 'models', [], IPC.commandModels],
+    ['command', 'setKey', ['anthropic', 'k'], IPC.commandSetKey],
+    ['command', 'clearKey', ['anthropic'], IPC.commandClearKey],
+    ['command', 'send', [{ conversationId: null, modelId: 'm', text: 't' }], IPC.commandSend],
+    ['command', 'decide', ['ID', []], IPC.commandDecide],
+    ['command', 'pending', ['ID'], IPC.commandPending],
+    ['command', 'conversations', [], IPC.commandConversations],
+    ['command', 'transcript', ['ID'], IPC.commandTranscript],
+    ['command', 'removeConversation', ['ID'], IPC.commandRemoveConversation]
   ] as const)('%s.%s forwards its arguments to the matching channel', async (group, method, args, channel) => {
     mocks.invoke.mockClear()
 
