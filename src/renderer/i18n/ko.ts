@@ -4,11 +4,57 @@ export const ko = {
   dbOpenFailed:
     '저장소(데이터베이스)를 열지 못했어요. 앱을 완전히 종료한 뒤 다시 실행해 보세요. 계속되면 사용자 데이터 폴더의 octopus.db 파일을 백업해 두세요.',
 
-  tabs: {
-    label: '화면',
+  nav: {
+    label: '메뉴',
+    collapse: '메뉴 접기',
+    expand: '메뉴 펼치기',
+    home: '홈',
     tasks: '할 일',
     routines: '체크리스트',
-    memos: '메모'
+    memos: '메모',
+    command: '지시하기',
+    arms: 'Arms',
+    soon: '준비 중',
+    arrange: '화면 배치',
+    arrangeHint: '홈 화면에서 카드를 옮기고 크기를 바꿀 수 있어요.'
+  },
+
+  home: {
+    dateHeading: (month: number, day: number, weekday: string) => `${month}월 ${day}일 ${weekday}요일`,
+    cards: {
+      todo: '오늘 할 일',
+      calendar: '오늘 일정',
+      memo: '메모',
+      shortcuts: '바로가기'
+    },
+    moveLabel: (card: string, direction: string) => `${card} 카드를 ${direction}`,
+    directions: { up: '위로', down: '아래로', left: '왼쪽으로', right: '오른쪽으로' },
+    arrows: { up: '↑', down: '↓', left: '←', right: '→' },
+    arranging: '화면 배치 중 — 화살표로 카드 자리를 바꾸고, 카드 사이 경계를 끌어 크기를 바꿔요. 경계를 두 번 누르면 반반으로 돌아와요.',
+    resetLayout: '기본 배치',
+    doneArranging: '완료',
+    columnSeparator: '왼쪽·오른쪽 카드 너비 조절',
+    rowSeparator: '위·아래 카드 높이 조절',
+    centerSpot: 'Octopus 메뉴 자리',
+    todo: {
+      overdue: (n: number) => `지난 할 일 ${n}개`,
+      empty: '오늘 할 일이 없어요. 위 입력창에 적어 추가해 보세요.',
+      viewAll: '전체 보기 →'
+    },
+    calendar: {
+      empty: '연결된 캘린더가 없어요.',
+      connect: '캘린더 연결하기',
+      connectSoon: 'Arms 화면은 곧 준비돼요.'
+    },
+    memo: {
+      empty: '메모가 없어요. 아래에 한 줄로 적어 보세요.',
+      quickLabel: '빠른 메모',
+      quickPlaceholder: '한 줄 메모 (Enter)',
+      viewAll: '전체 보기 →'
+    },
+    shortcuts: {
+      empty: '자주 쓰는 링크와 폴더를 곧 여기에 모아 둘 수 있어요.'
+    }
   },
 
   routines: {

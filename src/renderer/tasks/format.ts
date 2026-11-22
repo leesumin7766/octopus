@@ -57,6 +57,11 @@ export function msUntilNextMidnight(now: Date): number {
   return next.getTime() - now.getTime()
 }
 
+/** 홈 제목: "11월 22일 일요일" */
+export function formatHomeDate(date: Date): string {
+  return ko.home.dateHeading(date.getMonth() + 1, date.getDate(), ko.tasks.weekdays[date.getDay()])
+}
+
 /** 루틴 요일 요약: 매일 / 평일 / 주말 / "월 수 금" */
 export function formatDays(days: readonly number[]): string {
   const sorted = [...new Set(days)].sort((a, b) => a - b)
