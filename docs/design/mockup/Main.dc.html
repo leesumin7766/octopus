@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Octopus 홈</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+button,input{font:inherit}
+a{color:#2B24C9}a:hover{color:#1D1890}
+@keyframes octPop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.oct-pop{animation:octPop 140ms ease-out}
+@media (max-width:760px){
+.oct-grid{display:flex!important;flex-direction:column;gap:12px}
+.oct-gap{display:none!important}
+.oct-center{order:-1;min-height:96px}
+.oct-nav{width:68px!important}
+}
+</style>
+</helmet>
+<div style="position: relative; min-height: 900px; display: flex; background: #F4F4F2; font-family: 'Noto Sans KR', system-ui, sans-serif; color: #1B1B19">
+
+<nav aria-label="메뉴" class="oct-nav" style="{{navStyle}}">
+<div style="display: flex; align-items: center; gap: 6px; min-height: 44px">
+<button onClick="{{toggleNav}}" aria-label="{{navToggleLabel}}" aria-expanded="{{navExpanded}}" style="flex: none; width: 44px; height: 44px; border: none; border-radius: 10px; background: transparent; color: #1B1B19; cursor: pointer; display: flex; align-items: center; justify-content: center">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+</button>
+<sc-if value="{{expanded}}" hint-placeholder-val="{{ true }}"><span style="font-size: 16px; font-weight: 600; white-space: nowrap">Octopus</span></sc-if>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="7">
+<a href="{{n.href}}" aria-label="{{n.label}}" title="{{n.label}}" style="{{n.style}}">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="{{n.d}}"></path></svg>
+<sc-if value="{{expanded}}" hint-placeholder-val="{{ true }}"><span style="white-space: nowrap">{{n.label}}</span></sc-if>
+</a>
+</sc-for>
+</div>
+
+<button onClick="{{toggleArrange}}" aria-pressed="{{arrangePressed}}" aria-label="화면 배치" title="화면 배치 — 카드 옮기기" style="{{arrangeBtnStyle}}">
+<svg aria-hidden="true" width="40" height="26" viewBox="0 0 40 26" fill="currentColor"><rect x="0" y="0" width="18" height="11"></rect><rect x="22" y="0" width="18" height="11"></rect><rect x="0" y="15" width="18" height="11"></rect><rect x="22" y="15" width="18" height="11"></rect></svg>
+<sc-if value="{{expanded}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; white-space: nowrap">화면 배치</span></sc-if>
+</button>
+</nav>
+
+<main style="flex: 1; min-width: 0; box-sizing: border-box; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 10px; background: #FFFFFF; border-left: 1px solid #DAD9D4">
+<div style="position: relative; display: flex; align-items: center; justify-content: center; min-height: 32px">
+<h1 style="margin: 0; font-size: 16px; font-weight: 600">11월 17일 화요일</h1>
+</div>
+
+<sc-if value="{{arranging}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 10px; background: #EEEDFB; color: #1D1890; font-size: 13px">
+<span style="flex: 1 1 260px">화면 배치 중 — 화살표로 카드 자리를 바꾸고, 카드 사이 경계를 끌어 크기를 바꿉니다. 경계를 두 번 누르면 반반으로.</span>
+<button onClick="{{resetLayout}}" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #C9C7F0; background: #FFFFFF; color: #1B1B19; cursor: pointer">기본 배치</button>
+<button onClick="{{toggleArrange}}" style="min-height: 36px; padding: 0 14px; border-radius: 8px; border: none; background: {{accent}}; color: #FFFFFF; font-weight: 600; cursor: pointer">완료</button>
+</div>
+</sc-if>
+
+<div class="oct-grid" style="{{gridStyle}}">
+
+<sc-for list="{{slots}}" as="s" hint-placeholder-count="4">
+<section aria-label="{{s.title}}" style="{{s.style}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 700">{{s.title}}</h2>
+<sc-if value="{{arranging}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 4px">
+<sc-for list="{{s.moves}}" as="m" hint-placeholder-count="2">
+<button onClick="{{m.go}}" aria-label="{{m.label}}" title="{{m.label}}" style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid #C9C7F0; background: #FFFFFF; color: #1B1B19; cursor: pointer; font-size: 15px; line-height: 1">{{m.arrow}}</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{s.hasMeta}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #5E5D58">{{s.meta}}</span></sc-if>
+</div>
+
+<sc-if value="{{s.isTodo}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px; min-height: 0">
+<label for="home-add" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">오늘 할 일 추가</label>
+<input id="home-add" value="{{draft}}" onChange="{{onDraft}}" onKeyDown="{{onKey}}" placeholder="+ 할 일 추가 (Enter)" style="min-height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid #DAD9D4; border-radius: 8px; background: #FFFFFF; color: #1B1B19; font-size: 14px">
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+<sc-for list="{{todos}}" as="t" hint-placeholder-count="5">
+<li style="display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #E4E3DE">
+<button onClick="{{t.toggle}}" aria-label="{{t.aria}}" style="{{t.boxStyle}}">
+<sc-if value="{{t.done}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5l2.5 2.5L11 4.5"></path></svg></sc-if>
+</button>
+<span style="{{t.textStyle}}">{{t.text}}</span>
+<sc-if value="{{t.hasTime}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #5E5D58">{{t.time}}</span></sc-if>
+</li>
+</sc-for>
+</ul>
+<a href="Tasks.dc.html" style="font-size: 13px; text-decoration: none; padding: 4px 0">지난 할 일 2 · 예정 3 · 전체 보기 →</a>
+</div>
+</sc-if>
+
+<sc-if value="{{s.isCal}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; gap: 12px; font-size: 14px; color: #6F6E69"><span style="width: 44px">10:00</span><span style="text-decoration: line-through">주간 회의</span></div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{accent}}"></span><span style="flex: 1; height: 2px; background: {{accent}}"></span><span style="font-size: 12px; color: {{accent}}; font-weight: 600">지금 11:20</span></div>
+<div style="display: flex; gap: 12px; font-size: 14px"><span style="width: 44px; color: #5E5D58">14:00</span><span>TTA 착수 미팅</span></div>
+<div style="display: flex; gap: 12px; font-size: 14px"><span style="width: 44px; color: #5E5D58">16:30</span><span>팀장 1:1</span></div>
+<div style="display: flex; gap: 12px; font-size: 14px"><span style="width: 44px; color: #5E5D58">내일</span><span style="color: #4A4945">09:30 결함 리뷰</span></div>
+</div>
+</sc-if>
+
+<sc-if value="{{s.isMemo}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.5">
+<li>99002 결함 재현 조건 — 로그인 직후 세션 만료</li>
+<li>회고 때 말할 것: 시트 연동 설정이 너무 길다</li>
+<li>모니터 암 후보 2개 비교</li>
+</ul>
+<span style="font-size: 12px; color: #5E5D58">메모는 Octopus 에 저장 · 옵시디언으로 내보내기 켜짐</span>
+</div>
+</sc-if>
+
+<sc-if value="{{s.isLinks}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{shortcuts}}" as="k" hint-placeholder-count="6">
+<button style="min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border: 1px solid #E4E3DE; border-radius: 10px; background: #FFFFFF; color: #1B1B19; cursor: pointer; font-size: 12px">
+<span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 8px; background: #E9E8E4; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{k.mono}}</span>
+{{k.label}}
+</button>
+</sc-for>
+</div>
+</sc-if>
+</section>
+</sc-for>
+
+<div role="separator" aria-orientation="vertical" aria-label="왼쪽·오른쪽 카드 너비 조절" tabIndex="0" class="oct-gap" onPointerDown="{{colDown}}" onPointerMove="{{dragMove}}" onPointerUp="{{dragEnd}}" onPointerCancel="{{dragEnd}}" onDoubleClick="{{colReset}}" onKeyDown="{{colKey}}" style="grid-column: 2; grid-row: 1 / 4; cursor: col-resize; touch-action: none; display: flex; justify-content: center">
+<span style="width: 2px; background: transparent"></span>
+</div>
+<div role="separator" aria-orientation="horizontal" aria-label="위·아래 카드 높이 조절" tabIndex="0" class="oct-gap" onPointerDown="{{rowDown}}" onPointerMove="{{dragMove}}" onPointerUp="{{dragEnd}}" onPointerCancel="{{dragEnd}}" onDoubleClick="{{rowReset}}" onKeyDown="{{rowKey}}" style="grid-row: 2; grid-column: 1 / 4; cursor: row-resize; touch-action: none"></div>
+
+<sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+<div onPointerUp="{{backdropUp}}" style="position: absolute; inset: 0; z-index: 4; background: rgba(244, 244, 242, 0.6)"></div>
+</sc-if>
+
+<div class="oct-center" style="grid-row: 2; grid-column: 2; position: relative; z-index: 5">
+<sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+<div class="oct-pop" onPointerMove="{{pieMove}}" onPointerLeave="{{pieLeave}}" onPointerUp="{{pieUp}}" style="position: absolute; left: 50%; top: 50%; width: 320px; height: 320px; margin: -160px 0 0 -160px; touch-action: none; user-select: none">
+<svg aria-hidden="true" width="320" height="320" viewBox="0 0 320 320" style="position: absolute; inset: 0">
+<sc-for list="{{wedges}}" as="w" hint-placeholder-count="8">
+<path d="{{w.path}}" fill="{{w.fill}}" stroke="#1B1B19" stroke-width="1"></path>
+</sc-for>
+</svg>
+<sc-for list="{{wedges}}" as="w" hint-placeholder-count="8">
+<button onClick="{{w.key}}" aria-label="{{w.label}}" style="{{w.btnStyle}}">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{w.d}}"></path></svg>
+<span style="font-size: 11px; font-weight: 600; line-height: 1.2">{{w.label}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<button onPointerDown="{{centerDown}}" onPointerMove="{{centerMove}}" onPointerUp="{{centerUp}}" onClick="{{centerKey}}" aria-label="Octopus 메뉴" aria-expanded="{{openAttr}}" title="누르고 끌어서 고르기 · 짧게 누르면 펼침" style="{{centerStyle}}">
+<sc-if value="{{showLogo}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="34" height="34" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 13a7 7 0 0 1 14 0v3"></path><path d="M7 15c0 3-2 4-3 6"></path><path d="M11 16c0 3-1 5-2 7"></path><path d="M17 16c0 3 1 5 2 7"></path><path d="M21 15c0 3 2 4 3 6"></path></svg></sc-if>
+</button>
+</div>
+
+</div>
+</main>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 50%; bottom: 28px; z-index: 20; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); box-sizing: border-box; padding: 12px 16px; border-radius: 10px; background: #1F1F1D; color: #F6F6F3; font-size: 14px">
+<span>{{toastText}}</span>
+<sc-if value="{{toastHasLink}}" hint-placeholder-val="{{ false }}"><a href="{{toastHref}}" style="color: #B9B6FF; font-weight: 600">열기</a></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{hasOverlay}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; inset: 0; z-index: 30; background: rgba(27, 27, 25, 0.35); display: flex; justify-content: center; align-items: flex-start; padding: 96px 16px 16px; box-sizing: border-box">
+<div role="dialog" aria-label="{{overlayTitle}}" style="width: 100%; max-width: 640px; background: #FFFFFF; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 style="margin: 0; font-size: 16px; font-weight: 700">{{overlayTitle}}</h2>
+<button onClick="{{closeOverlay}}" aria-label="닫기" style="width: 36px; height: 36px; border: none; border-radius: 8px; background: transparent; color: #4A4945; cursor: pointer; font-size: 18px">×</button>
+</div>
+<label for="overlay-input" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">{{overlayTitle}}</label>
+<input id="overlay-input" placeholder="{{overlayPlaceholder}}" style="min-height: 48px; box-sizing: border-box; padding: 0 14px; border: 2px solid {{accent}}; border-radius: 10px; color: #1B1B19; font-size: 15px; outline: none">
+<sc-if value="{{isCommand}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #5E5D58">자주 하는 지시</span>
+<button style="text-align: left; min-height: 40px; padding: 0 10px; border: none; border-radius: 8px; background: #F4F4F2; color: #1B1B19; cursor: pointer; font-size: 14px">TTA-26-99001 메일 요약해서 할 일로 넣기</button>
+<button style="text-align: left; min-height: 40px; padding: 0 10px; border: none; border-radius: 8px; background: #F4F4F2; color: #1B1B19; cursor: pointer; font-size: 14px">오늘 회의 내용을 위키에 정리하기</button>
+<button style="text-align: left; min-height: 40px; padding: 0 10px; border: none; border-radius: 8px; background: #F4F4F2; color: #1B1B19; cursor: pointer; font-size: 14px">위키에서 GS 인증 산출물 구조 찾기</button>
+</div>
+</sc-if>
+<sc-if value="{{isAdd}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #5E5D58">“내일 3시”, “#프로젝트”, “!높음”, “매주 월” 을 알아듣습니다.</span>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2B24C9","options":["#2B24C9","#0F6E6E","#7A3FB5","#1B1B19"]},"pieTint":{"editor":"color","default":"#BFBEF0","options":["#BFBEF0","#BFE3E0","#DCC9EF","#D9D8D2"]},"showLogo":{"editor":"boolean","default":false},"startExpanded":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      collapsed: props.startExpanded === false, arranging: false,
+      col: 50, row: 50, order: ['todo', 'cal', 'memo', 'links'],
+      open: false, hover: null, toast: null, overlay: null, draft: '', nextId: 100,
+      todos: [
+        { id: 1, text: '주간 회의 자료 올리기', time: '10:00', done: true },
+        { id: 2, text: '결함 보고서 2차 정리', time: '15:00', done: false },
+        { id: 3, text: 'TTA-26-99001 시험 종료 일정 회신', done: false },
+        { id: 4, text: '시험 환경 점검표 작성', done: true },
+        { id: 5, text: '분기 회고 초안', done: false }
+      ]
+    };
+    this.drag = null;
+    this.pressAt = 0;
+    this.wasOpen = false;
+    this.timer = null;
+  }
+
+  componentWillUnmount() { if (this.timer) clearTimeout(this.timer); }
+
+  hoverFrom(e, el) {
+    var r = el.getBoundingClientRect();
+    var dx = e.clientX - (r.left + r.width / 2);
+    var dy = e.clientY - (r.top + r.height / 2);
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 36 || dist > 190) return null;
+    var deg = Math.atan2(dy, dx) * 180 / Math.PI;
+    return Math.floor((((deg + 90) % 360) + 360) % 360 / 45);
+  }
+
+  setHover(i) { if (i !== this.state.hover) this.setState({ hover: i }); }
+
+  showToast(text, href) {
+    var self = this;
+    if (this.timer) clearTimeout(this.timer);
+    this.setState({ toast: { text: text, href: href || '' } });
+    this.timer = setTimeout(function () { self.setState({ toast: null }); }, 3200);
+  }
+
+  run(i) {
+    var a = this.items()[i];
+    this.setState({ open: false, hover: null });
+    if (a.overlay) this.setState({ overlay: a.overlay });
+    else this.showToast(a.toast, a.href);
+  }
+
+  icons() {
+    return {
+      home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+      tasks: 'M4 4h16v16H4zM8 12l3 3 5-6',
+      calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
+      mail: 'M3 6h18v12H3zM3 7l9 6 9-6',
+      memo: 'M5 3h10l4 4v14H5zM15 3v4h4M8 12h8M8 16h6',
+      wiki: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 21V5M8 7h7M8 11h5',
+      obsidian: 'M12 3l6 5-2 12H8L6 8zM6 8h12M12 3l-2 17M12 3l4 17',
+      arms: 'M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 9V3M12 15v6M9 12H3M15 12h6',
+      command: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5',
+      plus: 'M12 5v14M5 12h14',
+      settings: 'M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4'
+    };
+  }
+
+  items() {
+    var P = this.icons();
+    return [
+      { label: '지시하기', d: P.command, overlay: 'command' },
+      { label: '할 일 추가', d: P.plus, overlay: 'add' },
+      { label: '캘린더', d: P.calendar, toast: '캘린더 화면을 엽니다 (목업에는 아직 없음)' },
+      { label: '메일', d: P.mail, toast: '메일함을 엽니다 — Gmail 할 일 후보 1건' },
+      { label: '메모', d: P.memo, toast: '빠른 메모 창을 엽니다 (목업에는 아직 없음)' },
+      { label: '위키', d: P.wiki, toast: 'LLM 위키를 엽니다 (목업에는 아직 없음)' },
+      { label: '옵시디언', d: P.obsidian, toast: '옵시디언 설정으로 이동', href: 'Obsidian.dc.html' },
+      { label: 'Arms', d: P.arms, toast: 'Arms 관리로 이동', href: 'Connectors.dc.html' }
+    ];
+  }
+
+  swap(pos, to) {
+    var o = this.state.order.slice();
+    var t = o[pos]; o[pos] = o[to]; o[to] = t;
+    this.setState({ order: o });
+  }
+
+  renderVals() {
+    var self = this;
+    var accent = this.props.accent ?? '#2B24C9';
+    var tint = this.props.pieTint ?? '#BFBEF0';
+    var s = this.state;
+    var expanded = !s.collapsed;
+    var P = this.icons();
+
+    var navDefs = [['홈', 'home', 'Main.dc.html', true], ['할 일', 'tasks', 'Tasks.dc.html'], ['캘린더', 'calendar', '#'], ['메일', 'mail', '#'], ['위키', 'wiki', '#'], ['Arms', 'arms', 'Connectors.dc.html'], ['설정', 'settings', '#']];
+    var nav = navDefs.map(function (n) {
+      return {
+        label: n[0], d: P[n[1]], href: n[2],
+        style: 'display: flex; align-items: center; gap: 12px; min-height: 44px; border-radius: 10px; text-decoration: none; font-size: 14px; box-sizing: border-box; ' +
+          (expanded ? 'padding: 0 12px; ' : 'padding: 0; justify-content: center; ') +
+          (n[3] ? 'background: #FFFFFF; color: ' + accent + '; font-weight: 600;' : 'color: #1B1B19;')
+      };
+    });
+
+    var titles = { todo: '오늘 할 일', cal: '오늘 일정', memo: '메모', links: '바로가기' };
+    var metas = { todo: s.todos.filter(function (t) { return t.done; }).length + ' / ' + s.todos.length, cal: 'Google 캘린더', memo: '', links: '' };
+    var place = [['1', '1'], ['1', '3'], ['3', '1'], ['3', '3']];
+    var moveDefs = [
+      [['→', '오른쪽으로', 1], ['↓', '아래로', 2]],
+      [['←', '왼쪽으로', 0], ['↓', '아래로', 3]],
+      [['↑', '위로', 0], ['→', '오른쪽으로', 3]],
+      [['↑', '위로', 1], ['←', '왼쪽으로', 2]]
+    ];
+    var slots = s.order.map(function (kind, pos) {
+      return {
+        title: titles[kind], meta: metas[kind], hasMeta: !!metas[kind] && !s.arranging,
+        isTodo: kind === 'todo', isCal: kind === 'cal', isMemo: kind === 'memo', isLinks: kind === 'links',
+        moves: moveDefs[pos].map(function (m) { return { arrow: m[0], label: titles[kind] + ' 카드를 ' + m[1], go: function () { self.swap(pos, m[2]); } }; }),
+        style: 'grid-row: ' + place[pos][0] + '; grid-column: ' + place[pos][1] + '; min-width: 0; min-height: 0; overflow: auto; box-sizing: border-box; padding: 14px 16px; border-radius: 6px; background: #E6E6E3; display: flex; flex-direction: column; gap: 10px; ' +
+          (s.arranging ? 'outline: 2px dashed ' + accent + '; outline-offset: -2px;' : '')
+      };
+    });
+
+    var todos = s.todos.map(function (t) {
+      return Object.assign({}, t, {
+        hasTime: !!t.time,
+        aria: t.done ? t.text + ' 완료 취소' : t.text + ' 완료',
+        toggle: function () { self.setState({ todos: self.state.todos.map(function (x) { return x.id === t.id ? Object.assign({}, x, { done: !x.done }) : x; }) }); },
+        boxStyle: 'flex: none; width: 22px; height: 22px; border-radius: 6px; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #FFFFFF; border: 2px solid ' + (t.done ? accent : '#7C7B76') + '; background: ' + (t.done ? accent : '#FFFFFF') + ';',
+        textStyle: 'flex: 1; min-width: 0; font-size: 14px; ' + (t.done ? 'color: #66655F; text-decoration: line-through;' : 'color: #1B1B19;')
+      });
+    });
+
+    var R = 160, C = 160, LR = 104;
+    var pt = function (deg, r) { var a = deg * Math.PI / 180; return [C + r * Math.cos(a), C + r * Math.sin(a)]; };
+    var wedges = this.items().map(function (it, i) {
+      var a0 = -90 + i * 45, a1 = a0 + 45, mid = a0 + 22.5;
+      var p0 = pt(a0, R), p1 = pt(a1, R), lp = pt(mid, LR);
+      var hot = s.hover === i;
+      return {
+        label: it.label, d: it.d,
+        path: 'M' + C + ' ' + C + ' L' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + ' A' + R + ' ' + R + ' 0 0 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + ' Z',
+        fill: hot ? accent : tint,
+        key: function (e) { if (e.detail === 0) self.run(i); },
+        btnStyle: 'position: absolute; left: ' + Math.round(lp[0] - 36) + 'px; top: ' + Math.round(lp[1] - 28) + 'px; width: 72px; height: 56px; border: none; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; color: ' + (hot ? '#FFFFFF' : '#1B1B19') + ';'
+      };
+    });
+
+    var overlayTitles = { command: '지시하기', add: '할 일 추가' };
+    var overlayPh = { command: '무엇을 할까요? 예: 오늘 회의록을 위키에 정리해 줘', add: '예: 내일 3시 결함 보고서 #GS인증 !높음' };
+    var clamp = function (v) { return Math.max(25, Math.min(75, v)); };
+
+    return {
+      accent: accent, expanded: expanded, nav: nav, arranging: s.arranging,
+      navExpanded: expanded ? 'true' : 'false',
+      navToggleLabel: expanded ? '메뉴 접기' : '메뉴 펼치기',
+      navStyle: 'flex: none; box-sizing: border-box; padding: 12px 10px 16px; display: flex; flex-direction: column; gap: 16px; background: #DCDCD9; transition: width 160ms ease; overflow: hidden; width: ' + (expanded ? '200px' : '68px') + ';',
+      toggleNav: function () { self.setState({ collapsed: !self.state.collapsed }); },
+      arrangePressed: s.arranging ? 'true' : 'false',
+      arrangeBtnStyle: 'margin-top: auto; display: flex; align-items: center; gap: 10px; min-height: 48px; border-radius: 10px; cursor: pointer; box-sizing: border-box; ' +
+        (expanded ? 'padding: 0 10px; ' : 'padding: 0; justify-content: center; ') +
+        (s.arranging ? 'border: 2px solid ' + accent + '; background: #FFFFFF; color: ' + accent + ';' : 'border: none; background: transparent; color: #1B1B19;'),
+      toggleArrange: function () { self.setState({ arranging: !self.state.arranging }); },
+      resetLayout: function () { self.setState({ col: 50, row: 50, order: ['todo', 'cal', 'memo', 'links'] }); },
+
+      gridStyle: 'position: relative; flex: 1; min-height: 760px; display: grid; grid-template-columns: ' + s.col + 'fr 12px ' + (100 - s.col) + 'fr; grid-template-rows: ' + s.row + 'fr 12px ' + (100 - s.row) + 'fr;',
+      slots: slots, todos: todos,
+      shortcuts: [{ mono: '메', label: '사내 메신저' }, { mono: '시', label: '시험 웹앱' }, { mono: '그', label: '그룹웨어' }, { mono: 'JR', label: 'Jira' }, { mono: '드', label: '드라이브' }, { mono: '+', label: '추가' }],
+      draft: s.draft,
+      onDraft: function (e) { self.setState({ draft: e.target.value }); },
+      onKey: function (e) {
+        if (e.key !== 'Enter' || (e.nativeEvent && e.nativeEvent.isComposing)) return;
+        var text = self.state.draft.trim();
+        if (!text) return;
+        self.setState({ draft: '', nextId: self.state.nextId + 1, todos: self.state.todos.concat([{ id: self.state.nextId, text: text, done: false }]) });
+      },
+
+      colDown: function (e) { self.drag = 'col'; e.currentTarget.setPointerCapture(e.pointerId); },
+      rowDown: function (e) { self.drag = 'row'; e.currentTarget.setPointerCapture(e.pointerId); },
+      dragMove: function (e) {
+        if (!self.drag) return;
+        var r = e.currentTarget.parentElement.getBoundingClientRect();
+        if (self.drag === 'col') self.setState({ col: Math.round(clamp((e.clientX - r.left) / r.width * 100)) });
+        else self.setState({ row: Math.round(clamp((e.clientY - r.top) / r.height * 100)) });
+      },
+      dragEnd: function () { self.drag = null; },
+      colReset: function () { self.setState({ col: 50 }); },
+      rowReset: function () { self.setState({ row: 50 }); },
+      colKey: function (e) { if (e.key === 'ArrowLeft') self.setState({ col: clamp(self.state.col - 5) }); if (e.key === 'ArrowRight') self.setState({ col: clamp(self.state.col + 5) }); },
+      rowKey: function (e) { if (e.key === 'ArrowUp') self.setState({ row: clamp(self.state.row - 5) }); if (e.key === 'ArrowDown') self.setState({ row: clamp(self.state.row + 5) }); },
+
+      open: s.open, openAttr: s.open ? 'true' : 'false', wedges: wedges,
+      showLogo: this.props.showLogo === true,
+      centerStyle: 'position: absolute; left: 50%; top: 50%; width: 68px; height: 68px; margin: -34px 0 0 -34px; border-radius: 50%; border: none; cursor: pointer; touch-action: none; display: flex; align-items: center; justify-content: center; color: #FFFFFF; background: ' + accent + '; ' + (s.open ? '' : 'box-shadow: 0 4px 14px rgba(43, 36, 201, 0.35);'),
+      centerDown: function (e) {
+        self.pressAt = Date.now();
+        self.wasOpen = self.state.open;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        self.setState({ open: true, hover: null });
+      },
+      centerMove: function (e) { if (self.state.open && e.buttons) self.setHover(self.hoverFrom(e, e.currentTarget)); },
+      centerUp: function (e) {
+        var i = self.hoverFrom(e, e.currentTarget);
+        if (i !== null) { self.run(i); return; }
+        if (Date.now() - self.pressAt < 300) { if (self.wasOpen) self.setState({ open: false, hover: null }); }
+        else self.setState({ open: false, hover: null });
+      },
+      centerKey: function (e) { if (e.detail === 0) self.setState({ open: !self.state.open, hover: null }); },
+      pieMove: function (e) { self.setHover(self.hoverFrom(e, e.currentTarget)); },
+      pieLeave: function () { self.setHover(null); },
+      pieUp: function (e) {
+        var i = self.hoverFrom(e, e.currentTarget);
+        if (i !== null) self.run(i); else self.setState({ open: false, hover: null });
+      },
+      backdropUp: function () { self.setState({ open: false, hover: null }); },
+
+      hasToast: !!s.toast, toastText: s.toast ? s.toast.text : '', toastHref: s.toast ? s.toast.href : '', toastHasLink: !!(s.toast && s.toast.href),
+      hasOverlay: !!s.overlay, isCommand: s.overlay === 'command', isAdd: s.overlay === 'add',
+      overlayTitle: overlayTitles[s.overlay] || '', overlayPlaceholder: overlayPh[s.overlay] || '',
+      closeOverlay: function () { self.setState({ overlay: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

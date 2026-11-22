@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Octopus Arms</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+button,input{font:inherit}
+a{color:#3346C8}a:hover{color:#22309A}
+</style>
+</helmet>
+<div style="min-height: 1300px; background: #F6F6F3; font-family: 'Noto Sans KR', system-ui, sans-serif; color: #1B1B19">
+<div style="max-width: 1120px; margin: 0 auto; box-sizing: border-box; padding: 32px 24px 64px; display: flex; flex-direction: column; gap: 32px">
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<a href="Main.dc.html" style="align-self: flex-start; font-size: 14px; text-decoration: none; padding: 8px 0">← 홈</a>
+<h1 style="margin: 0; font-size: 28px; font-weight: 700; display: flex; align-items: baseline; gap: 10px">Arms<span style="font-size: 16px; font-weight: 500; color: #5E5D58">다리</span></h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #4A4945; max-width: 680px">쓰는 도구를 끼우고 빼세요. 대부분 로그인 한 번이면 됩니다. Arm 을 빼도 할 일은 Octopus에 그대로 남습니다.</p>
+</div>
+
+<sc-for list="{{sections}}" as="sec" hint-placeholder-count="3">
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">{{sec.title}}</h2>
+<p style="margin: 0; font-size: 13px; color: #5E5D58">{{sec.desc}}</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px">
+<sc-for list="{{sec.cards}}" as="c" hint-placeholder-count="3">
+<article style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 12px">
+<span aria-hidden="true" style="flex: none; width: 40px; height: 40px; border-radius: 10px; background: #EDECE7; color: #1B1B19; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">{{c.mono}}</span>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<h3 style="margin: 0; font-size: 15px; font-weight: 600">{{c.name}}</h3>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #4A4945"><span style="{{c.dotStyle}}"></span>{{c.statusText}}</span>
+</div>
+</div>
+<p style="margin: 0; font-size: 13px; line-height: 1.55; color: #4A4945">{{c.desc}}</p>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{c.caps}}" as="cap" hint-placeholder-count="2">
+<span style="font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #F0EFEB; color: #4A4945">{{cap.label}}</span>
+</sc-for>
+</div>
+<div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-top: 4px">
+<span style="font-size: 12px; color: #5E5D58">{{c.auth}}</span>
+<div style="display: flex; gap: 6px">
+<sc-if value="{{c.hasSettings}}" hint-placeholder-val="{{ false }}"><a href="{{c.settingsHref}}" style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #D9D8D2; font-size: 13px; text-decoration: none; color: #1B1B19">설정</a></sc-if>
+<button onClick="{{c.act}}" style="{{c.btnStyle}}">{{c.btnLabel}}</button>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+</sc-for>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">MCP 서버 꽂기</h2>
+<p style="margin: 0; font-size: 13px; color: #5E5D58; max-width: 720px; line-height: 1.6">위에 없는 도구는 MCP 서버로 연결합니다. 화면 카드는 생기지 않고, 명령창(Ctrl+K)에서 말로 시킬 수 있게 됩니다. 예: “노션에 오늘 회의록 만들어 줘”.</p>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end">
+<label style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #4A4945">서버 주소 또는 실행 명령
+<input value="{{mcpDraft}}" onChange="{{onMcp}}" placeholder="https://mcp.example.com 또는 npx 서버이름" style="min-height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #D9D8D2; border-radius: 8px; color: #1B1B19; background: #FFFFFF">
+</label>
+<button onClick="{{addMcp}}" style="min-height: 44px; padding: 0 18px; border: none; border-radius: 8px; background: {{accent}}; color: #FFFFFF; font-weight: 600; cursor: pointer">추가</button>
+</div>
+<sc-for list="{{mcps}}" as="m" hint-placeholder-count="1">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 8px 0; border-top: 1px solid #EFEEEA">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: #1E7A4C"></span>
+<span style="flex: 1; min-width: 0; overflow-wrap: anywhere">{{m.name}}</span>
+<span style="font-size: 12px; color: #5E5D58">{{m.tools}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#3346C8","options":["#3346C8","#0F6E6E","#7A3FB5","#1B1B19"]},"$preview":{"width":1280,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      status: { gcal: 'on', gmail: 'on', outlook: 'off', obsidian: 'on', slack: 'error', github: 'off', jira: 'off', sheet: 'off', autotest: 'off' },
+      mcpDraft: '',
+      mcps: [{ name: '노션 (공식 MCP)', tools: '도구 12개' }]
+    };
+    this.timers = [];
+  }
+
+  componentWillUnmount() { this.timers.forEach(function (t) { clearTimeout(t); }); }
+
+  setStatus(id, v) {
+    var next = Object.assign({}, this.state.status);
+    next[id] = v;
+    this.setState({ status: next });
+  }
+
+  connect(id) {
+    var self = this;
+    this.setStatus(id, 'connecting');
+    this.timers.push(setTimeout(function () { self.setStatus(id, 'on'); }, 1400));
+  }
+
+  renderVals() {
+    var self = this;
+    var accent = this.props.accent ?? '#3346C8';
+    var st = this.state.status;
+
+    var defs = [
+      { title: '기본 Arms', desc: '대부분의 사람이 쓰는 것. 로그인 한 번으로 끝납니다.', cards: [
+        { id: 'gcal', mono: 'GC', name: 'Google 캘린더', desc: '오늘 일정을 홈 오른쪽에 보여 주고, 시간이 정해진 할 일을 캘린더에 띄울 수 있습니다.', caps: ['일정 보기', '할 일 → 일정'], auth: 'Google 로그인 한 번' },
+        { id: 'gmail', mono: 'GM', name: 'Gmail', desc: '별표나 라벨을 붙인 메일을 할 일 후보로 보여 줍니다. 넣을지는 직접 고릅니다.', caps: ['할 일 후보', '메일 링크'], auth: 'Google 로그인 한 번' },
+        { id: 'outlook', mono: 'OL', name: 'Outlook 캘린더', desc: '회사 일정이 Microsoft 365 에 있다면 이쪽을 씁니다.', caps: ['일정 보기'], auth: 'Microsoft 로그인 한 번' },
+        { id: 'obsidian', mono: 'OB', name: '옵시디언', desc: '할 일을 vault 의 파일 하나로 내보냅니다. 노트를 어지럽히지 않습니다.', caps: ['파일 하나로 내보내기', '체크박스 가져오기(선택)'], auth: 'vault 폴더 고르기', settingsHref: 'Obsidian.dc.html' }
+      ] },
+      { title: '협업 도구', desc: '나에게 온 일만 할 일 후보로 가져옵니다.', cards: [
+        { id: 'slack', mono: 'SL', name: 'Slack', desc: '저장한 메시지와 나를 부른 메시지를 할 일 후보로 보여 줍니다.', caps: ['할 일 후보', '알림'], auth: '워크스페이스 로그인' },
+        { id: 'github', mono: 'GH', name: 'GitHub', desc: '나에게 배정된 이슈와 리뷰 요청을 수신함으로 가져옵니다.', caps: ['배정된 이슈', '리뷰 요청'], auth: 'GitHub 로그인' },
+        { id: 'jira', mono: 'JR', name: 'Jira', desc: '나에게 배정된 이슈를 가져오고, 끝내면 상태를 바꿀지 묻습니다.', caps: ['배정된 이슈'], auth: 'Atlassian 로그인' }
+      ] },
+      { title: '업무 플러그인', desc: '특정 팀·업무 전용. 설정이 더 필요해서 홈에는 기본으로 나오지 않습니다.', cards: [
+        { id: 'sheet', mono: '시', name: '시험일정 시트', desc: 'Flow 가 채운 시험일정 시트의 확인 큐와 할 일을 가져옵니다. Apps Script 쪽 설정이 먼저 필요합니다.', caps: ['확인 큐', '할 일 가져오기'], auth: 'Google 로그인 + 시트 고르기' },
+        { id: 'autotest', mono: 'AT', name: 'autoTest', desc: '사내 시험 서버의 현황을 보고 웹으로 바로 엽니다.', caps: ['시험 현황', '웹 열기'], auth: 'API 키 입력' }
+      ] }
+    ];
+
+    var sections = defs.map(function (sec) {
+      return Object.assign({}, sec, { cards: sec.cards.map(function (c) {
+        var s = st[c.id];
+        var label = { on: '연결 끊기', off: '연결', error: '다시 연결', connecting: '기다리는 중…' }[s];
+        var text = { on: '연결됨', off: '연결 안 됨', error: '다시 연결 필요 — 권한이 만료됐습니다', connecting: '브라우저에서 허용을 누르세요' }[s];
+        var dot = { on: '#1E7A4C', off: '#A9A8A2', error: '#B4440E', connecting: accent }[s];
+        var primary = s === 'off' || s === 'error';
+        return Object.assign({}, c, {
+          caps: c.caps.map(function (x) { return { label: x }; }),
+          statusText: text,
+          dotStyle: 'width: 8px; height: 8px; border-radius: 50%; background: ' + dot + ';',
+          hasSettings: !!c.settingsHref && s === 'on',
+          btnLabel: label,
+          btnStyle: 'min-height: 36px; padding: 0 14px; border-radius: 8px; font-size: 13px; cursor: pointer; ' + (primary ? 'border: none; background: ' + accent + '; color: #FFFFFF; font-weight: 600;' : 'border: 1px solid #D9D8D2; background: #FFFFFF; color: #1B1B19;'),
+          act: function () {
+            if (s === 'connecting') return;
+            if (s === 'on') self.setStatus(c.id, 'off'); else self.connect(c.id);
+          }
+        });
+      }) });
+    });
+
+    return {
+      accent: accent, sections: sections,
+      mcpDraft: this.state.mcpDraft, mcps: this.state.mcps,
+      onMcp: function (e) { self.setState({ mcpDraft: e.target.value }); },
+      addMcp: function () {
+        var v = self.state.mcpDraft.trim();
+        if (!v) return;
+        self.setState({ mcpDraft: '', mcps: self.state.mcps.concat([{ name: v, tools: '도구 확인 중' }]) });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

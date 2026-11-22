@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Octopus 첫 실행</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+button,input{font:inherit}
+a{color:#3346C8}a:hover{color:#22309A}
+</style>
+</helmet>
+<div style="min-height: 860px; background: #F6F6F3; font-family: 'Noto Sans KR', system-ui, sans-serif; color: #1B1B19; display: flex; align-items: flex-start; justify-content: center; box-sizing: border-box; padding: 64px 16px">
+<div style="width: 100%; max-width: 640px; background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 16px; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<span style="display: flex; align-items: center; gap: 10px; color: {{accent}}">
+<svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 13a7 7 0 0 1 14 0v3"></path><path d="M7 15c0 3-2 4-3 6"></path><path d="M11 16c0 3-1 5-2 7"></path><path d="M17 16c0 3 1 5 2 7"></path><path d="M21 15c0 3 2 4 3 6"></path></svg>
+<span style="font-size: 18px; font-weight: 700; color: #1B1B19">Octopus</span>
+</span>
+<span style="font-size: 13px; color: #5E5D58">{{stepLabel}}</span>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px" aria-hidden="true">
+<sc-for list="{{bars}}" as="b" hint-placeholder-count="3"><span style="{{b.style}}"></span></sc-for>
+</div>
+
+<sc-if value="{{step1}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<h1 style="margin: 0; font-size: 24px; font-weight: 700">무엇으로 일하세요?</h1>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4A4945">고른 것만 연결합니다. 아무것도 고르지 않아도 할 일과 메모는 바로 쓸 수 있습니다.</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{tools}}" as="t" hint-placeholder-count="6">
+<button onClick="{{t.toggle}}" aria-pressed="{{t.pressed}}" style="{{t.style}}">{{t.label}}</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{step2}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<h1 style="margin: 0; font-size: 24px; font-weight: 700">로그인만 하면 됩니다</h1>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4A4945">버튼을 누르면 브라우저가 열리고, 허용을 누르면 끝입니다. 키나 설정값을 입력할 일은 없습니다.</p>
+<sc-if value="{{noneChosen}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 14px; color: #5E5D58">고른 도구가 없습니다. 나중에 Arms(다리) 화면에서 언제든 연결할 수 있습니다.</p>
+</sc-if>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{chosen}}" as="c" hint-placeholder-count="2">
+<li style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #E4E3DE; border-radius: 10px; flex-wrap: wrap">
+<div style="flex: 1 1 200px; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600">{{c.label}}</span>
+<span style="font-size: 12px; color: #5E5D58">{{c.note}}</span>
+</div>
+<sc-if value="{{c.done}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: #1E7A4C; font-weight: 600">연결됨</span></sc-if>
+<sc-if value="{{c.notDone}}" hint-placeholder-val="{{ true }}"><button onClick="{{c.connect}}" style="min-height: 40px; padding: 0 16px; border: none; border-radius: 8px; background: {{accent}}; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer">{{c.cta}}</button></sc-if>
+</li>
+</sc-for>
+</ul>
+</div>
+</sc-if>
+
+<sc-if value="{{step3}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<h1 style="margin: 0; font-size: 24px; font-weight: 700">준비됐습니다</h1>
+<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4A4945">첫 할 일을 적어 보세요. “내일 3시”, “#프로젝트”, “매주 월” 같은 말을 알아듣습니다.</p>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #4A4945">첫 할 일
+<input placeholder="예: 내일 3시 주간 보고 #팀" style="min-height: 48px; box-sizing: border-box; padding: 0 14px; border: 1px solid #D9D8D2; border-radius: 10px; font-size: 15px; color: #1B1B19; background: #FFFFFF">
+</label>
+<span style="font-size: 13px; color: #5E5D58">{{summary}}</span>
+</div>
+</sc-if>
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid #EFEEEA">
+<sc-if value="{{canBack}}" hint-placeholder-val="{{ false }}"><button onClick="{{back}}" style="min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #D9D8D2; background: #FFFFFF; color: #1B1B19; cursor: pointer">이전</button></sc-if>
+<sc-if value="{{step1}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; color: #5E5D58">계정 없이 이 PC 에만 저장됩니다</span></sc-if>
+<sc-if value="{{notLast}}" hint-placeholder-val="{{ true }}"><button onClick="{{next}}" style="min-height: 44px; padding: 0 20px; border: none; border-radius: 8px; background: {{accent}}; color: #FFFFFF; font-weight: 600; cursor: pointer">{{nextLabel}}</button></sc-if>
+<sc-if value="{{isLast}}" hint-placeholder-val="{{ false }}"><a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 8px; background: {{accent}}; color: #FFFFFF; font-weight: 600; text-decoration: none">홈으로</a></sc-if>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#3346C8","options":["#3346C8","#0F6E6E","#7A3FB5","#1B1B19"]},"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { step: 1, picked: { google: true, obsidian: true }, connected: {} };
+  }
+
+  renderVals() {
+    var self = this;
+    var accent = this.props.accent ?? '#3346C8';
+    var s = this.state;
+
+    var defs = [
+      { id: 'google', label: 'Google (캘린더·Gmail)', note: '캘린더 일정과 메일 할 일 후보', cta: 'Google 로그인' },
+      { id: 'ms', label: 'Microsoft 365', note: 'Outlook 일정', cta: 'Microsoft 로그인' },
+      { id: 'slack', label: 'Slack', note: '저장한 메시지 → 할 일 후보', cta: 'Slack 로그인' },
+      { id: 'github', label: 'GitHub', note: '배정된 이슈·리뷰 요청', cta: 'GitHub 로그인' },
+      { id: 'obsidian', label: '옵시디언', note: '할 일을 vault 파일 하나로 내보내기', cta: 'vault 폴더 고르기' },
+      { id: 'notion', label: '노션', note: 'MCP 로 연결 — 명령창에서 사용', cta: '연결' }
+    ];
+
+    var tools = defs.map(function (d) {
+      var on = !!s.picked[d.id];
+      return {
+        label: d.label, pressed: on ? 'true' : 'false',
+        toggle: function () { var p = Object.assign({}, s.picked); p[d.id] = !on; self.setState({ picked: p }); },
+        style: 'min-height: 44px; padding: 0 16px; border-radius: 999px; cursor: pointer; font-size: 14px; ' +
+          (on ? 'border: 2px solid ' + accent + '; background: #EEF0FC; color: #1B1B19; font-weight: 600; padding: 0 15px;' : 'border: 1px solid #D9D8D2; background: #FFFFFF; color: #1B1B19;')
+      };
+    });
+
+    var chosen = defs.filter(function (d) { return s.picked[d.id]; }).map(function (d) {
+      var done = !!s.connected[d.id];
+      return Object.assign({}, d, {
+        done: done, notDone: !done,
+        connect: function () { var c = Object.assign({}, self.state.connected); c[d.id] = true; self.setState({ connected: c }); }
+      });
+    });
+    var doneCount = chosen.filter(function (c) { return c.done; }).length;
+
+    var bars = [1, 2, 3].map(function (i) {
+      return { style: 'height: 4px; border-radius: 2px; background: ' + (i <= s.step ? accent : '#E4E3DE') + ';' };
+    });
+
+    return {
+      accent: accent, tools: tools, chosen: chosen, bars: bars,
+      noneChosen: chosen.length === 0,
+      step1: s.step === 1, step2: s.step === 2, step3: s.step === 3,
+      stepLabel: s.step + ' / 3',
+      canBack: s.step > 1, notLast: s.step < 3, isLast: s.step === 3,
+      nextLabel: s.step === 2 && doneCount < chosen.length ? '나중에 하고 넘어가기' : '다음',
+      summary: '연결된 Arm ' + doneCount + '개. Arms 는 가운데 문어 버튼이나 왼쪽 메뉴에서 언제든 끼우고 뺄 수 있습니다.',
+      next: function () { self.setState({ step: Math.min(3, s.step + 1) }); },
+      back: function () { self.setState({ step: Math.max(1, s.step - 1) }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

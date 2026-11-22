@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Octopus 할 일</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+button,input{font:inherit}
+a{color:#3346C8}a:hover{color:#22309A}
+</style>
+</helmet>
+<div style="min-height: 900px; display: flex; flex-wrap: wrap; background: #F6F6F3; font-family: 'Noto Sans KR', system-ui, sans-serif; color: #1B1B19">
+
+<nav aria-label="보기와 연결" style="flex: 1 1 220px; box-sizing: border-box; padding: 24px 16px; display: flex; flex-direction: column; gap: 28px; background: #EDECE7">
+<div style="display: flex; align-items: center; gap: 10px; padding: 0 8px; color: {{accent}}">
+<svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 13a7 7 0 0 1 14 0v3"></path><path d="M7 15c0 3-2 4-3 6"></path><path d="M11 16c0 3-1 5-2 7"></path><path d="M17 16c0 3 1 5 2 7"></path><path d="M21 15c0 3 2 4 3 6"></path></svg>
+<span style="font-size: 20px; font-weight: 700; color: #1B1B19">Octopus</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 2px">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="5">
+<button onClick="{{n.pick}}" style="{{n.style}}"><span>{{n.label}}</span><span style="font-size: 12px; color: #5E5D58">{{n.count}}</span></button>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 0 8px">
+<span style="font-size: 12px; font-weight: 600; color: #5E5D58">프로젝트</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 6px 0"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3346C8"></span>GS 인증</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 6px 0"><span style="width: 8px; height: 8px; border-radius: 50%; background: #B4440E"></span>팀</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 6px 0"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1E7A4C"></span>개인</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; font-weight: 600; color: #5E5D58; padding: 0 8px 4px">연결</span>
+<a href="Main.dc.html" style="display: block; padding: 10px 8px; border-radius: 8px; font-size: 14px; text-decoration: none; color: #1B1B19">← 홈</a>
+<a href="Connectors.dc.html" style="display: block; padding: 10px 8px; border-radius: 8px; font-size: 14px; text-decoration: none; color: #1B1B19">Arms (다리) 관리</a>
+<a href="Obsidian.dc.html" style="display: block; padding: 10px 8px; border-radius: 8px; font-size: 14px; text-decoration: none; color: #1B1B19">옵시디언 내보내기</a>
+<a href="Welcome.dc.html" style="display: block; padding: 10px 8px; border-radius: 8px; font-size: 14px; text-decoration: none; color: #1B1B19">첫 실행 화면 보기</a>
+</div>
+
+<div style="margin-top: auto; padding: 10px 8px; border-radius: 8px; background: #E2E1DB; font-size: 13px; color: #4A4945">명령창 <b>Ctrl+K</b> — Arms 에 꽂힌 도구(MCP 포함)에 말로 시키기</div>
+</nav>
+
+<main style="flex: 999 1 520px; min-width: 0; box-sizing: border-box; padding: 32px 40px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap">
+<h1 style="margin: 0; font-size: 28px; font-weight: 700">{{viewTitle}}</h1>
+<span style="font-size: 14px; color: #5E5D58">{{viewSub}}</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 8px; align-items: center">
+<label for="quick-add" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">할 일 추가</label>
+<input id="quick-add" value="{{draft}}" onChange="{{onDraft}}" onKeyDown="{{onKey}}" placeholder="할 일 입력 — 예: 내일 3시 결함 보고서 #GS인증 !높음" style="flex: 1; min-width: 0; border: none; outline: none; font-size: 15px; padding: 10px 4px; background: transparent; color: #1B1B19">
+<button onClick="{{addDraft}}" style="flex: none; min-height: 44px; padding: 0 18px; border: none; border-radius: 8px; background: {{accent}}; color: #FFFFFF; font-weight: 600; cursor: pointer">추가</button>
+</div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 24px">
+<span style="font-size: 12px; color: #5E5D58">알아들은 것</span>
+<sc-if value="{{noParsed}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 12px; color: #5E5D58">날짜(오늘·내일) · 시간(3시) · #프로젝트 · !중요도 · 매주/매월 을 알아듣습니다</span>
+</sc-if>
+<sc-for list="{{parsed}}" as="p" hint-placeholder-count="0">
+<span style="font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #E9EBFA; color: #22309A">{{p.label}}</span>
+</sc-for>
+<sc-if value="{{hasFlash}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #1E7A4C; margin-left: auto">{{flash}}</span>
+</sc-if>
+</div>
+</div>
+
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 24px 0; color: #5E5D58; font-size: 14px">이 보기에 할 일이 없습니다.</p>
+</sc-if>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+<section style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 8px 0 2px; font-size: 13px; font-weight: 600; color: {{g.color}}">{{g.title}} · {{g.count}}</h2>
+<sc-if value="{{g.hint}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0 0 4px; font-size: 12px; color: #5E5D58">{{g.hint}}</p>
+</sc-if>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{g.items}}" as="t" hint-placeholder-count="3">
+<li style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 10px; padding: 10px 12px; display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap">
+<button onClick="{{t.toggle}}" aria-label="{{t.aria}}" style="{{t.boxStyle}}">
+<sc-if value="{{t.done}}" hint-placeholder-val="{{ false }}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5l2.5 2.5L11 4.5"></path></svg></sc-if>
+</button>
+<div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<span style="{{t.textStyle}}">{{t.text}}</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-if value="{{t.hasDate}}" hint-placeholder-val="{{ false }}"><span style="{{t.dateStyle}}">{{t.dateLabel}}</span></sc-if>
+<sc-if value="{{t.hasTime}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #F0EFEB; color: #4A4945"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="6" r="4.5"></circle><path d="M6 3.5V6l1.8 1.2"></path></svg>{{t.time}}</span></sc-if>
+<sc-if value="{{t.hasRepeat}}" hint-placeholder-val="{{ false }}"><span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #F0EFEB; color: #4A4945"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5a4 4 0 0 1 7-2l1 1"></path><path d="M10 2v2H8"></path><path d="M10 7a4 4 0 0 1-7 2l-1-1"></path><path d="M2 10V8h2"></path></svg>{{t.repeat}}</span></sc-if>
+<sc-if value="{{t.hasProject}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #F0EFEB; color: {{accent}}">#{{t.project}}</span></sc-if>
+<sc-if value="{{t.high}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #FBECE4; color: #9A3A0C">중요</span></sc-if>
+<sc-if value="{{t.hasSource}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid #D9D8D2; color: #4A4945">출처 · {{t.source}}</span></sc-if>
+</div>
+</div>
+<sc-if value="{{t.overdue}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 6px; flex: none">
+<button onClick="{{t.toToday}}" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #D9D8D2; background: #FFFFFF; color: #1B1B19; cursor: pointer; font-size: 13px">오늘로</button>
+<button onClick="{{t.toSomeday}}" style="min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #D9D8D2; background: #FFFFFF; color: #1B1B19; cursor: pointer; font-size: 13px">나중에</button>
+</div>
+</sc-if>
+</li>
+</sc-for>
+</ul>
+</section>
+</sc-for>
+</main>
+
+<aside aria-label="Arms 에서 들어온 것" style="flex: 1 1 300px; box-sizing: border-box; padding: 32px 24px; display: flex; flex-direction: column; gap: 16px; background: #FBFBF9; border-left: 1px solid #E4E3DE">
+<section style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h2 style="margin: 0; font-size: 15px">오늘 일정</h2><span style="font-size: 12px; color: #5E5D58">Google 캘린더</span></div>
+<div style="display: flex; gap: 10px; font-size: 14px"><span style="width: 44px; color: #5E5D58">10:00</span><span>주간 회의</span></div>
+<div style="display: flex; gap: 10px; font-size: 14px"><span style="width: 44px; color: #5E5D58">14:00</span><span>TTA 착수 미팅</span></div>
+<div style="display: flex; gap: 10px; font-size: 14px"><span style="width: 44px; color: #5E5D58">16:30</span><span>팀장 1:1</span></div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 15px">확인할 것</h2>
+<div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid #EFEEEA">
+<span style="font-size: 12px; color: #5E5D58">시험일정 시트 · 업무 플러그인</span>
+<span style="font-size: 14px">확인 큐 2건 — 시험 종료일 변경 요청</span>
+<button style="align-self: flex-start; min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #D9D8D2; background: #FFFFFF; color: #1B1B19; font-size: 13px; cursor: pointer">확인 큐 열기</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #5E5D58">Gmail · 할 일 후보</span>
+<span style="font-size: 14px">“견적서 이번 주 안에 회신 부탁드립니다”</span>
+<sc-if value="{{candidateOpen}}" hint-placeholder-val="{{ true }}">
+<button onClick="{{addCandidate}}" style="align-self: flex-start; min-height: 36px; padding: 0 12px; border-radius: 8px; border: none; background: {{accent}}; color: #FFFFFF; font-size: 13px; cursor: pointer">수신함에 넣기</button>
+</sc-if>
+<sc-if value="{{candidateAdded}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #1E7A4C">수신함에 넣었습니다. 메일 링크가 함께 붙습니다.</span>
+</sc-if>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 15px">Arms 상태</h2>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1E7A4C"></span><span style="flex: 1">Google 캘린더</span><span style="font-size: 12px; color: #5E5D58">연결됨</span></div>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1E7A4C"></span><span style="flex: 1">Gmail</span><span style="font-size: 12px; color: #5E5D58">연결됨</span></div>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1E7A4C"></span><span style="flex: 1">옵시디언</span><span style="font-size: 12px; color: #5E5D58">10:42 내보냄</span></div>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #B4440E"></span><span style="flex: 1">Slack</span><a href="Connectors.dc.html" style="font-size: 12px">다시 연결</a></div>
+<p style="margin: 4px 0 0; font-size: 12px; color: #5E5D58">Arm 이 끊겨도 할 일은 그대로입니다.</p>
+</section>
+</aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#3346C8","options":["#3346C8","#0F6E6E","#7A3FB5","#1B1B19"]},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      view: 'today', draft: '', nextId: 100, flash: '', candidateAdded: false,
+      tasks: [
+        { id: 1, text: '산출물 체크리스트 검토', when: 'overdue', dateLabel: '11/15', project: 'GS 인증', source: '시험일정 시트', done: false },
+        { id: 2, text: '교육 신청서 제출', when: 'overdue', dateLabel: '11/14', project: '개인', done: false },
+        { id: 3, text: '주간 회의 자료 올리기', when: 'today', time: '10:00', repeat: '매주 화', project: '팀', done: true },
+        { id: 4, text: '결함 보고서 2차 정리', when: 'today', time: '15:00', project: 'GS 인증', prio: 'high', done: false },
+        { id: 5, text: 'TTA-26-99001 시험 종료 일정 회신', when: 'today', project: 'GS 인증', source: 'Gmail', done: false },
+        { id: 6, text: '분기 회고 작성', when: 'upcoming', dateLabel: '11/21 금', project: '팀', done: false },
+        { id: 7, text: '99002 1차 결함 리포트 마감', when: 'upcoming', dateLabel: '12/01 화', project: 'GS 인증', source: '시험일정 시트', prio: 'high', done: false },
+        { id: 8, text: '월간 업무 보고', when: 'upcoming', dateLabel: '12/01 화', repeat: '매월 1일', project: '팀', done: false },
+        { id: 9, text: 'autoTest 사내망 이전 계획 세우기', when: 'someday', project: 'GS 인증', done: false },
+        { id: 10, text: '옵시디언 vault 정리', when: 'someday', project: '개인', done: false },
+        { id: 11, text: '모니터 암 알아보기', when: 'inbox', done: false },
+        { id: 12, text: '세미나 자료 다시 보기', when: 'inbox', source: 'Slack', done: false }
+      ]
+    };
+  }
+
+  update(id, patch) {
+    this.setState({ tasks: this.state.tasks.map(function (t) { return t.id === id ? Object.assign({}, t, patch) : t; }) });
+  }
+
+  inView(t, k) {
+    if (k === 'done') return t.done;
+    if (k === 'today') return t.when === 'today' || t.when === 'overdue';
+    return t.when === k;
+  }
+
+  parse(text) {
+    var chips = [];
+    var task = { text: '', when: 'inbox', time: '', project: '', prio: '', repeat: '', dateLabel: '', source: '' };
+    var rest = text;
+    if (/내일/.test(text)) { task.when = 'upcoming'; task.dateLabel = '11/18 수'; chips.push('날짜 · 내일 (11/18)'); rest = rest.replace(/내일/, ''); }
+    else if (/오늘/.test(text)) { task.when = 'today'; chips.push('날짜 · 오늘'); rest = rest.replace(/오늘/, ''); }
+    var tm = text.match(/(오전|오후)?\s?(\d{1,2})시(\s?(\d{1,2})분)?/);
+    if (tm) {
+      var h = +tm[2];
+      if (tm[1] === '오후' && h < 12) h += 12;
+      else if (!tm[1] && h >= 1 && h <= 7) h += 12;
+      task.time = (h < 10 ? '0' : '') + h + ':' + (tm[4] ? ((+tm[4] < 10 ? '0' : '') + (+tm[4])) : '00');
+      chips.push('시간 · ' + task.time);
+      rest = rest.replace(tm[0], '');
+      if (task.when === 'inbox') task.when = 'today';
+    }
+    var rm = text.match(/매(일|월|주\s?[월화수목금토일]?)/);
+    if (rm) { task.repeat = rm[0]; chips.push('반복 · ' + rm[0]); rest = rest.replace(rm[0], ''); }
+    var pm = text.match(/#(\S+)/);
+    if (pm) { task.project = pm[1]; chips.push('프로젝트 · ' + pm[1]); rest = rest.replace(pm[0], ''); }
+    var im = text.match(/!(높음|보통|낮음)/);
+    if (im) { task.prio = im[1] === '높음' ? 'high' : ''; chips.push('중요도 · ' + im[1]); rest = rest.replace(im[0], ''); }
+    task.text = rest.replace(/\s+/g, ' ').trim();
+    return { chips: chips.map(function (label) { return { label: label }; }), task: task };
+  }
+
+  addDraft() {
+    var p = this.parse(this.state.draft);
+    if (!p.task.text) return;
+    var names = { inbox: '수신함', today: '오늘', upcoming: '예정' };
+    this.setState({
+      tasks: this.state.tasks.concat([Object.assign({ id: this.state.nextId, done: false }, p.task)]),
+      nextId: this.state.nextId + 1, draft: '', flash: names[p.task.when] + '에 넣었습니다.'
+    });
+  }
+
+  renderVals() {
+    var self = this;
+    var accent = this.props.accent ?? '#3346C8';
+    var s = this.state;
+    var tasks = s.tasks;
+
+    var views = [['inbox', '수신함'], ['today', '오늘'], ['upcoming', '예정'], ['someday', '나중에'], ['done', '완료']];
+    var nav = views.map(function (v) {
+      var k = v[0];
+      var active = s.view === k;
+      var n = k === 'done' ? tasks.filter(function (t) { return t.done; }).length : tasks.filter(function (t) { return !t.done && self.inView(t, k); }).length;
+      return {
+        label: v[1], count: n,
+        pick: function () { self.setState({ view: k }); },
+        style: 'display: flex; justify-content: space-between; align-items: center; min-height: 40px; padding: 0 8px; border: none; border-radius: 8px; cursor: pointer; text-align: left; font-size: 14px; ' +
+          (active ? 'background: #FFFFFF; color: ' + accent + '; font-weight: 600;' : 'background: transparent; color: #1B1B19;')
+      };
+    });
+
+    var deco = function (t) {
+      return Object.assign({}, t, {
+        overdue: t.when === 'overdue' && !t.done,
+        hasDate: !!t.dateLabel, hasTime: !!t.time, hasRepeat: !!t.repeat, hasProject: !!t.project, hasSource: !!t.source,
+        high: t.prio === 'high' && !t.done,
+        aria: t.done ? t.text + ' 완료 취소' : t.text + ' 완료',
+        boxStyle: 'flex: none; width: 24px; height: 24px; margin-top: 1px; border-radius: 6px; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #FFFFFF; border: 2px solid ' + (t.done ? accent : '#8A8984') + '; background: ' + (t.done ? accent : '#FFFFFF') + ';',
+        textStyle: 'font-size: 15px; line-height: 1.45; ' + (t.done ? 'color: #6F6E69; text-decoration: line-through;' : 'color: #1B1B19;'),
+        dateStyle: 'font-size: 12px; padding: 4px 8px; border-radius: 999px; ' + (t.when === 'overdue' ? 'background: #FBECE4; color: #9A3A0C;' : 'background: #F0EFEB; color: #4A4945;'),
+        toggle: function () { self.update(t.id, { done: !t.done }); },
+        toToday: function () { self.update(t.id, { when: 'today', dateLabel: '' }); },
+        toSomeday: function () { self.update(t.id, { when: 'someday', dateLabel: '' }); }
+      });
+    };
+    var byTime = function (a, b) { return (a.time || '99') < (b.time || '99') ? -1 : 1; };
+    var pick = function (fn) { return tasks.filter(fn).map(deco); };
+
+    var groups;
+    if (s.view === 'today') {
+      groups = [
+        { title: '지난 할 일', color: '#9A3A0C', hint: '어제까지 못 끝낸 것. 창을 띄우지 않고 여기서 바로 정리합니다.', items: pick(function (t) { return t.when === 'overdue'; }) },
+        { title: '오늘', color: '#4A4945', hint: '', items: tasks.filter(function (t) { return t.when === 'today'; }).sort(byTime).map(deco) }
+      ];
+    } else if (s.view === 'done') {
+      groups = [{ title: '완료', color: '#4A4945', hint: '', items: pick(function (t) { return t.done; }) }];
+    } else {
+      var titles = { inbox: ['수신함', '날짜를 정하지 않은 것. Arms(Gmail·Slack)에서 들어온 것도 여기로 옵니다.'], upcoming: ['예정', '날짜가 정해진 것. 그날이 되면 저절로 오늘에 나타납니다.'], someday: ['나중에', '언젠가 할 것. 날짜를 붙이면 예정으로 갑니다.'] };
+      groups = [{ title: titles[s.view][0], color: '#4A4945', hint: titles[s.view][1], items: pick(function (t) { return t.when === s.view; }) }];
+    }
+    groups = groups.filter(function (g) { return g.items.length > 0; }).map(function (g) { return Object.assign({}, g, { count: g.items.length }); });
+
+    var subs = { today: '11월 17일 화요일', inbox: '정리 전 할 일', upcoming: '앞으로의 할 일', someday: '날짜 없는 할 일', done: '끝낸 할 일' };
+    var parsed = this.parse(s.draft).chips;
+
+    return {
+      accent: accent, nav: nav, groups: groups, isEmpty: groups.length === 0,
+      viewTitle: views.filter(function (v) { return v[0] === s.view; })[0][1], viewSub: subs[s.view],
+      draft: s.draft, parsed: parsed, noParsed: parsed.length === 0,
+      flash: s.flash, hasFlash: !!s.flash,
+      candidateAdded: s.candidateAdded, candidateOpen: !s.candidateAdded,
+      onDraft: function (e) { self.setState({ draft: e.target.value, flash: '' }); },
+      onKey: function (e) { if (e.key === 'Enter' && !(e.nativeEvent && e.nativeEvent.isComposing)) self.addDraft(); },
+      addDraft: function () { self.addDraft(); },
+      addCandidate: function () {
+        self.setState({ candidateAdded: true, nextId: s.nextId + 1, tasks: tasks.concat([{ id: s.nextId, text: '거래처 견적서 회신', when: 'inbox', source: 'Gmail', done: false }]) });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

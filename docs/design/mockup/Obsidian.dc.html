@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Octopus 옵시디언 설정</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0}
+button,input{font:inherit}
+a{color:#3346C8}a:hover{color:#22309A}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #F6F6F3; font-family: 'Noto Sans KR', system-ui, sans-serif; color: #1B1B19">
+<div style="max-width: 1120px; margin: 0 auto; box-sizing: border-box; padding: 32px 24px 64px; display: flex; flex-direction: column; gap: 28px">
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<a href="Connectors.dc.html" style="align-self: flex-start; font-size: 14px; text-decoration: none; padding: 8px 0">← Arms</a>
+<h1 style="margin: 0; font-size: 28px; font-weight: 700">옵시디언</h1>
+<p style="margin: 0; font-size: 15px; line-height: 1.6; color: #4A4945; max-width: 720px">할 일의 원본은 Octopus 에 있습니다. 옵시디언에는 보기 좋게 내보낼 뿐이라, vault 동기화가 꼬여도 할 일 편집은 멈추지 않습니다.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+<section style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 700">어떻게 쓸까요</h2>
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+<button onClick="{{m.pick}}" aria-pressed="{{m.pressed}}" style="{{m.style}}">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600">{{m.title}}<sc-if value="{{m.recommended}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #E3F1E9; color: #155C38">권장</span></sc-if></span>
+<span style="font-size: 13px; line-height: 1.55; color: #4A4945">{{m.desc}}</span>
+</button>
+</sc-for>
+</section>
+
+<sc-if value="{{enabled}}" hint-placeholder-val="{{ true }}">
+<section style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 700">내보낼 곳</h2>
+<div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #4A4945"><span>vault</span><span style="font-size: 14px; color: #1B1B19">C:\Users\me\Documents\업무노트 <a href="#" style="font-size: 13px; margin-left: 6px">바꾸기</a></span></div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #4A4945">파일 하나 (vault 기준 경로)
+<input value="Octopus/할 일.md" style="min-height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #D9D8D2; border-radius: 8px; color: #1B1B19; background: #FFFFFF">
+</label>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; cursor: pointer">
+<input type="checkbox" checked="{{dailyLink}}" onChange="{{toggleDaily}}" style="width: 18px; height: 18px; margin: 2px 0 0">
+<span>오늘 일일노트에 이 파일 링크 한 줄 넣기<br><span style="font-size: 12px; color: #5E5D58">기본은 꺼짐. 켜도 하루 한 줄만, 새 파일은 만들지 않습니다.</span></span>
+</label>
+<span style="font-size: 13px; color: #5E5D58">할 일이 바뀔 때마다 자동으로 내보냅니다 · 마지막 10:42</span>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E3DE; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 700">동기화 점검</h2>
+<div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.55">
+<span style="flex: none; margin-top: 7px; width: 8px; height: 8px; border-radius: 50%; background: #1E7A4C"></span>
+<span>vault 가 git 저장소입니다. 내보내는 파일에 충돌 표시가 생기면 다음 내보내기 때 Octopus 내용으로 덮어씁니다. 할 일은 잃지 않습니다.</span>
+</div>
+<div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.55">
+<span style="{{ignoreDot}}"></span>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span>{{ignoreText}}</span>
+<sc-if value="{{ignoreMissing}}" hint-placeholder-val="{{ true }}">
+<button onClick="{{addIgnore}}" style="align-self: flex-start; min-height: 36px; padding: 0 14px; border-radius: 8px; border: none; background: {{accent}}; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer">제외 목록에 추가</button>
+</sc-if>
+</div>
+</div>
+</section>
+</sc-if>
+</div>
+
+<section style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 700">옵시디언에 보이는 모습</h2>
+<span style="font-size: 13px; color: #5E5D58">{{previewPath}}</span>
+<pre style="margin: 0; background: #1F1F1D; color: #E9E8E3; border-radius: 12px; padding: 20px; font-family: 'D2Coding', Consolas, monospace; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-x: auto">{{preview}}</pre>
+<p style="margin: 0; font-size: 12px; color: #5E5D58; line-height: 1.6">날짜·기기마다 파일을 새로 만들지 않습니다. 파일은 늘 하나이고, 통째로 다시 씁니다.</p>
+</section>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#3346C8","options":["#3346C8","#0F6E6E","#7A3FB5","#1B1B19"]},"$preview":{"width":1280,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'export', dailyLink: false, ignoreAdded: false };
+  }
+
+  renderVals() {
+    var self = this;
+    var accent = this.props.accent ?? '#3346C8';
+    var s = this.state;
+
+    var defs = [
+      { id: 'off', title: '쓰지 않기', desc: 'Octopus 만으로 할 일을 관리합니다. 옵시디언이 없어도 모든 기능이 됩니다.' },
+      { id: 'export', title: '내보내기만', desc: '할 일을 파일 하나로 내보냅니다. 옵시디언에서는 보기만 하고, 고치는 건 Octopus 에서.', recommended: true },
+      { id: 'both', title: '내보내기 + 적어 넣기', desc: '같은 파일 맨 아래 “적어 넣기” 칸에 쓴 - [ ] 줄만 Octopus 수신함으로 가져오고 그 칸을 비웁니다.' }
+    ];
+    var modes = defs.map(function (d) {
+      var on = s.mode === d.id;
+      return Object.assign({}, d, {
+        recommended: !!d.recommended, pressed: on ? 'true' : 'false',
+        pick: function () { self.setState({ mode: d.id }); },
+        style: 'text-align: left; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 12px; cursor: pointer; background: #FFFFFF; color: #1B1B19; ' +
+          (on ? 'border: 2px solid ' + accent + '; padding: 13px 15px;' : 'border: 1px solid #E4E3DE;')
+      });
+    });
+
+    var lines = [
+      '<!-- Octopus 가 덮어쓰는 파일입니다. 고치려면 Octopus 에서. -->',
+      '',
+      '## 지난 할 일',
+      '- [ ] 산출물 체크리스트 검토 (11/15) #GS인증',
+      '',
+      '## 오늘 · 11/17 화',
+      '- [x] 주간 회의 자료 올리기 10:00 (매주 화)',
+      '- [ ] 결함 보고서 2차 정리 15:00 #GS인증',
+      '- [ ] TTA-26-99001 시험 종료 일정 회신 [메일](https://mail…)',
+      '',
+      '## 예정',
+      '- [ ] 분기 회고 작성 (11/21)',
+      '- [ ] 99002 1차 결함 리포트 마감 (12/01) #GS인증',
+      '',
+      '## 나중에',
+      '- [ ] autoTest 사내망 이전 계획 세우기'
+    ];
+    if (s.mode === 'both') lines = lines.concat(['', '## 적어 넣기', '<!-- 여기에 - [ ] 로 적으면 Octopus 수신함으로 옮깁니다 -->', '- [ ] ']);
+    var preview = s.mode === 'off' ? '(내보내지 않습니다. vault 에는 아무것도 쓰지 않습니다.)' : lines.join('\n');
+
+    return {
+      accent: accent, modes: modes, enabled: s.mode !== 'off',
+      dailyLink: s.dailyLink,
+      toggleDaily: function (e) { self.setState({ dailyLink: e.target.checked }); },
+      previewPath: s.mode === 'off' ? '' : '업무노트 / Octopus / 할 일.md',
+      preview: preview,
+      ignoreMissing: !s.ignoreAdded,
+      ignoreText: s.ignoreAdded ? '.gitignore 에 .obsidian/workspace*.json 을 넣었습니다. 창 배치 파일 때문에 동기화가 멈추는 일이 없어집니다.' : '.obsidian/workspace.json 이 git 에 올라가고 있습니다. 옵시디언이 창을 움직일 때마다 바꾸는 파일이라 PC 두 대 이상이면 거의 반드시 충돌합니다.',
+      ignoreDot: 'flex: none; margin-top: 7px; width: 8px; height: 8px; border-radius: 50%; background: ' + (s.ignoreAdded ? '#1E7A4C' : '#B4440E') + ';',
+      addIgnore: function () { self.setState({ ignoreAdded: true }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
