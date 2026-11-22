@@ -2,6 +2,10 @@ import { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { runMigrations, type Migration } from '../../src/main/core/db/migrate'
 import { migrations } from '../../src/main/core/db/migrations'
+import { migration001 } from '../../src/main/core/db/migrations/001-app-meta'
+
+// 001 단독으로 실행기 동작을 검증한다(전체 목록은 002 이후 계속 늘어남).
+const only001 = [migration001]
 
 function userVersion(db: DatabaseSync): number {
   return (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
@@ -25,7 +29,7 @@ describe('runMigrations', () => {
   it('applies 001 to an empty database: user_version=1 and app_meta exists', () => {
     expect(userVersion(db)).toBe(0)
 
-    const version = runMigrations(db, migrations)
+    const version = runMigrations(db, only001)
 
     expect(version).toBe(1)
     expect(userVersion(db)).toBe(1)
@@ -33,10 +37,10 @@ describe('runMigrations', () => {
   })
 
   it('does nothing when run twice', () => {
-    runMigrations(db, migrations)
+    runMigrations(db, only001)
     db.prepare('INSERT INTO app_meta (key, value) VALUES (?, ?)').run('k', 'v')
 
-    expect(runMigrations(db, migrations)).toBe(1)
+    expect(runMigrations(db, only001)).toBe(1)
 
     expect(userVersion(db)).toBe(1)
     expect(db.prepare('SELECT value FROM app_meta WHERE key = ?').get('k')).toEqual({ value: 'v' })
@@ -52,8 +56,8 @@ describe('runMigrations', () => {
       }
     }
 
-    runMigrations(db, migrations)
-    expect(() => runMigrations(db, [...migrations, failing])).toThrow(/migration 2 \(failing\) failed/)
+    runMigrations(db, only001)
+    expect(() => runMigrations(db, [...only001, failing])).toThrow(/migration 2 \(failing\) failed/)
 
     expect(userVersion(db)).toBe(1)
     expect(tableExists(db, 'half_done')).toBe(false)
