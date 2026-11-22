@@ -12,7 +12,7 @@ import { cleanElectronEnv } from './devEnv.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, '.captures')
-const VIEWS = ['today', 'inbox']
+const VIEWS = ['today', 'routines', 'memos']
 const TIMEOUT_MS = 60_000
 const TEMP_PREFIX = 'octopus-capture-'
 

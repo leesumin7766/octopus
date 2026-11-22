@@ -1,19 +1,22 @@
 import { resolve } from 'node:path'
-import { addDays } from '../../shared/tasks/dates'
-import type { TaskInput, TaskView } from '../../shared/tasks/types'
-import { parseView } from '../../shared/validation/taskIpc'
+import { parseInitialView, type InitialView } from '../../shared/initialView'
+import type { RoutineInput } from '../../shared/routines/types'
+import { addDays, weekdayOf } from '../../shared/tasks/dates'
+import type { TaskInput } from '../../shared/tasks/types'
+import type { MemoRepository } from '../core/memos/memoRepository'
+import type { RoutineRepository } from '../core/routines/routineRepository'
 import type { TaskRepository } from '../core/tasks/taskRepository'
 
 // 개발용 화면 캡처의 순수한 부분. electron 을 쓰지 않아 테스트할 수 있다.
 
 /** png 를 저장할 경로. 있을 때만 캡처 모드가 켜진다. */
 export const CAPTURE_ENV = 'OCTOPUS_CAPTURE'
-/** 처음 보여 줄 보기. 없거나 틀리면 today. */
+/** 처음 보여 줄 화면(할 일 보기 5종, routines, memos). 없거나 틀리면 today. */
 export const CAPTURE_VIEW_ENV = 'OCTOPUS_CAPTURE_VIEW'
 
 export interface CaptureConfig {
   outputPath: string
-  view: TaskView
+  view: InitialView
 }
 
 /**
@@ -26,8 +29,7 @@ export function readCaptureConfig(env: NodeJS.ProcessEnv, isPackaged: boolean): 
   const output = env[CAPTURE_ENV]
   if (!output || !output.toLowerCase().endsWith('.png')) return null
 
-  const view = parseView(env[CAPTURE_VIEW_ENV])
-  return { outputPath: resolve(output), view: view.ok ? view.value : 'today' }
+  return { outputPath: resolve(output), view: parseInitialView(env[CAPTURE_VIEW_ENV]) ?? 'today' }
 }
 
 /**
@@ -56,4 +58,60 @@ export function buildSampleTasks(today: string): TaskInput[] {
 /** 표본 할 일을 저장소에 넣는다. */
 export function createSampleTasks(repo: Pick<TaskRepository, 'create'>, today: string): void {
   for (const input of buildSampleTasks(today)) repo.create(input)
+}
+
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6]
+const WEEKDAYS = [1, 2, 3, 4, 5]
+
+/** 캡처용 표본 루틴. 첫 번째는 매일이라 어느 요일에 찍어도 오늘 항목이 있다. */
+export const SAMPLE_ROUTINES: readonly RoutineInput[] = [
+  { title: '아침 스트레칭', days: EVERY_DAY },
+  { title: '영어 공부 30분', days: WEEKDAYS },
+  { title: '저녁 일기 쓰기', days: EVERY_DAY }
+]
+
+/** 캡처용 표본 메모. pin 은 고정, toTask 는 할 일로 만들어 연결한다. */
+export const SAMPLE_MEMOS: readonly { body: string; pin?: boolean; toTask?: boolean }[] = [
+  { body: '장보기 목록\n- 우유\n- 달걀\n- 식빵', pin: true },
+  { body: '다음 주 팀 회의 안건\n1. 분기 계획 점검\n2. 일정 조율\n3. 휴가 일정 공유' },
+  { body: '내일 오후 3시 치과 예약 전화하기', toTask: true }
+]
+
+/** 캡처용으로 거슬러 올라가 기록을 만들 날 수 */
+const HISTORY_DAYS = 6
+
+export interface SampleRepos {
+  tasks: Pick<TaskRepository, 'create' | 'setStatus'>
+  routines: Pick<RoutineRepository, 'create' | 'todayItems'>
+  memos: Pick<MemoRepository, 'create' | 'togglePin' | 'toTask'>
+}
+
+/**
+ * 캡처용 표본 전체: 할 일, 루틴 3개(첫 번째는 오늘 완료, 지난 며칠의 기록 포함), 메모 3개
+ * (하나는 고정, 하나는 할 일로 연결). today 는 YYYY-MM-DD.
+ */
+export function createSampleData(repos: SampleRepos, today: string): void {
+  createSampleTasks(repos.tasks, today)
+
+  const routines = SAMPLE_ROUTINES.map((input) => repos.routines.create(input, today))
+
+  // 오늘 항목: 첫 번째 루틴은 완료해 둔다.
+  const first = repos.routines.todayItems(today).find((task) => task.routineId === routines[0].id)
+  if (first) repos.tasks.setStatus(first.id, 'done')
+
+  // 지난 며칠의 기록: 해당 요일마다 항목을 만들고 일부는 끝내지 못한 채로 둔다.
+  for (let back = 1; back <= HISTORY_DAYS; back++) {
+    const date = addDays(today, -back)
+    routines.forEach((routine, index) => {
+      if (!routine.days.includes(weekdayOf(date))) return
+      const past = repos.tasks.create({ title: routine.title, bucket: 'scheduled', date, routineId: routine.id })
+      if ((index + back) % 3 !== 0) repos.tasks.setStatus(past.id, 'done')
+    })
+  }
+
+  for (const sample of SAMPLE_MEMOS) {
+    const memo = repos.memos.create(sample.body)
+    if (sample.pin) repos.memos.togglePin(memo.id)
+    if (sample.toTask) repos.memos.toTask(memo.id, today)
+  }
 }

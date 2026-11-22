@@ -12,7 +12,7 @@ import { createMemoRepository, type MemoRepository } from './core/memos/memoRepo
 import { createRoutineRepository, type RoutineRepository } from './core/routines/routineRepository'
 import { createTaskRepository, type TaskRepository } from './core/tasks/taskRepository'
 import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
-import { createSampleTasks } from './dev/captureSupport'
+import { createSampleData } from './dev/captureSupport'
 import { createMemoHandlers, registerMemoHandlers } from './ipc/memos'
 import { createRoutineHandlers, registerRoutineHandlers } from './ipc/routines'
 import { createTaskHandlers, registerTaskHandlers } from './ipc/tasks'
@@ -79,7 +79,12 @@ function createWindow(): void {
 
 void app.whenReady().then(() => {
   initDatabase()
-  if (captureSession && taskRepository) createSampleTasks(taskRepository, localDateString(new Date()))
+  if (captureSession && taskRepository && routineRepository && memoRepository) {
+    createSampleData(
+      { tasks: taskRepository, routines: routineRepository, memos: memoRepository },
+      localDateString(new Date())
+    )
+  }
   ipcMain.handle(IPC.appVersion, () => app.getVersion())
   const logError = (channel: string, error: unknown): void => console.error(`[octopus] ${channel} failed`, error)
   registerTaskHandlers(
