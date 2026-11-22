@@ -1,10 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { OctopusApi } from '../shared/api'
+import { readInitialView } from '../shared/initialView'
 import { IPC } from '../shared/ipc'
 
 // 채널마다 함수를 하나씩만 노출한다. ipcRenderer 나 범용 invoke 는 넘기지 않는다.
 const api: OctopusApi = {
   getAppVersion: () => ipcRenderer.invoke(IPC.appVersion) as Promise<string>,
+  // 개발용 캡처에서만 main 이 넘기는 값. 평소에는 null.
+  initialView: readInitialView(process.argv),
   tasks: {
     list: (view) => ipcRenderer.invoke(IPC.tasksList, view),
     quickAdd: (text) => ipcRenderer.invoke(IPC.tasksQuickAdd, text),

@@ -4,13 +4,16 @@ export interface WebPreferences {
   contextIsolation: true
   nodeIntegration: false
   sandbox: true
+  /** 렌더러의 process.argv 로 넘길 인자. 비어 있으면 키 자체를 넣지 않는다. */
+  additionalArguments?: string[]
 }
 
-export function buildWebPreferences(preloadPath: string): WebPreferences {
+export function buildWebPreferences(preloadPath: string, additionalArguments: readonly string[] = []): WebPreferences {
   return {
     preload: preloadPath,
     contextIsolation: true,
     nodeIntegration: false,
-    sandbox: true
+    sandbox: true,
+    ...(additionalArguments.length > 0 ? { additionalArguments: [...additionalArguments] } : {})
   }
 }

@@ -14,6 +14,7 @@ vi.mock('electron', () => ({
 
 type Api = {
   getAppVersion: () => Promise<string>
+  initialView: unknown
   tasks: Record<string, (...args: unknown[]) => Promise<unknown>>
 }
 
@@ -31,8 +32,8 @@ describe('preload', () => {
     expect(name).toBe('octopus')
   })
 
-  it('exposes only getAppVersion and tasks (no ipcRenderer, no generic invoke)', () => {
-    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'tasks'])
+  it('exposes only getAppVersion, initialView and tasks (no ipcRenderer, no generic invoke)', () => {
+    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'initialView', 'tasks'])
     for (const key of ['ipcRenderer', 'invoke', 'send', 'on', 'electron']) {
       expect(key in api).toBe(false)
       expect(key in api.tasks).toBe(false)
@@ -65,6 +66,10 @@ describe('preload', () => {
 
     expect(mocks.invoke).toHaveBeenCalledTimes(1)
     expect(mocks.invoke).toHaveBeenCalledWith(channel, ...(args as unknown[]))
+  })
+
+  it('initialView is null when main passed no argument', () => {
+    expect(api.initialView).toBeNull()
   })
 
   it('getAppVersion uses the version channel', async () => {
