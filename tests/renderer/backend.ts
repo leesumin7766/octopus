@@ -1,12 +1,15 @@
 import { vi, type Mock } from 'vitest'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
 import { createRoutineRepository, type RoutineRepository } from '../../src/main/core/routines/routineRepository'
+import { createSettingsRepository, type SettingsRepository } from '../../src/main/core/settings/settingsRepository'
 import { createMemoHandlers } from '../../src/main/ipc/memos'
 import { createRoutineHandlers } from '../../src/main/ipc/routines'
+import { createSettingsHandlers } from '../../src/main/ipc/settings'
 import { createTaskHandlers } from '../../src/main/ipc/tasks'
 import type { OctopusApi } from '../../src/shared/api'
 import type { MemosApi } from '../../src/shared/memos/ipcApi'
 import type { RoutinesApi } from '../../src/shared/routines/ipcApi'
+import type { SettingsApi } from '../../src/shared/settings/ipcApi'
 import type { TasksApi } from '../../src/shared/tasks/ipcApi'
 import { createTestRepo, type TestRepo } from '../tasks/helpers'
 
@@ -16,15 +19,18 @@ import { createTestRepo, type TestRepo } from '../tasks/helpers'
 export type TaskSpies = { [K in keyof TasksApi]: Mock<TasksApi[K]> }
 export type RoutineSpies = { [K in keyof RoutinesApi]: Mock<RoutinesApi[K]> }
 export type MemoSpies = { [K in keyof MemosApi]: Mock<MemosApi[K]> }
+export type SettingsSpies = { [K in keyof SettingsApi]: Mock<SettingsApi[K]> }
 
 export interface Backend {
   t: TestRepo
   routineRepo: RoutineRepository
   memoRepo: MemoRepository
+  settingsRepo: SettingsRepository
   /** window.octopus.tasks 로 들어가는 함수들. 호출 인자를 확인하거나 결과를 바꿀 수 있다. */
   tasks: TaskSpies
   routines: RoutineSpies
   memos: MemoSpies
+  settings: SettingsSpies
 }
 
 /**
@@ -36,6 +42,7 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
   const now = (): Date => new Date()
   const routineRepo = createRoutineRepository(t.db, { now, tasks: t.repo })
   const memoRepo = createMemoRepository(t.db, { now, tasks: t.repo })
+  const settingsRepo = createSettingsRepository(t.db)
   const logError = (): void => {}
 
   const taskHandlers = createTaskHandlers({
@@ -46,6 +53,7 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
   })
   const routineHandlers = createRoutineHandlers({ getRepository: () => routineRepo, now, logError })
   const memoHandlers = createMemoHandlers({ getRepository: () => memoRepo, now, logError })
+  const settingsHandlers = createSettingsHandlers({ getRepository: () => settingsRepo, logError })
 
   const tasks = {
     list: vi.fn(async (view: unknown) => taskHandlers.list(view)),
@@ -79,14 +87,20 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     toTask: vi.fn(async (id: unknown) => memoHandlers.toTask(id))
   } as unknown as MemoSpies
 
+  const settings = {
+    get: vi.fn(async (key: unknown) => settingsHandlers.get(key)),
+    set: vi.fn(async (key: unknown, value: unknown) => settingsHandlers.set(key, value))
+  } as unknown as SettingsSpies
+
   const api: OctopusApi = {
     getAppVersion: async () => '0.0.0-test',
     initialView,
     tasks: tasks as unknown as TasksApi,
     routines: routines as unknown as RoutinesApi,
-    memos: memos as unknown as MemosApi
+    memos: memos as unknown as MemosApi,
+    settings: settings as unknown as SettingsApi
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, tasks, routines, memos }
+  return { t, routineRepo, memoRepo, settingsRepo, tasks, routines, memos, settings }
 }

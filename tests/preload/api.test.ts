@@ -19,6 +19,7 @@ type Api = {
   tasks: Fns
   routines: Fns
   memos: Fns
+  settings: Fns
 }
 
 describe('preload', () => {
@@ -36,11 +37,15 @@ describe('preload', () => {
   })
 
   it('exposes only getAppVersion, initialView, tasks, routines and memos (no ipcRenderer, no generic invoke)', () => {
-    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'initialView', 'memos', 'routines', 'tasks'])
+    expect(Object.keys(api).sort()).toEqual(['getAppVersion', 'initialView', 'memos', 'routines', 'settings', 'tasks'])
     for (const key of ['ipcRenderer', 'invoke', 'send', 'on', 'electron']) {
       expect(key in api).toBe(false)
-      for (const group of [api.tasks, api.routines, api.memos]) expect(key in group).toBe(false)
+      for (const group of [api.tasks, api.routines, api.memos, api.settings]) expect(key in group).toBe(false)
     }
+  })
+
+  it('exposes exactly get and set for settings', () => {
+    expect(Object.keys(api.settings).sort()).toEqual(['get', 'set'])
   })
 
   it('exposes exactly the routine and memo functions', () => {
@@ -61,7 +66,9 @@ describe('preload', () => {
     ['memos', 'remove', ['ID'], IPC.memosRemove],
     ['memos', 'togglePin', ['ID'], IPC.memosTogglePin],
     ['memos', 'search', ['검색'], IPC.memosSearch],
-    ['memos', 'toTask', ['ID'], IPC.memosToTask]
+    ['memos', 'toTask', ['ID'], IPC.memosToTask],
+    ['settings', 'get', ['nav.collapsed'], IPC.settingsGet],
+    ['settings', 'set', ['nav.collapsed', true], IPC.settingsSet]
   ] as const)('%s.%s forwards its arguments to the matching channel', async (group, method, args, channel) => {
     mocks.invoke.mockClear()
 

@@ -23,7 +23,9 @@ export const IPC = {
   memosRemove: 'memos:remove',
   memosTogglePin: 'memos:togglePin',
   memosSearch: 'memos:search',
-  memosToTask: 'memos:toTask'
+  memosToTask: 'memos:toTask',
+  settingsGet: 'settings:get',
+  settingsSet: 'settings:set'
 } as const
 
 export type IpcErrorCode = 'invalid_input' | 'not_found' | 'db_unavailable' | 'internal'

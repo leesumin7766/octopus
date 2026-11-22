@@ -36,6 +36,10 @@ const api: OctopusApi = {
     togglePin: (id) => ipcRenderer.invoke(IPC.memosTogglePin, id),
     search: (query) => ipcRenderer.invoke(IPC.memosSearch, query),
     toTask: (id) => ipcRenderer.invoke(IPC.memosToTask, id)
+  },
+  settings: {
+    get: (key) => ipcRenderer.invoke(IPC.settingsGet, key),
+    set: (key, value) => ipcRenderer.invoke(IPC.settingsSet, key, value)
   }
 }
 
