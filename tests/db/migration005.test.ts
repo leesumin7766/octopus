@@ -26,7 +26,7 @@ describe('migration 005 (shortcuts)', () => {
     runMigrations(db, migrations.slice(0, 4))
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('k', 'v')").run()
 
-    expect(runMigrations(db, migrations)).toBe(5)
+    expect(runMigrations(db, migrations.slice(0, 5))).toBe(5)
 
     expect(db.prepare('SELECT value FROM app_meta WHERE key = ?').get('k')).toEqual({ value: 'v' })
     const columns = (db.prepare('PRAGMA table_info(shortcuts)').all() as { name: string }[]).map((c) => c.name)
