@@ -1,0 +1,5 @@
+import type { Migration } from '../migrate'
+import { migration001 } from './001-app-meta'
+
+// 새 마이그레이션은 파일을 하나 만들고 여기에 번호 순서로 추가한다.
+export const migrations: readonly Migration[] = [migration001]
