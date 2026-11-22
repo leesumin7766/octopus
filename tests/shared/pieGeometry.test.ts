@@ -40,11 +40,25 @@ describe('slotFromPoint', () => {
     }
   })
 
-  it('the edge between two wedges belongs to the clockwise one', () => {
-    expect(slotFromPoint(100, -100)).toBe(1) // 12시와 3시 사이의 -45도
+  it('the diagonals (1:30, 4:30, 7:30, 10:30) are the centers of the odd wedges', () => {
+    expect(slotFromPoint(100, -100)).toBe(1)
     expect(slotFromPoint(100, 100)).toBe(3)
     expect(slotFromPoint(-100, 100)).toBe(5)
     expect(slotFromPoint(-100, -100)).toBe(7)
+  })
+
+  it('the first wedge is centered on 12 o-clock: its edges are 22.5 degrees to each side', () => {
+    const edge = (degrees: number, radius = 100) => {
+      const radians = (degrees * Math.PI) / 180
+      return slotFromPoint(radius * Math.cos(radians), radius * Math.sin(radians))
+    }
+
+    expect(edge(-90 - 1)).toBe(0) // 12시에서 살짝 왼쪽도 첫 칸
+    expect(edge(-90 + 1)).toBe(0) // 살짝 오른쪽도 첫 칸
+    expect(edge(-67.5 - 0.5)).toBe(0)
+    expect(edge(-67.5 + 0.5)).toBe(1) // 경계를 넘으면 시계 방향의 다음 칸
+    expect(edge(-112.5 + 0.5)).toBe(0)
+    expect(edge(-112.5 - 0.5)).toBe(7) // 12시 왼쪽 경계 너머는 마지막 칸
   })
 
   it('there is no selection in the dead zone near the center, or far outside', () => {
@@ -70,12 +84,22 @@ describe('slotFromPoint', () => {
 })
 
 describe('slot angles', () => {
-  it('start at -90 (12 o\'clock) and step 45 degrees', () => {
-    expect(slotAngles(0)).toEqual({ start: -90, end: -45 })
-    expect(slotAngles(2)).toEqual({ start: 0, end: 45 })
-    expect(slotAngles(7)).toEqual({ start: 225, end: 270 })
-    expect(slotCenterAngle(0)).toBe(-67.5)
-    expect(slotCenterAngle(4)).toBe(112.5)
+  it('the first wedge is centered on 12 o-clock (-90) and each next one is 45 degrees clockwise', () => {
+    expect(slotCenterAngle(0)).toBe(-90)
+    expect(slotCenterAngle(2)).toBe(0) // 3시
+    expect(slotCenterAngle(4)).toBe(90) // 6시
+    expect(slotCenterAngle(6)).toBe(180) // 9시
+    expect(slotAngles(0)).toEqual({ start: -112.5, end: -67.5 })
+    expect(slotAngles(2)).toEqual({ start: -22.5, end: 22.5 })
+    expect(slotAngles(7)).toEqual({ start: 202.5, end: 247.5 })
+  })
+
+  it('each wedge is symmetric around its center direction and 45 degrees wide', () => {
+    for (let slot = 0; slot < 8; slot++) {
+      const { start, end } = slotAngles(slot)
+      expect((start + end) / 2).toBe(slotCenterAngle(slot))
+      expect(end - start).toBe(45)
+    }
   })
 })
 

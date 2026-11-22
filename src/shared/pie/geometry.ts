@@ -15,20 +15,21 @@ const SLOT_DEGREES = 360 / PIE_SLOT_COUNT
 
 /**
  * 가운데에서 (dx, dy) 만큼 떨어진 점이 가리키는 칸 번호(0..7).
- * 0 은 12시 방향 칸이고 시계 방향으로 커진다. 데드존이나 바깥이면 null.
+ * 0 은 12시 방향 칸(12시가 그 칸의 가운데)이고 시계 방향으로 커진다. 데드존이나 바깥이면 null.
  */
 export function slotFromPoint(dx: number, dy: number, inner = DEAD_ZONE_PX, outer = OUTER_RADIUS_PX): number | null {
   const distance = Math.hypot(dx, dy)
   if (!Number.isFinite(distance) || distance < inner || distance > outer) return null
 
   const degrees = (Math.atan2(dy, dx) * 180) / Math.PI // 0 = 오른쪽, 90 = 아래
-  const fromTop = (((degrees + 90) % 360) + 360) % 360
+  // 첫 칸의 가운데가 12시에 오도록 반 칸(22.5도)만큼 돌려서 센다.
+  const fromTop = (((degrees + 90 + SLOT_DEGREES / 2) % 360) + 360) % 360
   return Math.floor(fromTop / SLOT_DEGREES) % PIE_SLOT_COUNT
 }
 
-/** 칸 i 의 가운데 방향(도). 12시가 -90, 시계 방향으로 커진다. */
+/** 칸 i 의 가운데 방향(도). 첫 칸(0)의 가운데가 12시(-90)이고 시계 방향으로 커진다. */
 export function slotCenterAngle(index: number): number {
-  return -90 + index * SLOT_DEGREES + SLOT_DEGREES / 2
+  return -90 + index * SLOT_DEGREES
 }
 
 /** 가운데에서 radius 만큼 떨어진, 칸 i 의 가운데 방향의 점. */
@@ -39,7 +40,7 @@ export function slotCenterPoint(index: number, radius: number): { x: number; y: 
 
 /** 칸 i 의 부채꼴 경계 두 각도(도) */
 export function slotAngles(index: number): { start: number; end: number } {
-  const start = -90 + index * SLOT_DEGREES
+  const start = slotCenterAngle(index) - SLOT_DEGREES / 2
   return { start, end: start + SLOT_DEGREES }
 }
 
