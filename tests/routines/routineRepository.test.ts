@@ -186,12 +186,17 @@ describe('routine repository', () => {
       expect(env.t.repo.listView('today', TODAY).today.map((task) => task.title)).toEqual(['매일'])
     })
 
-    it('the past routine task is kept as a record (done view / direct lookup)', () => {
+    it('a finished routine task is a record for the checklist history, not an entry in the done view', () => {
       const routine = env.routines.create({ title: '매일', days: EVERY_DAY }, '2026-03-09')
       const [past] = env.routines.todayItems('2026-03-09')
       env.t.repo.setStatus(past.id, 'done')
+      const ordinary = env.t.repo.create({ title: '일반 할 일', date: TODAY })
+      env.t.repo.setStatus(ordinary.id, 'done')
 
-      expect(env.t.repo.listView('done', TODAY).map((task) => task.routineId)).toEqual([routine.id])
+      expect(env.t.repo.listView('done', TODAY).map((task) => task.title)).toEqual(['일반 할 일'])
+      expect(env.t.repo.get(past.id)?.status).toBe('done') // 기록은 그대로 남아 있고
+      expect(env.routines.history(TODAY).routines[0]).toMatchObject({ id: routine.id }) // 기록 격자에 쓰인다
+      expect(env.routines.history(TODAY).routines[0].cells).toContain('done')
     })
 
     it('a routine task cannot be moved out of "scheduled"', () => {

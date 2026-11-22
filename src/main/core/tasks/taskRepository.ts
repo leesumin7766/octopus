@@ -210,7 +210,8 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
       case 'someday':
         return query(`status = 'open' AND bucket = 'someday' ${ORDER_BY}`)
       case 'done':
-        return query(`status = 'done' ORDER BY done_at DESC, sort_order, created_at, id`)
+        // 루틴 기록은 완료 보기가 아니라 체크리스트 화면(기록 격자)에서만 본다.
+        return query(`status = 'done' AND routine_id IS NULL ORDER BY done_at DESC, sort_order, created_at, id`)
     }
   }
 
