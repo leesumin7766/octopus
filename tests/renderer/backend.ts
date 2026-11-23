@@ -21,6 +21,7 @@ import { join } from 'node:path'
 import { createObsidianArm, type ObsidianArm } from '../../src/main/arms/obsidian/arm'
 import { createObsidianHandlers } from '../../src/main/ipc/obsidian'
 import type { ObsidianApi } from '../../src/shared/obsidian/types'
+import type { UpdateApi, UpdateState } from '../../src/shared/update/types'
 import { createMcpService, type McpService } from '../../src/main/arms/mcp/service'
 import type { McpArmDeps } from '../../src/main/arms/mcp/arm'
 import type { McpConnection, McpConnector } from '../../src/main/arms/mcp/connection'
@@ -89,6 +90,9 @@ export interface Backend {
   vault: string
   /** .gitignore 수정 확인 창의 가짜(기본: 허용) */
   obsidianConfirm: Mock<(info: { path: string; line: string }) => Promise<boolean>>
+  update: { state: Mock<UpdateApi['state']>; install: Mock<UpdateApi['install']> }
+  /** 설정 화면의 업데이트 알림이 읽는 값(기본: 새 버전 없음) */
+  updateState: UpdateState
   mcp: McpSpies
   mcpService: McpService
   /** stdio 처음 실행 확인 창의 가짜(기본: 허용) */
@@ -118,6 +122,7 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
   const routineRepo = createRoutineRepository(t.db, { now, tasks: t.repo })
   const memoRepo = createMemoRepository(t.db, { now, tasks: t.repo })
   const settingsRepo = createSettingsRepository(t.db)
+  settingsRepo.set('onboarding.done', true) // 첫 실행 안내는 따로 시험한다(다른 화면 시험에 끼어들지 않게)
   const shortcutRepo = createShortcutRepository(t.db, { now })
   const platform: FakePlatform = {
     openExternal: vi.fn(async () => {}),
@@ -252,6 +257,11 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     fixGitignore: vi.fn(async () => obsidianHandlers.fixGitignore()),
     open: vi.fn(async () => obsidianHandlers.open())
   } as unknown as ObsidianSpies
+  const updateState: UpdateState = { status: 'none' }
+  const update = {
+    state: vi.fn(async () => ({ ok: true as const, data: { ...updateState } })),
+    install: vi.fn(async () => ({ ok: true as const, data: null }))
+  }
   const mcpConnector = { current: (async () => fakeConnection()) as McpConnector }
   const mcpServers: McpServerConfig[] = []
   const mcpApprovals: McpApproval[] = []
@@ -368,9 +378,10 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     candidates: candidates as unknown as CandidatesApi,
     calendar: calendar as unknown as CalendarApi,
     mcp: mcp as unknown as McpApi,
-    obsidian: obsidian as unknown as ObsidianApi
+    obsidian: obsidian as unknown as ObsidianApi,
+    update: update as unknown as UpdateApi
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, obsidian, obsidianArm, vault, obsidianConfirm, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, update, updateState, obsidian, obsidianArm, vault, obsidianConfirm, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
 }

@@ -6,6 +6,7 @@ import { useDataChanged } from './dataEvents'
 import { HomeScreen } from './home/HomeScreen'
 import { MemosScreen } from './memos/MemosScreen'
 import { NavMenu, type Screen } from './nav/NavMenu'
+import { Welcome } from './onboarding/Welcome'
 import { ArmsScreen } from './arms/ArmsScreen'
 import { ObsidianScreen } from './arms/ObsidianScreen'
 import { RoutinesScreen } from './routines/RoutinesScreen'
@@ -30,6 +31,8 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() => initialScreen(initial))
   const [arranging, setArranging] = useState(initial === 'home-arrange')
   const nav = useSetting('nav.collapsed')
+  // 첫 실행 안내: 'checking'(아직 모름) → 'show' | 'hide'
+  const [welcome, setWelcome] = useState<'checking' | 'show' | 'hide'>(typeof initial === 'string' && initial.startsWith('welcome-') ? 'show' : 'checking')
   const models = useModelStatus()
   const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey')
   // 지시하기가 데이터를 바꾸면 뒤의 화면이 새로 읽도록 key 를 바꿔 다시 그린다.
@@ -54,8 +57,50 @@ export function App() {
     if (next !== 'home') setArranging(false)
   }
 
+  // 안내를 보일지 정한다: 설정을 못 읽거나 끝냈다고 기록돼 있으면 안 보이고(앱을 막지 않는다),
+  // 아니면 할 일·루틴·메모가 하나도 없는 새 사용자에게만 보인다. 이미 데이터가 있는 사용자는 안내를 보지 않고 "끝냄"으로 기록한다.
+  useEffect(() => {
+    if (welcome !== 'checking') return
+    let cancelled = false
+    const api = window.octopus
+    void (async () => {
+      const saved = await api.settings.get('onboarding.done')
+      if (cancelled) return
+      if (!saved.ok || saved.data === true) return void setWelcome('hide')
+      const [lists, routines, memos] = await Promise.all([
+        Promise.all((['inbox', 'today', 'upcoming', 'someday', 'done'] as const).map((view) => api.tasks.list(view))),
+        api.routines.list(),
+        api.memos.list()
+      ])
+      if (cancelled) return
+      const taskCount = lists.reduce((sum, r) => {
+        if (!r.ok) return sum + 1 // 못 읽으면 비어 있다고 단정하지 않는다
+        return sum + (Array.isArray(r.data) ? r.data.length : r.data.overdue.length + r.data.today.length)
+      }, 0)
+      const empty = taskCount === 0 && routines.ok && routines.data.routines.length === 0 && memos.ok && memos.data.length === 0
+      if (empty) setWelcome('show')
+      else {
+        void api.settings.set('onboarding.done', true)
+        setWelcome('hide')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [welcome])
+
+  function finishWelcome(): void {
+    void window.octopus.settings.set('onboarding.done', true)
+    setWelcome('hide')
+    navigate('home')
+  }
+
   // 메뉴 접힘 상태를 읽어 오기 전에는 틀만 보여 준다(펼쳤다가 접히는 깜빡임을 막는다).
-  if (nav.value === null) return <div className="h-screen bg-page" />
+  if (nav.value === null || welcome === 'checking') return <div className="h-screen bg-page" />
+  if (welcome === 'show') {
+    const step = initial === 'welcome-2' ? 2 : initial === 'welcome-3' ? 3 : 1
+    return <Welcome onDone={finishWelcome} initialStep={step} initialChosen={initial === 'welcome-1' || initial === 'welcome-2' ? ['obsidian'] : []} />
+  }
 
   const collapsed = nav.value
   function toggleCollapsed(): void {

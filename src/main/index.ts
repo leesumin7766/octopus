@@ -37,6 +37,10 @@ import { createRoutineRepository, type RoutineRepository } from './core/routines
 import { createSettingsRepository, type SettingsRepository } from './core/settings/settingsRepository'
 import { createShortcutRepository, type ShortcutRepository } from './core/shortcuts/shortcutRepository'
 import { createTaskRepository, type TaskRepository } from './core/tasks/taskRepository'
+import { autoUpdater } from 'electron-updater'
+import { createUpdateHandlers, registerUpdateHandlers } from './ipc/update'
+import { createUpdateChecker, type UpdateChecker } from './platform/updater'
+import { acquireSingleInstance } from './singleInstance'
 import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
 import { createCaptureAdapter, createCaptureKeyStore, seedCaptureCommand } from './dev/captureLlm'
 import { createSampleData, seedCaptureSettings } from './dev/captureSupport'
@@ -72,6 +76,12 @@ let armManager: ArmManager | null = null
 let calendarProvider: CalendarProvider | null = null
 let mcpService: McpService | null = null
 let obsidianArm: ObsidianArm | null = null
+// 자동 업데이트 확인(패키지된 앱에서만 시작할 때 한 번). GitHub Releases, 설치는 사용자가 승인할 때만.
+const updateChecker: UpdateChecker = createUpdateChecker({
+  isPackaged: app.isPackaged,
+  autoUpdater: () => autoUpdater,
+  log: (message) => console.warn(`[octopus] ${message}`)
+})
 // API 키 보관(Electron safeStorage 로 암호화한 파일). app ready 이후에 만든다.
 // 개발용 캡처에서는 진짜 보관소 대신 메모리의 가짜를 쓴다(진짜 키를 읽지도 쓰지도 않는다).
 let secureStore: SecureStore | null = null
@@ -239,7 +249,10 @@ function createWindow(): void {
   }
 }
 
-void app.whenReady().then(async () => {
+// 한 번에 하나만 실행: 두 번째 실행은 먼저 떠 있던 창을 앞으로 가져오고 끝난다(같은 DB 를 두 프로세스가 열지 않게). 개발용 캡처는 임시 userData 라 예외.
+const primaryInstance = acquireSingleInstance(app, () => BrowserWindow.getAllWindows()[0] ?? null, captureSession !== null)
+
+if (primaryInstance) void app.whenReady().then(async () => {
   initDatabase()
   if (captureSession && taskRepository && routineRepository && memoRepository && shortcutRepository) {
     createSampleData(
@@ -280,6 +293,7 @@ void app.whenReady().then(async () => {
     logError
   }
   registerArmsHandlers(ipcMain, createArmsHandlers(armsDeps), createCandidateHandlers(armsDeps))
+  registerUpdateHandlers(ipcMain, createUpdateHandlers({ getChecker: () => updateChecker }))
   registerObsidianHandlers(ipcMain, createObsidianHandlers({ getArm: () => obsidianArm, logError }))
   registerMcpHandlers(ipcMain, createMcpHandlers({ getService: () => mcpService, logError }))
   registerCalendarHandlers(ipcMain, createCalendarHandlers({ getProvider: () => calendarProvider, openExternal: (url) => shortcutPlatform.openExternal(url), logError }))
@@ -319,6 +333,7 @@ void app.whenReady().then(async () => {
   }
   if (captureSession?.config.view === 'command' && commandSession) await seedCaptureCommand(commandSession, 'anthropic-opus')
   createWindow()
+  void updateChecker.start() // 패키지된 앱이 아니면 아무것도 하지 않는다. 실패는 조용히 로그만.
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

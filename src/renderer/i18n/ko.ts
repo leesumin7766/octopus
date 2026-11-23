@@ -80,6 +80,12 @@ export const ko = {
     positions: ['위', '오른쪽 위', '오른쪽', '오른쪽 아래', '아래', '왼쪽 아래', '왼쪽', '왼쪽 위'],
     reset: '기본값으로',
     soon: '준비 중',
+    update: {
+      ready: (version: string) => `새 버전이 있어요 (${version}).`,
+      downloading: (version: string) => `새 버전(${version})을 내려받고 있어요.`,
+      install: '다시 시작해서 설치',
+      installHelp: '누르면 앱이 닫히고 새 버전이 설치돼요. 하던 일은 모두 저장되어 있어요.'
+    },
     model: {
       title: '모델 연결',
       help: '지시하기가 쓸 AI 모델을 연결해요. 키는 이 PC 에 암호화해 저장하고, 화면에는 다시 보여 주지 않아요.',
@@ -573,5 +579,39 @@ export const ko = {
     previewTitle: '옵시디언에 보이는 모습',
     previewHelp: '지금 할 일로 만든 내용이에요. 할 일을 바꾸면 몇 초 안에 파일에도 반영돼요.',
     noPreview: '연결하면 미리보기가 보여요.'
+  },
+  onboarding: {
+    stepLabel: (n: number) => `${n}/3`,
+    progressLabel: '진행 상황',
+    skip: '건너뛰기',
+    back: '이전',
+    next: '다음',
+    nextLater: '나중에 하고 넘어가기',
+    home: '홈으로',
+    privacy: '계정 없이 이 PC 에만 저장됩니다.',
+    step1: {
+      title: '무엇으로 일하세요?',
+      body: '쓰는 것만 골라 주세요. 아무것도 고르지 않아도 할 일과 메모는 바로 쓸 수 있어요.',
+      group: '쓰는 도구',
+      mcpNote: 'MCP 서버는 나중에 Arms 화면에서 추가할 수 있어요.',
+      loading: '연결할 수 있는 도구를 불러오는 중…'
+    },
+    step2: {
+      title: '로그인만 하면 됩니다',
+      body: '버튼을 누르면 브라우저나 폴더 선택 창이 열려요. 키나 비밀번호를 직접 입력하지 않아요.',
+      none: '고른 도구가 없어요. 나중에 Arms 화면에서 언제든 연결할 수 있어요.',
+      connect: '연결',
+      connecting: '연결 중…',
+      retry: '다시 연결',
+      connected: '연결됨',
+      list: '고른 도구'
+    },
+    step3: {
+      title: '준비됐습니다',
+      body: '첫 할 일을 적어 보세요. "내일 3시", "#프로젝트", "!높음", "매주 월" 같은 말을 알아들어요.',
+      inputLabel: '첫 할 일',
+      added: (title: string) => `추가했어요: ${title}`,
+      addedGeneric: '추가했어요. 이제 홈으로 가요.'
+    }
   }
 } as const

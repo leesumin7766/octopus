@@ -65,7 +65,9 @@ export const IPC = {
   obsidianChangeVault: 'obsidian:changeVault',
   obsidianExportNow: 'obsidian:exportNow',
   obsidianFixGitignore: 'obsidian:fixGitignore',
-  obsidianOpen: 'obsidian:open'
+  obsidianOpen: 'obsidian:open',
+  updateState: 'update:state',
+  updateInstall: 'update:install'
 } as const
 
 /** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. secure_unavailable: 이 PC 에서 키를 암호화해 저장할 수 없다. */

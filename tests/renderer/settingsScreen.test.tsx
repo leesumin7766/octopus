@@ -131,6 +131,39 @@ describe('settings screen', () => {
     expect(backend.settingsRepo.get('pie.slots')).toEqual([...DEFAULT_PIE_SLOTS])
   })
 
+  describe('update notice', () => {
+    it('shows nothing when there is no new version', async () => {
+      const backend = prepare()
+      show()
+      await screen.findByRole('heading', { level: 1, name: t.title })
+      await waitFor(() => expect(backend.update.state).toHaveBeenCalled())
+      expect(screen.queryByRole('button', { name: t.update.install })).toBeNull()
+    })
+
+    it('a downloaded version offers [다시 시작해서 설치], and only clicking it installs', async () => {
+      const user = userEvent.setup()
+      const backend = prepare()
+      backend.updateState.status = 'ready'
+      backend.updateState.version = '0.2.0'
+      show()
+
+      const button = await screen.findByRole('button', { name: t.update.install })
+      expect(screen.getByText(t.update.ready('0.2.0'))).toBeTruthy()
+      expect(backend.update.install).not.toHaveBeenCalled() // 알림만으로는 설치하지 않는다
+      await user.click(button)
+      expect(backend.update.install).toHaveBeenCalledTimes(1)
+    })
+
+    it('while downloading it only informs (no install button)', async () => {
+      const backend = prepare()
+      backend.updateState.status = 'downloading'
+      backend.updateState.version = '0.2.0'
+      show()
+      expect(await screen.findByText(t.update.downloading('0.2.0'))).toBeTruthy()
+      expect(screen.queryByRole('button', { name: t.update.install })).toBeNull()
+    })
+  })
+
   describe('shortcuts', () => {
     it('can be chosen for a slot, saved as shortcut:<id>', async () => {
       const user = userEvent.setup()
@@ -165,7 +198,7 @@ describe('settings screen', () => {
   it('starts from the defaults when the saved value cannot be read', async () => {
     const backend = prepare()
     backend.settings.get.mockImplementation(async (key: string) =>
-      key === 'pie.slots' ? { ok: false, error: { code: 'db_unavailable' } } : { ok: true, data: false }
+      key === 'pie.slots' ? { ok: false, error: { code: 'db_unavailable' } } : { ok: true, data: key === 'onboarding.done' }
     )
     show()
     await screen.findByRole('heading', { level: 1, name: t.title })

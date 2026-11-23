@@ -31,11 +31,13 @@ export interface SettingsMap {
   'mcp.approvals': McpApproval[]
   /** 옵시디언 Arm 설정(vault 경로·모드·내보낼 파일·일일노트 링크) */
   'obsidian.config': ObsidianConfig
+  /** 첫 실행 안내(3단계)를 끝내거나 건너뛰었는지 */
+  'onboarding.done': boolean
 }
 
 export type SettingKey = keyof SettingsMap
 
-export const SETTING_KEYS: readonly SettingKey[] = ['home.layout', 'nav.collapsed', 'pie.slots', 'command.models', 'command.model', 'arms.connected', 'arms.autoAccept', 'mcp.servers', 'mcp.approvals', 'obsidian.config']
+export const SETTING_KEYS: readonly SettingKey[] = ['home.layout', 'nav.collapsed', 'pie.slots', 'command.models', 'command.model', 'arms.connected', 'arms.autoAccept', 'mcp.servers', 'mcp.approvals', 'obsidian.config', 'onboarding.done']
 
 export function isSettingKey(value: unknown): value is SettingKey {
   return typeof value === 'string' && (SETTING_KEYS as readonly string[]).includes(value)

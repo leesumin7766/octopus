@@ -1,4 +1,5 @@
 import type { ArmsApi, CandidatesApi } from './arms/ipcApi'
+import type { UpdateApi } from './update/types'
 import type { ObsidianApi } from './obsidian/types'
 import type { McpApi } from './mcp/types'
 import type { CalendarApi } from './calendar/types'
@@ -26,4 +27,5 @@ export interface OctopusApi {
   calendar: CalendarApi
   mcp: McpApi
   obsidian: ObsidianApi
+  update: UpdateApi
 }

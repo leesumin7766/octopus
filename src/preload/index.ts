@@ -94,6 +94,10 @@ const api: OctopusApi = {
     exportNow: () => ipcRenderer.invoke(IPC.obsidianExportNow),
     fixGitignore: () => ipcRenderer.invoke(IPC.obsidianFixGitignore),
     open: () => ipcRenderer.invoke(IPC.obsidianOpen)
+  },
+  update: {
+    state: () => ipcRenderer.invoke(IPC.updateState),
+    install: () => ipcRenderer.invoke(IPC.updateInstall)
   }
 }
 

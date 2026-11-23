@@ -27,6 +27,7 @@ type Api = {
   calendar: Fns
   mcp: Fns
   obsidian: Fns
+  update: Fns
 }
 
 describe('preload', () => {
@@ -44,10 +45,10 @@ describe('preload', () => {
   })
 
   it('exposes only getAppVersion, initialView, tasks, routines and memos (no ipcRenderer, no generic invoke)', () => {
-    expect(Object.keys(api).sort()).toEqual(['arms', 'calendar', 'candidates', 'command', 'getAppVersion', 'initialView', 'mcp', 'memos', 'obsidian', 'routines', 'settings', 'shortcuts', 'tasks'])
+    expect(Object.keys(api).sort()).toEqual(['arms', 'calendar', 'candidates', 'command', 'getAppVersion', 'initialView', 'mcp', 'memos', 'obsidian', 'routines', 'settings', 'shortcuts', 'tasks', 'update'])
     for (const key of ['ipcRenderer', 'invoke', 'send', 'on', 'electron']) {
       expect(key in api).toBe(false)
-      for (const group of [api.tasks, api.routines, api.memos, api.settings, api.shortcuts, api.arms, api.candidates, api.calendar, api.mcp, api.obsidian]) expect(key in group).toBe(false)
+      for (const group of [api.tasks, api.routines, api.memos, api.settings, api.shortcuts, api.arms, api.candidates, api.calendar, api.mcp, api.obsidian, api.update]) expect(key in group).toBe(false)
       if (key !== 'send') expect(key in api.command).toBe(false) // command.send 는 지시 보내기(채널 고정)이지 범용 send 가 아니다.
     }
   })
@@ -64,6 +65,7 @@ describe('preload', () => {
 
   it('exposes exactly the arms and candidate functions; nothing takes an address or a path', () => {
     expect(Object.keys(api.arms).sort()).toEqual(['connect', 'disconnect', 'list', 'setAutoAccept', 'setClient'])
+    expect(Object.keys(api.update).sort()).toEqual(['install', 'state'])
     expect(Object.keys(api.obsidian).sort()).toEqual(['changeVault', 'exportNow', 'fixGitignore', 'open', 'setConfig', 'state'])
     expect(Object.keys(api.mcp).sort()).toEqual(['add', 'list', 'reconnect', 'remove'])
     expect(Object.keys(api.calendar).sort()).toEqual(['openEvent', 'openWeb', 'today'])
@@ -116,6 +118,8 @@ describe('preload', () => {
     ['arms', 'disconnect', ['example'], IPC.armsDisconnect],
     ['arms', 'setAutoAccept', ['example', true], IPC.armsSetAutoAccept],
     ['arms', 'setClient', ['example', { clientId: 'x' }], IPC.armsSetClient],
+    ['update', 'state', [], IPC.updateState],
+    ['update', 'install', [], IPC.updateInstall],
     ['obsidian', 'state', [], IPC.obsidianState],
     ['obsidian', 'setConfig', [{ mode: 'export' }], IPC.obsidianSetConfig],
     ['obsidian', 'changeVault', [], IPC.obsidianChangeVault],

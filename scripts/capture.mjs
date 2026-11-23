@@ -24,6 +24,9 @@ const SHOTS = [
   ['arms-mcp', 'arms-mcp'],
   ['inbox', 'inbox'],
   ['obsidian', 'obsidian'],
+  ['welcome-1', 'welcome-1'],
+  ['welcome-2', 'welcome-2'],
+  ['welcome-3', 'welcome-3'],
   ['today', 'today'],
   ['routines', 'routines'],
   ['memos', 'memos']

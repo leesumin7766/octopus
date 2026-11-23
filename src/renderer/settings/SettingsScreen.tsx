@@ -3,6 +3,7 @@ import { DEFAULT_PIE_SLOTS, FIXED_ACTIONS, shortcutAction, type ActionId } from 
 import type { Shortcut } from '../../shared/shortcuts/types'
 import { ko } from '../i18n/ko'
 import { longLabel } from '../pie/actions'
+import type { UpdateState } from '../../shared/update/types'
 import { ModelSection } from './ModelSection'
 import { useSetting } from './useSetting'
 
@@ -15,11 +16,23 @@ const t = ko.settings
 export function SettingsScreen() {
   const { value: slots, setLocal, persist } = useSetting('pie.slots')
   const [shortcuts, setShortcuts] = useState<Shortcut[]>([])
+  const [update, setUpdate] = useState<UpdateState>({ status: 'none' })
 
   useEffect(() => {
     let cancelled = false
     void window.octopus.shortcuts.list().then((result) => {
       if (!cancelled && result.ok) setShortcuts(result.data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // 새 버전 알림(패키지된 앱이 시작할 때 확인해 둔 결과를 읽는다)
+  useEffect(() => {
+    let cancelled = false
+    void window.octopus.update.state().then((result) => {
+      if (!cancelled && result.ok) setUpdate(result.data)
     })
     return () => {
       cancelled = true
@@ -52,6 +65,26 @@ export function SettingsScreen() {
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-page px-5 py-4 text-ink">
       <h1 className="mb-4 text-lg font-semibold">{t.title}</h1>
+
+      {update.status !== 'none' && (
+        <section aria-label="업데이트" className="mb-4 flex max-w-xl flex-wrap items-center gap-3 rounded-xl border border-[#c9c7f0] bg-accent-soft p-4">
+          <p role="status" className="min-w-48 flex-1 text-sm font-semibold text-accent-strong">
+            {update.status === 'ready' ? t.update.ready(update.version ?? '') : t.update.downloading(update.version ?? '')}
+          </p>
+          {update.status === 'ready' && (
+            <>
+              <button
+                type="button"
+                onClick={() => void window.octopus.update.install()}
+                className="min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong"
+              >
+                {t.update.install}
+              </button>
+              <p className="w-full text-xs text-[#4a4945]">{t.update.installHelp}</p>
+            </>
+          )}
+        </section>
+      )}
 
       <ModelSection />
 
