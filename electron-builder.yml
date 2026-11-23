@@ -1,0 +1,48 @@
+# 설치 파일 설정(electron-builder). 코드 서명은 하지 않는다. 릴리스를 올리지 않는다(--publish never).
+appId: app.octopus.desktop
+productName: Octopus
+copyright: Octopus
+
+directories:
+  output: dist
+  buildResources: build
+
+# 설치 파일에는 빌드 결과(out)와 실행에 필요한 패키지만 넣는다. tests·docs·scripts·.captures·소스는 들어가지 않는다.
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+
+asar: true
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false # 사용자별 설치(관리자 권한 없이)
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Octopus
+  deleteAppDataOnUninstall: false # 삭제해도 할 일 데이터(userData)는 남긴다
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  category: public.app-category.productivity
+  icon: build/icon.png
+
+dmg:
+  title: ${productName} ${version}
+
+# 자동 업데이트 제공처(설정만). 릴리스를 실제로 올리는 일은 하지 않는다.
+publish:
+  provider: github
+  owner: leesumin7766
+  repo: octopus

@@ -1,7 +1,7 @@
 {
   "name": "octopus",
-  "version": "0.0.0",
-  "description": "Octopus: 개인 업무 허브 (M0-A 뼈대)",
+  "version": "0.1.0",
+  "description": "Octopus: 누구나 쓸 수 있는 데스크톱 업무 허브",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "node scripts/dev.mjs",
@@ -10,9 +10,13 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dist:win": "electron-vite build && electron-builder --win --publish never",
+    "dist:mac": "electron-vite build && electron-builder --mac --publish never",
+    "icons": "node scripts/make-icons.mjs"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.13",
@@ -21,8 +25,12 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
     "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
     "jsdom": "^29.1.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.5",
     "typescript": "^5.9.3",
     "vite": "^8.3.8",
     "vitest": "^4.1.12"
@@ -30,10 +38,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "@tailwindcss/vite": "^4.3.5",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "tailwindcss": "^4.3.5"
+    "electron-updater": "^6.8.11"
   },
-  "private": true
+  "private": true,
+  "author": "Octopus",
+  "homepage": "https://github.com/leesumin7766/octopus"
 }
