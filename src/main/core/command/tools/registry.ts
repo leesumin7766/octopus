@@ -10,7 +10,7 @@ export interface CommandTool<I = unknown> {
   /** JSON Schema(object, additionalProperties:false, 모든 속성 required — strict 호환) */
   inputSchema: Record<string, unknown>
   readOnly: boolean
-  /** 어디서 온 도구인지. 생략하면 core. */
+  /** 어디서 온 도구인지(core, mcp, 'arm:<id>'). 생략하면 core. */
   source?: ToolOrigin
   /** 모델이 준 입력을 검사한다. 검사를 통과한 값만 preview·run 에 간다. */
   parse(raw: unknown): ParseResult<I>

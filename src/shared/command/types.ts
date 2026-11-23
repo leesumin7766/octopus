@@ -58,7 +58,8 @@ export interface ApprovalPreview {
   lines: string[]
 }
 
-export type ToolSource = 'core' | 'arm' | 'mcp'
+/** 도구 출처: core, mcp, 또는 'arm:<id>' */
+export type ToolSource = 'core' | 'mcp' | `arm:${string}`
 
 export interface PendingApproval {
   /** tool_use id */
