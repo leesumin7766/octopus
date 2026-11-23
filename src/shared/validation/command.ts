@@ -61,6 +61,13 @@ export function parseSelectedModel(raw: unknown): string | null {
   return typeof raw === 'string' && raw.length <= 60 ? raw : null
 }
 
+/** Arm id 목록(연결돼 있는 Arm, 자동 수락 Arm). id 는 소문자·숫자·하이픈. */
+export function parseArmIds(raw: unknown): string[] | null {
+  if (!Array.isArray(raw) || raw.length > 50) return null
+  if (!raw.every((id) => typeof id === 'string' && /^[a-z0-9][a-z0-9-]{0,39}$/.test(id))) return null
+  return [...new Set(raw as string[])]
+}
+
 export function parseProvider(value: unknown): Parsed<LlmProvider> {
   return isProvider(value) ? good(value) : bad('provider')
 }

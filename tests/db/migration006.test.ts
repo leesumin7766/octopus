@@ -15,7 +15,7 @@ describe('migration 006 (command)', () => {
     runMigrations(db, migrations.slice(0, 5))
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('k', 'v')").run()
 
-    expect(runMigrations(db, migrations)).toBe(6)
+    expect(runMigrations(db, migrations.slice(0, 6))).toBe(6)
 
     expect(db.prepare('SELECT value FROM app_meta WHERE key = ?').get('k')).toEqual({ value: 'v' })
     const columns = (t: string) => (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name)
