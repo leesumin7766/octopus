@@ -1,6 +1,8 @@
 import { defaultLayout, normalizeLayout, parseLayout, type HomeLayout } from '../home/layout'
 import type { ModelEntry } from '../command/types'
 import type { McpServerConfig } from '../mcp/types'
+import { DEFAULT_OBSIDIAN_CONFIG, type ObsidianConfig } from '../obsidian/types'
+import { normalizeObsidianConfig, parseObsidianConfig } from '../validation/obsidian'
 import { normalizeMcpServers, parseMcpApprovals, parseMcpServers, type McpApproval } from '../validation/mcp'
 import { DEFAULT_MODELS } from '../command/types'
 import { normalizeModelList, parseArmIds, parseModelList, parseSelectedModel } from '../validation/command'
@@ -27,11 +29,13 @@ export interface SettingsMap {
   'mcp.servers': McpServerConfig[]
   /** 실행을 허용한 stdio 명령의 지문(그 명령 그대로에만 유효) */
   'mcp.approvals': McpApproval[]
+  /** 옵시디언 Arm 설정(vault 경로·모드·내보낼 파일·일일노트 링크) */
+  'obsidian.config': ObsidianConfig
 }
 
 export type SettingKey = keyof SettingsMap
 
-export const SETTING_KEYS: readonly SettingKey[] = ['home.layout', 'nav.collapsed', 'pie.slots', 'command.models', 'command.model', 'arms.connected', 'arms.autoAccept', 'mcp.servers', 'mcp.approvals']
+export const SETTING_KEYS: readonly SettingKey[] = ['home.layout', 'nav.collapsed', 'pie.slots', 'command.models', 'command.model', 'arms.connected', 'arms.autoAccept', 'mcp.servers', 'mcp.approvals', 'obsidian.config']
 
 export function isSettingKey(value: unknown): value is SettingKey {
   return typeof value === 'string' && (SETTING_KEYS as readonly string[]).includes(value)
@@ -39,20 +43,20 @@ export function isSettingKey(value: unknown): value is SettingKey {
 
 export function defaultSetting<K extends SettingKey>(key: K): SettingsMap[K] {
   const value: SettingsMap[SettingKey] =
-    key === 'home.layout' ? defaultLayout() : key === 'pie.slots' ? [...DEFAULT_PIE_SLOTS] : key === 'command.models' ? DEFAULT_MODELS.map((m) => ({ ...m })) : key === 'command.model' ? '' : key === 'arms.connected' || key === 'arms.autoAccept' || key === 'mcp.servers' || key === 'mcp.approvals' ? [] : false
+    key === 'home.layout' ? defaultLayout() : key === 'pie.slots' ? [...DEFAULT_PIE_SLOTS] : key === 'command.models' ? DEFAULT_MODELS.map((m) => ({ ...m })) : key === 'command.model' ? '' : key === 'arms.connected' || key === 'arms.autoAccept' || key === 'mcp.servers' || key === 'mcp.approvals' ? [] : key === 'obsidian.config' ? { ...DEFAULT_OBSIDIAN_CONFIG } : false
   return value as SettingsMap[K]
 }
 
 /** 새로 저장하는 값 검사. 모양이 틀리면 null. */
 export function parseSetting<K extends SettingKey>(key: K, raw: unknown): SettingsMap[K] | null {
   const value: SettingsMap[SettingKey] | null =
-    key === 'home.layout' ? parseLayout(raw) : key === 'pie.slots' ? parsePieSlots(raw) : key === 'command.models' ? parseModelList(raw) : key === 'command.model' ? parseSelectedModel(raw) : key === 'arms.connected' || key === 'arms.autoAccept' ? parseArmIds(raw) : key === 'mcp.servers' ? parseMcpServers(raw) : key === 'mcp.approvals' ? parseMcpApprovals(raw) : typeof raw === 'boolean' ? raw : null
+    key === 'home.layout' ? parseLayout(raw) : key === 'pie.slots' ? parsePieSlots(raw) : key === 'command.models' ? parseModelList(raw) : key === 'command.model' ? parseSelectedModel(raw) : key === 'arms.connected' || key === 'arms.autoAccept' ? parseArmIds(raw) : key === 'mcp.servers' ? parseMcpServers(raw) : key === 'mcp.approvals' ? parseMcpApprovals(raw) : key === 'obsidian.config' ? parseObsidianConfig(raw) : typeof raw === 'boolean' ? raw : null
   return value as SettingsMap[K] | null
 }
 
 /** 저장되어 있던 값을 읽는다. 깨졌으면 기본값. */
 export function readSetting<K extends SettingKey>(key: K, raw: unknown): SettingsMap[K] {
   const value: SettingsMap[SettingKey] =
-    key === 'home.layout' ? normalizeLayout(raw) : key === 'pie.slots' ? normalizePieSlots(raw) : key === 'command.models' ? normalizeModelList(raw) : key === 'command.model' ? (parseSelectedModel(raw) ?? '') : key === 'arms.connected' || key === 'arms.autoAccept' ? (parseArmIds(raw) ?? []) : key === 'mcp.servers' ? normalizeMcpServers(raw) : key === 'mcp.approvals' ? (parseMcpApprovals(raw) ?? []) : typeof raw === 'boolean' ? raw : false
+    key === 'home.layout' ? normalizeLayout(raw) : key === 'pie.slots' ? normalizePieSlots(raw) : key === 'command.models' ? normalizeModelList(raw) : key === 'command.model' ? (parseSelectedModel(raw) ?? '') : key === 'arms.connected' || key === 'arms.autoAccept' ? (parseArmIds(raw) ?? []) : key === 'mcp.servers' ? normalizeMcpServers(raw) : key === 'mcp.approvals' ? (parseMcpApprovals(raw) ?? []) : key === 'obsidian.config' ? normalizeObsidianConfig(raw) : typeof raw === 'boolean' ? raw : false
   return value as SettingsMap[K]
 }
