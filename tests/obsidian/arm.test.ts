@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createArmContext } from '../../src/main/arms/sdk/context'
-import { createObsidianArm, DEFAULT_DEBOUNCE_MS, MESSAGES, obsidianOpenUri, type ObsidianArm } from '../../src/main/arms/obsidian/arm'
+import { createObsidianArm, DEFAULT_DEBOUNCE_MS, MESSAGES, obsidianOpenUri, vaultNameOf, type ObsidianArm } from '../../src/main/arms/obsidian/arm'
 import { dailyLinkLine, dailyNotePath, hasDailyLink, UNSUPPORTED_FORMAT } from '../../src/main/arms/obsidian/dailyNote'
 import { addIgnoreLine, checkVaultGit, ignoredByGitignore, IGNORE_LINE } from '../../src/main/arms/obsidian/gitCheck'
 import { FILE_COMMENT, WRITING_HEADING, WRITING_NOTE } from '../../src/main/arms/obsidian/render'
@@ -235,11 +235,27 @@ describe('git check', () => {
   })
 })
 
+describe('vault name (same result on every OS)', () => {
+  it.each([
+    ['C:\\Users\\me\\Documents\\내 vault', '내 vault'],
+    ['C:\\Users\\me\\vault\\', 'vault'],
+    ['D:\\', 'D:'],
+    ['\\\\server\\share\\notes', 'notes'],
+    ['/Users/me/Documents/내 vault', '내 vault'],
+    ['/home/u/vault/', 'vault'],
+    ['/home/u/mixed\\style/vault', 'vault'],
+    ['vault', 'vault'],
+    ['/', ''],
+    ['', '']
+  ])('%s → %s', (path, name) => expect(vaultNameOf(path)).toBe(name))
+})
+
 describe('obsidian:// address', () => {
-  it('encodes the vault name and the file thoroughly', () => {
-    expect(obsidianOpenUri('C:\\Users\\me\\Documents\\내 vault', 'Octopus/할 일.md')).toBe(
-      `obsidian://open?vault=${encodeURIComponent('내 vault')}&file=${encodeURIComponent('Octopus/할 일.md')}`
-    )
+  it('encodes the vault name and the file thoroughly, for Windows and POSIX vault paths alike', () => {
+    const expected = `obsidian://open?vault=${encodeURIComponent('내 vault')}&file=${encodeURIComponent('Octopus/할 일.md')}`
+    expect(obsidianOpenUri('C:\\Users\\me\\Documents\\내 vault', 'Octopus/할 일.md')).toBe(expected)
+    expect(obsidianOpenUri('/Users/me/Documents/내 vault', 'Octopus/할 일.md')).toBe(expected)
+    expect(obsidianOpenUri('C:\\vault\\', 'a.md')).toContain('vault=vault&')
     const nasty = obsidianOpenUri('/home/u/a&b=c#d', 'x y/z&w=1.md')
     expect(nasty).toBe('obsidian://open?vault=a%26b%3Dc%23d&file=x%20y%2Fz%26w%3D1.md')
     expect(new URL(nasty).searchParams.get('vault')).toBe('a&b=c#d')

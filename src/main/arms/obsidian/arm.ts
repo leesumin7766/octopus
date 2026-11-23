@@ -66,9 +66,18 @@ export interface ObsidianArm extends Arm {
 
 const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex')
 
+/**
+ * vault 폴더 이름(마지막 조각). 실행 중인 OS 와 상관없이 \ 와 / 를 모두 구분자로 본다
+ * (macOS 에서 Windows 형식 경로를 받아도, 그 반대여도 같은 결과).
+ */
+export function vaultNameOf(vaultPath: string): string {
+  const parts = vaultPath.split(/[\\/]+/).filter((part) => part !== '')
+  return parts.length > 0 ? parts[parts.length - 1] : ''
+}
+
 /** obsidian://open 주소: 값은 모두 인코딩한다. */
 export function obsidianOpenUri(vaultPath: string, file: string): string {
-  const name = basename(vaultPath.replace(/[\\/]+$/, ''))
+  const name = vaultNameOf(vaultPath)
   return `obsidian://open?vault=${encodeURIComponent(name)}&file=${encodeURIComponent(file)}`
 }
 
@@ -350,7 +359,7 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
       status: arm.status(),
       available: true,
       config,
-      vaultName: vault ? basename(vault.replace(/[\\/]+$/, '')) : '',
+      vaultName: vaultNameOf(vault),
       looksLikeVault: vaultOk && (await exists(join(vault, '.obsidian'))),
       lastExportAt,
       lastExportError: lastError,

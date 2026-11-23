@@ -239,7 +239,7 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     pickFolder: async () => vault,
     confirmGitignore: obsidianConfirm,
     openExternal: async (url) => void opened.push(url),
-    backupDir: join(vault, '..', `${vault.split(/[\/]/).pop()}-backup`),
+    backupDir: `${vault}-backup`, // vault 옆(바깥)의 별도 폴더
     setAutoAcceptDefault: () => void armManager.setAutoAccept('obsidian', true),
     now: () => now(),
     debounceMs: 20,
