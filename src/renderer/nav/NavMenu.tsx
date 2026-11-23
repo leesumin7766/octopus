@@ -18,7 +18,7 @@ const ITEMS: readonly NavItem[] = [
   { id: 'tasks', label: t.tasks, icon: 'tasks' },
   { id: 'routines', label: t.routines, icon: 'checklist' },
   { id: 'memos', label: t.memos, icon: 'memo' },
-  { id: 'command', label: t.command, icon: 'command', soon: true },
+  { id: 'command', label: t.command, icon: 'command' },
   { id: 'arms', label: t.arms, icon: 'arms', soon: true }
 ]
 
@@ -29,10 +29,14 @@ interface NavMenuProps {
   onNavigate: (screen: Screen) => void
   arranging: boolean
   onToggleArranging: () => void
+  /** 지시하기 창 열기(Ctrl+K 와 같다) */
+  onOpenCommand: () => void
+  /** 모델이 연결돼 있는지. 아니어도 눌리지만 흐리게 보이고, 눌러 보면 연결 안내가 나온다. */
+  commandReady: boolean
 }
 
 /** 왼쪽 메뉴. ☰ 로 펼침(아이콘+이름)/접음(아이콘만). */
-export function NavMenu({ screen, collapsed, onToggleCollapsed, onNavigate, arranging, onToggleArranging }: NavMenuProps) {
+export function NavMenu({ screen, collapsed, onToggleCollapsed, onNavigate, arranging, onToggleArranging, onOpenCommand, commandReady }: NavMenuProps) {
   const itemClass = `flex min-h-11 w-full items-center gap-3 rounded-[10px] text-sm ${collapsed ? 'justify-center px-0' : 'px-3'}`
   const canArrange = screen === 'home'
 
@@ -77,6 +81,22 @@ export function NavMenu({ screen, collapsed, onToggleCollapsed, onNavigate, arra
                       <span className="ml-auto text-[11px]">{t.soon}</span>
                     </>
                   )}
+                </button>
+              </li>
+            )
+          }
+          if (item.id === 'command') {
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  aria-label={item.label}
+                  title={commandReady ? `${item.label} (Ctrl+K)` : `${item.label} — ${t.commandNeedsModel}`}
+                  onClick={onOpenCommand}
+                  className={`${base} text-ink hover:bg-black/5 ${commandReady ? '' : 'opacity-45'}`}
+                >
+                  <Icon name={item.icon} />
+                  {!collapsed && <span>{item.label}</span>}
                 </button>
               </li>
             )

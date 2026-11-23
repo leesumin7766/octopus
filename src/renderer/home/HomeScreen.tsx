@@ -47,6 +47,10 @@ interface HomeScreenProps {
   arranging: boolean
   onDoneArranging: () => void
   onNavigate: (screen: Screen) => void
+  /** 지시하기 창 열기 */
+  onOpenCommand?: () => void
+  /** 모델이 연결돼 있어 원형 메뉴의 지시하기 칸을 쓸 수 있는지 */
+  commandReady?: boolean
   /** 완료 체크 뒤 목록에서 사라지기까지 흐려지는 시간 */
   fadeMs?: number
   /** 빠른 입력의 미리보기 대기 시간 */
@@ -64,6 +68,8 @@ export function HomeScreen({
   arranging,
   onDoneArranging,
   onNavigate,
+  onOpenCommand,
+  commandReady = false,
   fadeMs = 350,
   previewDebounceMs = 250,
   pieDemo
@@ -138,6 +144,8 @@ export function HomeScreen({
         return setDialog('task')
       case 'memo:quickAdd':
         return setDialog('memo')
+      case 'command':
+        return onOpenCommand?.()
       default:
         // 아직 없는 기능(지시하기·Arm·위키)은 쓸 수 없는 칸이라 여기까지 오지 않는다.
         return
@@ -145,8 +153,8 @@ export function HomeScreen({
   }
 
   const slotInfos = useMemo(
-    () => (pie.value && shortcuts ? describeSlots(pie.value, shortcuts) : null),
-    [pie.value, shortcuts]
+    () => (pie.value && shortcuts ? describeSlots(pie.value, shortcuts, { command: commandReady }) : null),
+    [pie.value, shortcuts, commandReady]
   )
 
   const today = todayString()

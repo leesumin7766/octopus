@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { TaskView } from '../shared/tasks/types'
+import { CommandDialog } from './command/CommandDialog'
+import { useModelStatus } from './command/useModelStatus'
+import { useDataChanged } from './dataEvents'
 import { HomeScreen } from './home/HomeScreen'
 import { MemosScreen } from './memos/MemosScreen'
 import { NavMenu, type Screen } from './nav/NavMenu'
@@ -14,7 +17,7 @@ type InitialView = NonNullable<typeof window.octopus.initialView>
 function initialScreen(initial: InitialView | null): Screen {
   if (initial === null || initial === 'home' || initial === 'home-arrange') return 'home'
   if (initial === 'routines' || initial === 'memos' || initial === 'settings') return initial
-  if (initial === 'home-pie') return 'home'
+  if (initial === 'home-pie' || initial === 'command' || initial === 'command-nokey') return 'home'
   return 'tasks'
 }
 
@@ -23,6 +26,22 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() => initialScreen(initial))
   const [arranging, setArranging] = useState(initial === 'home-arrange')
   const nav = useSetting('nav.collapsed')
+  const models = useModelStatus()
+  const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey')
+  // 지시하기가 데이터를 바꾸면 뒤의 화면이 새로 읽도록 key 를 바꿔 다시 그린다.
+  const [dataVersion, setDataVersion] = useState(0)
+  useDataChanged(() => setDataVersion((v) => v + 1))
+
+  // Ctrl+K(맥은 Cmd+K): 어느 화면에서든, 입력창에 글을 쓰는 중에도 지시하기를 연다.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'k') return
+      event.preventDefault()
+      setCommandOpen(true)
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [])
   const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial as TaskView) : undefined
 
   function navigate(next: Screen): void {
@@ -49,13 +68,17 @@ export function App() {
         onNavigate={navigate}
         arranging={arranging}
         onToggleArranging={() => setArranging((on) => !on)}
+        onOpenCommand={() => setCommandOpen(true)}
+        commandReady={models.connected}
       />
-      <main className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
+      <main key={dataVersion} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
         {screen === 'home' && (
           <HomeScreen
             arranging={arranging}
             onDoneArranging={() => setArranging(false)}
             onNavigate={navigate}
+            onOpenCommand={() => setCommandOpen(true)}
+            commandReady={models.connected}
             pieDemo={initial === 'home-pie' ? { hover: 1 } : undefined}
           />
         )}
@@ -64,6 +87,16 @@ export function App() {
         {screen === 'memos' && <MemosScreen />}
         {screen === 'settings' && <SettingsScreen />}
       </main>
+      {commandOpen && (
+        <CommandDialog
+          openLatest={initial === 'command'}
+          onClose={() => setCommandOpen(false)}
+          onOpenSettings={() => {
+            setCommandOpen(false)
+            navigate('settings')
+          }}
+        />
+      )}
     </div>
   )
 }

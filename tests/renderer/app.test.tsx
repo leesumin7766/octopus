@@ -203,17 +203,15 @@ describe('app shell (left menu)', () => {
   })
 
   describe('not-yet menu items', () => {
-    it('"지시하기" and "Arms" are dimmed, say they are coming, and do nothing when clicked', async () => {
+    it('"Arms" is dimmed, says it is coming, and does nothing when clicked', async () => {
       const user = userEvent.setup()
       open()
       await heading('3월 10일 화요일')
 
-      for (const label of [n.command, n.arms]) {
-        const button = within(menu()).getByRole('button', { name: `${label} (${n.soon})` })
-        expect(button.getAttribute('aria-disabled')).toBe('true')
-        expect(button.className).toContain('opacity-45')
-        await user.click(button)
-      }
+      const button = within(menu()).getByRole('button', { name: `${n.arms} (${n.soon})` })
+      expect(button.getAttribute('aria-disabled')).toBe('true')
+      expect(button.className).toContain('opacity-45')
+      await user.click(button)
 
       expect(await heading('3월 10일 화요일')).toBeTruthy()
       expect(item(n.home).getAttribute('aria-current')).toBe('page')

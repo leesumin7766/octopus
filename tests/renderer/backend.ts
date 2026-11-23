@@ -1,4 +1,15 @@
 import { vi, type Mock } from 'vitest'
+import { createAdapterResolver, type KeyStore } from '../../src/main/core/command/adapterResolver'
+import { createConversationRepository } from '../../src/main/core/command/conversationRepository'
+import type { LlmAdapter } from '../../src/main/core/command/llm/types'
+import { createCommandSession } from '../../src/main/core/command/session'
+import { createCoreTools } from '../../src/main/core/command/tools/coreTools'
+import { createToolRegistry } from '../../src/main/core/command/tools/registry'
+import { createCommandHandlers } from '../../src/main/ipc/command'
+import type { CommandApi } from '../../src/shared/command/ipcApi'
+import type { LlmProvider } from '../../src/shared/command/types'
+import { createUlidGenerator } from '../../src/shared/tasks/ulid'
+import { scripted } from '../command/helpers'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
 import { createRoutineRepository, type RoutineRepository } from '../../src/main/core/routines/routineRepository'
 import { createSettingsRepository, type SettingsRepository } from '../../src/main/core/settings/settingsRepository'
@@ -15,6 +26,7 @@ import type { RoutinesApi } from '../../src/shared/routines/ipcApi'
 import type { SettingsApi } from '../../src/shared/settings/ipcApi'
 import type { ShortcutsApi } from '../../src/shared/shortcuts/ipcApi'
 import type { TasksApi } from '../../src/shared/tasks/ipcApi'
+import { localDateString } from '../../src/shared/tasks/dates'
 import { createTestRepo, type TestRepo } from '../tasks/helpers'
 
 // React 에게 테스트(act) 환경임을 알린다.
@@ -25,6 +37,7 @@ export type RoutineSpies = { [K in keyof RoutinesApi]: Mock<RoutinesApi[K]> }
 export type MemoSpies = { [K in keyof MemosApi]: Mock<MemosApi[K]> }
 export type SettingsSpies = { [K in keyof SettingsApi]: Mock<SettingsApi[K]> }
 export type ShortcutSpies = { [K in keyof ShortcutsApi]: Mock<ShortcutsApi[K]> }
+export type CommandSpies = { [K in keyof CommandApi]: Mock<CommandApi[K]> }
 
 /** 운영체제와 닿는 동작의 가짜. 테스트가 실제로 무언가를 열 일은 없다. */
 export type FakePlatform = { [K in keyof ShortcutPlatform]: Mock<ShortcutPlatform[K]> }
@@ -42,6 +55,11 @@ export interface Backend {
   memos: MemoSpies
   settings: SettingsSpies
   shortcuts: ShortcutSpies
+  command: CommandSpies
+  /** 보안 저장소 대신 메모리에 있는 키. 테스트가 직접 넣고 확인한다(화면에는 나오지 않아야 한다). */
+  keys: Partial<Record<LlmProvider, string>>
+  /** 가짜 모델의 다음 응답들을 정한다. 진짜 API 는 부르지 않는다. */
+  setLlm(steps: Parameters<typeof scripted>[0]): ReturnType<typeof scripted>
 }
 
 /**
@@ -74,6 +92,53 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
   const memoHandlers = createMemoHandlers({ getRepository: () => memoRepo, now, logError })
   const settingsHandlers = createSettingsHandlers({ getRepository: () => settingsRepo, logError })
   const shortcutHandlers = createShortcutHandlers({ getRepository: () => shortcutRepo, platform, logError })
+
+  const keys: Partial<Record<LlmProvider, string>> = {}
+  const keyStore: KeyStore = { get: (p) => keys[p], set: (p, k) => void (keys[p] = k), delete: (p) => void delete keys[p] }
+  let llm: ReturnType<typeof scripted> = scripted([])
+  const resolve = createAdapterResolver({
+    keys: keyStore,
+    models: () => settingsRepo.get('command.models'),
+    // 어댑터는 만들어지지 않으므로(아래 getAdapter) 이 클라이언트는 쓰이지 않는다. 혹시 불리면 실패해서 알려 준다.
+    createAnthropicClient: () => {
+      const refuse = async (): Promise<never> => {
+        throw new Error('tests must not call the API')
+      }
+      return { messages: { create: refuse }, beta: { messages: { create: refuse } } }
+    },
+    fetch: () => {
+      throw new Error('tests must not call the network')
+    }
+  })
+  const newId = createUlidGenerator()
+  const conversations = createConversationRepository(t.db, { newId: () => newId(Date.now()), now: () => now().toISOString() })
+  const registry = createToolRegistry([() => createCoreTools({ tasks: t.repo, memos: memoRepo, routines: routineRepo, today: () => localDateString(now()) })])
+  const session = createCommandSession({
+    repo: conversations,
+    registry,
+    getAdapter: (modelId): LlmAdapter => {
+      resolve(modelId) // 키가 없으면 no_key 로 던진다(진짜 어댑터는 만들지 않는다).
+      return llm
+    }
+  })
+  const commandHandlers = createCommandHandlers({
+    getSession: () => session,
+    getRepository: () => conversations,
+    getModels: () => settingsRepo.get('command.models'),
+    keys: keyStore,
+    logError
+  })
+  const command = {
+    models: vi.fn(async () => commandHandlers.models()),
+    setKey: vi.fn(async (provider: unknown, key: unknown) => commandHandlers.setKey(provider, key)),
+    clearKey: vi.fn(async (provider: unknown) => commandHandlers.clearKey(provider)),
+    send: vi.fn(async (input: unknown) => commandHandlers.send(input)),
+    decide: vi.fn(async (id: unknown, decisions: unknown) => commandHandlers.decide(id, decisions)),
+    pending: vi.fn(async (id: unknown) => commandHandlers.pending(id)),
+    conversations: vi.fn(async () => commandHandlers.conversations()),
+    transcript: vi.fn(async (id: unknown) => commandHandlers.transcript(id)),
+    removeConversation: vi.fn(async (id: unknown) => commandHandlers.removeConversation(id))
+  } as unknown as CommandSpies
 
   const tasks = {
     list: vi.fn(async (view: unknown) => taskHandlers.list(view)),
@@ -130,9 +195,9 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     memos: memos as unknown as MemosApi,
     settings: settings as unknown as SettingsApi,
     shortcuts: shortcuts as unknown as ShortcutsApi,
-    command: {} as unknown as OctopusApi['command'] // 지시하기 화면(M4-B)이 생기기 전까지 렌더러 테스트는 쓰지 않는다.
+    command: command as unknown as CommandApi
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, keys, setLlm: (steps) => (llm = scripted(steps)) }
 }

@@ -58,9 +58,15 @@ function shortcutIcon(shortcut: Shortcut): IconName {
 }
 
 /** 칸 하나의 표시 정보. 지워진 바로가기는 흐리게 하고 이유를 알려 준다. */
-export function describeAction(action: ActionId, index: number, shortcuts: readonly Shortcut[]): SlotInfo {
+/** 연결 상태에 따라 쓸 수 있게 되는 기능 */
+export interface Capabilities {
+  /** 지시하기: 모델(키 또는 서버)이 연결돼 있을 때 */
+  command: boolean
+}
+
+export function describeAction(action: ActionId, index: number, shortcuts: readonly Shortcut[], capabilities: Capabilities = { command: false }): SlotInfo {
   if (isFixed(action)) {
-    const enabled = AVAILABLE_FIXED_ACTIONS.has(action)
+    const enabled = AVAILABLE_FIXED_ACTIONS.has(action) || (action === 'command' && capabilities.command)
     const reasons = t.reasons as Record<string, string>
     return {
       index,
@@ -80,8 +86,8 @@ export function describeAction(action: ActionId, index: number, shortcuts: reado
   return { index, action, label: shortcut.label, icon: shortcutIcon(shortcut), enabled: true }
 }
 
-export function describeSlots(slots: readonly ActionId[], shortcuts: readonly Shortcut[]): SlotInfo[] {
-  return slots.map((action, index) => describeAction(action, index, shortcuts))
+export function describeSlots(slots: readonly ActionId[], shortcuts: readonly Shortcut[], capabilities?: Capabilities): SlotInfo[] {
+  return slots.map((action, index) => describeAction(action, index, shortcuts, capabilities))
 }
 
 /** 설정 화면의 목록에 쓰는 이름 */

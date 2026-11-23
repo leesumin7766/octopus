@@ -3,6 +3,7 @@ import { DEFAULT_PIE_SLOTS, FIXED_ACTIONS, shortcutAction, type ActionId } from 
 import type { Shortcut } from '../../shared/shortcuts/types'
 import { ko } from '../i18n/ko'
 import { longLabel } from '../pie/actions'
+import { ModelSection } from './ModelSection'
 import { useSetting } from './useSetting'
 
 const t = ko.settings
@@ -51,6 +52,8 @@ export function SettingsScreen() {
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-page px-5 py-4 text-ink">
       <h1 className="mb-4 text-lg font-semibold">{t.title}</h1>
+
+      <ModelSection />
 
       <section aria-label={t.pieTitle} className="max-w-xl rounded-xl border border-line bg-white p-4">
         <h2 className="text-[15px] font-bold">{t.pieTitle}</h2>

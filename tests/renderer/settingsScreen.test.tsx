@@ -25,6 +25,7 @@ describe('settings screen', () => {
 
   const prepare = (initial: 'settings' | 'home' = 'settings'): Backend => (b = installBackend(initial))
   const show = (): void => void render(<App />)
+  const pieRegion = (): HTMLElement => screen.getByRole('region', { name: t.pieTitle })
   const slotSelect = (n: number): HTMLSelectElement =>
     screen.getByLabelText(t.slotLabel(n, t.positions[n - 1])) as HTMLSelectElement
   const menu = (): HTMLElement => screen.getByRole('navigation', { name: ko.nav.label })
@@ -45,13 +46,13 @@ describe('settings screen', () => {
     expect(labels.indexOf(ko.nav.settings)).toBe(labels.indexOf(ko.nav.arrange) - 1)
   })
 
-  it('shows only the pie menu section', async () => {
+  it('shows the model connection section and then the pie menu section', async () => {
     prepare()
     show()
 
     await screen.findByRole('heading', { level: 1, name: t.title })
 
-    expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual([t.pieTitle])
+    expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual([t.model.title, t.pieTitle])
   })
 
   it('lists the eight slots in order from 12 o\'clock, each set to the saved action', async () => {
@@ -60,7 +61,7 @@ describe('settings screen', () => {
     await screen.findByRole('heading', { level: 1, name: t.title })
     await waitFor(() => expect(slotSelect(1).value).toBe('command'))
 
-    expect(screen.getAllByRole('combobox')).toHaveLength(8)
+    expect(within(pieRegion()).getAllByRole('combobox')).toHaveLength(8)
     expect([1, 2, 3, 4, 5, 6, 7, 8].map((n) => slotSelect(n).value)).toEqual([...DEFAULT_PIE_SLOTS])
     expect(slotSelect(1).getAttribute('aria-label')).toContain('위')
     expect(slotSelect(3).getAttribute('aria-label')).toContain('오른쪽')

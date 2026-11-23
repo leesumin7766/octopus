@@ -15,6 +15,7 @@ export const ko = {
     command: '지시하기',
     arms: 'Arms',
     soon: '준비 중',
+    commandNeedsModel: '모델을 연결하면 쓸 수 있어요',
     settings: '설정',
     arrange: '화면 배치',
     arrangeHint: '홈 화면에서 카드를 옮기고 크기를 바꿀 수 있어요.'
@@ -58,7 +59,7 @@ export const ko = {
     },
     // 지금 쓸 수 없는 칸에 가리키면 보이는 이유
     reasons: {
-      command: '지시하기는 곧 만나볼 수 있어요.',
+      command: '설정의 "모델 연결"에서 키나 서버 주소를 넣으면 쓸 수 있어요.',
       'arm:google-calendar': '캘린더 Arm 을 연결하면 쓸 수 있어요.',
       'arm:mail': '메일 Arm 을 연결하면 쓸 수 있어요.',
       'arm:obsidian': '옵시디언 Arm 을 연결하면 쓸 수 있어요.',
@@ -78,7 +79,36 @@ export const ko = {
     // 12시부터 시계 방향
     positions: ['위', '오른쪽 위', '오른쪽', '오른쪽 아래', '아래', '왼쪽 아래', '왼쪽', '왼쪽 위'],
     reset: '기본값으로',
-    soon: '준비 중'
+    soon: '준비 중',
+    model: {
+      title: '모델 연결',
+      help: '지시하기가 쓸 AI 모델을 연결해요. 키는 이 PC 에 암호화해 저장하고, 화면에는 다시 보여 주지 않아요.',
+      providerLabel: '연결 방식',
+      providers: { anthropic: 'Anthropic', 'openai-compatible': 'OpenAI 호환' },
+      keyLabel: 'API 키',
+      keyOptionalLabel: 'API 키 (선택)',
+      keyPlaceholder: '키를 붙여 넣고 저장하세요',
+      saveKey: '키 저장',
+      saved: '저장됨',
+      notSaved: '저장된 키 없음',
+      clearKey: '키 지우기',
+      clearConfirm: '저장된 키를 지울까요? 지우면 지시하기를 쓸 수 없어요.',
+      clearYes: '지우기',
+      clearNo: '취소',
+      modelLabel: '모델',
+      baseUrlLabel: '서버 주소',
+      baseUrlPlaceholder: 'https://api.openai.com/v1  또는  http://localhost:1234/v1',
+      modelNameLabel: '모델 이름',
+      saveServer: '서버 저장',
+      serverSaved: '서버 설정을 저장했어요.',
+      keySaved: '키를 저장했어요.',
+      keyCleared: '키를 지웠어요.',
+      errors: {
+        baseUrl: '주소는 http:// 또는 https:// 로 시작해야 해요.',
+        modelName: '모델 이름을 적어 주세요.',
+        key: '키를 붙여 넣어 주세요.'
+      }
+    }
   },
 
   home: {
@@ -337,5 +367,69 @@ export const ko = {
       secure_unavailable: '이 PC 에서는 키를 안전하게 저장할 수 없어요. Windows 에 로그인한 상태인지 확인한 뒤 다시 시도해 주세요.',
       internal: '문제가 생겼어요. 잠시 뒤 다시 시도해 주세요. 계속되면 앱을 다시 시작해 주세요.'
     }
+  },
+  command: {
+    title: '지시하기',
+    shortcutHint: 'Ctrl+K',
+    close: '닫기',
+    chatsLabel: '대화 목록',
+    newChat: '새 대화',
+    recentChats: '최근 대화',
+    noChats: '아직 대화가 없어요.',
+    deleteChat: (title: string) => `대화 지우기: ${title}`,
+    deleteConfirm: '이 대화를 지울까요?',
+    deleteYes: '지우기',
+    deleteNo: '취소',
+    modelLabel: '모델',
+    inputLabel: '지시 내용',
+    placeholder: '무엇을 시킬까요?  (Enter 보내기 · Shift+Enter 줄바꿈)',
+    send: '보내기',
+    thinking: '생각 중…',
+    empty: '할 일을 찾거나 추가하고, 메모를 정리하도록 시켜 보세요.',
+    conversationLabel: '대화',
+    you: '나',
+    assistant: 'Octopus',
+    approvalLabel: '승인 요청',
+    approvalHint: '승인해야 실행돼요. 승인 전에 새 메시지를 보내면 이 요청은 거절 처리돼요.',
+    approve: '실행',
+    reject: '거절',
+    approved: '실행하기로 했어요',
+    rejected: '거절했어요',
+    sources: { core: '기본', arm: 'Arm', mcp: 'MCP' } as const,
+    toolDone: (label: string) => `${label} 완료`,
+    toolError: (label: string) => `${label} 실패`,
+    toolRejected: (label: string) => `${label} 거절함`,
+    unknownTool: (name: string) => `${name} 도구`,
+    toolLabels: {
+      add_task: '할 일 추가',
+      update_task: '할 일 고치기',
+      complete_task: '할 일 완료',
+      add_memo: '메모 추가'
+    } as Record<string, string>,
+    readLines: {
+      list_tasks: '할 일 목록을 봤어요',
+      search_tasks: '할 일을 찾아봤어요',
+      list_memos: '메모 목록을 봤어요',
+      search_memos: '메모를 찾아봤어요',
+      list_routines_today: '오늘 체크리스트를 봤어요'
+    } as Record<string, string>,
+    readFallback: (name: string) => `${name} 도구로 읽었어요`,
+    noKey: {
+      title: '모델을 연결해 주세요',
+      body: '지시하기를 쓰려면 AI 모델의 키(또는 내 서버 주소)가 필요해요. 설정에서 한 번만 넣으면 돼요. 다른 기능은 그대로 쓸 수 있어요.',
+      button: '모델 연결하기'
+    },
+    errors: {
+      no_key: '모델이 연결되어 있지 않아요. 모델 연결하기를 눌러 키를 넣어 주세요.',
+      auth: '키가 맞지 않아요. 설정의 모델 연결에서 키를 다시 넣어 주세요.',
+      rate_limit: '요청이 너무 많아요. 잠시 뒤 다시 보내 주세요.',
+      network: '네트워크에 연결하지 못했어요. 인터넷(또는 서버 주소)을 확인하고 다시 보내 주세요.',
+      overloaded: '서비스가 지금 바빠요. 잠시 뒤 다시 보내 주세요.',
+      bad_request: '요청을 처리하지 못했어요. 설정의 모델 이름과 서버 주소를 확인해 주세요.',
+      refusal: '모델이 이 요청에는 답하지 않았어요. 표현을 바꿔서 다시 말해 보세요.',
+      too_long: '답이 길어서 중간에 잘렸어요. 요청을 더 짧게 나눠서 다시 보내 주세요.',
+      step_limit: '한 번에 너무 많은 단계가 필요했어요. 요청을 나눠서 다시 보내 주세요.',
+      unknown: '문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.'
+    } as Record<string, string>
   }
 } as const
