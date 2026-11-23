@@ -127,6 +127,10 @@ function initDatabase(): void {
           const today = tasksForArms.listView('today', day)
           return [...today.overdue, ...today.today]
         },
+        listDoneToday: () => {
+          const n = now()
+          return tasksForArms.listDoneBetween(new Date(n.getFullYear(), n.getMonth(), n.getDate()).toISOString(), new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1).toISOString())
+        },
         onTasksChanged: (listener) => taskChanges?.subscribe(listener) ?? (() => {})
       }),
       http: { fetch: (url, init) => fetch(url, init) },

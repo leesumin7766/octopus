@@ -293,6 +293,7 @@ function setup(over: { mode?: ObsidianConfig['mode']; vault?: string; makeVault?
       const x = repo.listView('today', day())
       return [...x.overdue, ...x.today]
     },
+    listDoneToday: () => repo.listDoneBetween(new Date(clock.now.getFullYear(), clock.now.getMonth(), clock.now.getDate()).toISOString(), new Date(clock.now.getFullYear(), clock.now.getMonth(), clock.now.getDate() + 1).toISOString()),
     onTasksChanged: bus.subscribe
   }
   const makeCtx = (interactive = true) =>
@@ -362,6 +363,22 @@ describe('Obsidian arm: export', () => {
     e.tasks.repo.setStatus(a.id, 'done')
     await e.connect()
     expect(e.read()).toContain('- [x] 오늘 끝냄')
+  })
+
+  it('a routine item finished today shows as [x] in the today section (and a routine item finished on another day does not)', async () => {
+    const e = setup()
+    const today = e.tasks.repo.create({ title: '아침 스트레칭', date: '2026-03-10', bucket: 'scheduled', routineId: 'R1' })
+    const yesterday = e.tasks.repo.create({ title: '어제 루틴', date: '2026-03-09', bucket: 'scheduled', routineId: 'R1' })
+    e.tasks.repo.setStatus(today.id, 'done')
+    e.tasks.repo.setStatus(yesterday.id, 'done')
+    // 어제 끝낸 것으로 보이도록 완료 시각을 옮긴다(저장소는 지금 시각으로 기록한다).
+    e.tasks.db.prepare('UPDATE tasks SET done_at = ? WHERE id = ?').run(new Date(2026, 2, 9, 20, 0).toISOString(), yesterday.id)
+
+    await e.connect()
+
+    const text = e.read() as string
+    expect(text).toContain('## 오늘 · 3월 10일 화요일\n- [x] 아침 스트레칭')
+    expect(text).not.toContain('어제 루틴')
   })
 
   it('rewrites the whole file each time, keeping only the last backup outside the vault', async () => {

@@ -86,6 +86,8 @@ export interface ArmCoreServices {
   addInboxCandidate(candidate: CandidateInput): AddCandidateResult
   /** 할 일 읽기(today 는 지난 것 포함). 쓰기는 없다. */
   listTasks(view: TaskView): Task[]
+  /** 오늘(로컬 0시~24시) 끝낸 할 일. 루틴 항목도 포함한다(listTasks('done') 와 달리). */
+  listDoneToday(): Task[]
   /** 할 일이 바뀐 뒤(만들기·고치기·완료·삭제·옮기기)에 불린다. 돌려주는 함수로 구독을 끝낸다. 바뀐 내용은 알려 주지 않는다 — 필요하면 listTasks 로 읽는다. */
   onTasksChanged(listener: () => void): () => void
 }

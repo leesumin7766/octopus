@@ -45,6 +45,8 @@ export interface TaskRepository {
   moveToToday(ids: readonly string[], today: string): Task[]
   moveToSomeday(ids: readonly string[]): Task[]
   reschedule(ids: readonly string[], date: string): Task[]
+  /** 완료 시각(done_at, ISO)이 [fromIso, toIso) 안인 끝난 할 일 — 루틴 항목도 포함한다(완료 보기와 달리). 오래된 것부터. */
+  listDoneBetween(fromIso: string, toIso: string): Task[]
 }
 
 const STATUSES: readonly unknown[] = ['open', 'done', 'canceled']
@@ -216,6 +218,10 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
   }
 
   return {
+    listDoneBetween(fromIso, toIso) {
+      return query(`status = 'done' AND done_at >= ? AND done_at < ? ORDER BY done_at, sort_order, id`, fromIso, toIso)
+    },
+
     create(input) {
       const now = deps.now()
       const date = input.date ?? null

@@ -93,7 +93,7 @@ export function createManagerEnv(over: Partial<ArmManagerDeps> = {}): ManagerEnv
         return { added: true, accepted: false }
       },
       listTasks: () => [],
-      onTasksChanged: () => () => {}
+      listDoneToday: () => [], onTasksChanged: () => () => {}
     }),
     http: { fetch: vi.fn(async () => { throw new Error('tests must not use the network') }), sleep: async () => {} },
     logSink: (entry) => void logs.push(entry),

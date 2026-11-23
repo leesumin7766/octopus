@@ -28,7 +28,7 @@ function setup(opts: { noDb?: boolean } = {}) {
       getAutoAccept: () => settings.autoAccept,
       setAutoAccept: (ids) => void (settings.autoAccept = ids)
     },
-    coreFor: () => ({ addInboxCandidate: () => ({ added: true, accepted: false }), listTasks: () => [], onTasksChanged: () => () => {} }),
+    coreFor: () => ({ addInboxCandidate: () => ({ added: true, accepted: false }), listTasks: () => [], listDoneToday: () => [], onTasksChanged: () => () => {} }),
     http: { fetch: async () => { throw new Error('no network') }, sleep: async () => {} },
     logSink: () => {},
     scheduler: { setInterval: () => 0, clearInterval: () => {} }

@@ -151,7 +151,7 @@ describe('OAuth session', () => {
       secureStore: store,
       http: { fetch: async () => { throw new Error('unused') } },
       logSink: (e) => void logs.push(e),
-      core: { addInboxCandidate: () => ({ added: false, accepted: false }), listTasks: () => [], onTasksChanged: () => () => {} }
+      core: { addInboxCandidate: () => ({ added: false, accepted: false }), listTasks: () => [], listDoneToday: () => [], onTasksChanged: () => () => {} }
     })
     const opened: string[] = []
     const session = createOAuthSession({

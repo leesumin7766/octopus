@@ -5,7 +5,6 @@ import type { ArmStatus } from '../../../shared/arms/types'
 import { type ObsidianConfig, type ObsidianConfigPatch, type ObsidianState } from '../../../shared/obsidian/types'
 import { localDateString } from '../../../shared/tasks/dates'
 import { parseQuickInput } from '../../../shared/tasks/quickParse'
-import type { Task } from '../../../shared/tasks/types'
 import { normalizeExportPath } from '../../../shared/validation/obsidian'
 import { ArmError, type Arm, type ArmContext } from '../sdk/types'
 import { dailyLinkLine, dailyNotePath, hasDailyLink } from './dailyNote'
@@ -113,7 +112,7 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
   function gather(core: ArmContext['core']): ExportData {
     const today = localDateString(now())
     const open = core.listTasks('today')
-    const done = core.listTasks('done').filter((t: Task) => t.doneAt !== null && localDateString(new Date(t.doneAt)) === today)
+    const done = core.listDoneToday() // 루틴 항목도 들어 있다
     return {
       today,
       overdue: open.filter((t) => t.date !== null && t.date < today),

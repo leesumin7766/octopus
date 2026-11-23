@@ -205,6 +205,10 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
         const today = t.repo.listView('today', day)
         return [...today.overdue, ...today.today]
       },
+      listDoneToday: () => {
+        const n = now()
+        return t.repo.listDoneBetween(new Date(n.getFullYear(), n.getMonth(), n.getDate()).toISOString(), new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1).toISOString())
+      },
       onTasksChanged: () => () => {}
     }),
     http: { fetch: async () => { throw new Error('tests must not use the network') }, sleep: async () => {} },
