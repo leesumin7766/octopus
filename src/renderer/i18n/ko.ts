@@ -466,6 +466,7 @@ export const ko = {
     connect: '연결',
     connecting: '연결 중…',
     reconnect: '다시 연결',
+    settings: '설정',
     disconnect: '연결 끊기',
     disconnectConfirm: '저장된 로그인 정보가 지워져요. 할 일은 그대로 남아요.',
     disconnectYes: '연결 끊기',
@@ -537,5 +538,40 @@ export const ko = {
       clear: '지우기',
       errors: { clientId: '클라이언트 ID 는 8~200자의 영문·숫자·점·하이픈으로 적어 주세요.', clientSecret: '시크릿에 쓸 수 없는 글자가 있어요.' }
     }
+  },
+  obsidian: {
+    title: '옵시디언',
+    back: '← Arms',
+    intro: '할 일은 Octopus 에 있어요. 옵시디언에는 읽기 쉬운 사본을 파일 하나로 내보내요. 그 파일은 Octopus 가 통째로 다시 쓰니, 고치려면 Octopus 에서 해 주세요.',
+    notConnected: '옵시디언이 연결되어 있지 않아요. Arms 화면에서 연결하면 내보내기가 시작돼요.',
+    modeTitle: '쓰는 방식',
+    modes: {
+      off: { title: '쓰지 않음', desc: '아무것도 내보내지 않아요.' },
+      export: { title: '내보내기만', desc: '할 일을 파일 하나로 내보내요. 옵시디언에서는 보기만 해요.', recommended: '권장' },
+      both: { title: '내보내기 + 적어 넣기', desc: '파일 맨 아래 "적어 넣기" 칸에 "- [ ] 할 일" 을 적으면 Octopus 수신함으로 가져가요.' }
+    },
+    vaultTitle: '내보낼 곳',
+    vault: 'vault',
+    changeVault: '바꾸기',
+    notVault: '옵시디언 vault 가 아닌 것 같아요(.obsidian 폴더가 없어요). 그래도 쓸 수는 있어요.',
+    fileLabel: '파일 하나 (vault 기준 경로, .md)',
+    saveFile: '저장',
+    fileSaved: '저장했어요.',
+    fileError: '경로가 올바르지 않아요. vault 안의 상대 경로(예: Octopus/할 일.md)로 .md 파일을 적어 주세요. ..·절대 경로·드라이브 문자는 쓸 수 없어요.',
+    daily: '오늘 일일노트 맨 끝에 이 파일 링크 한 줄 넣기',
+    dailyHelp: '기본은 꺼짐. 켜도 오늘 일일노트가 이미 있을 때만, 하루에 한 번만 넣고 새 노트는 만들지 않아요.',
+    lastExport: (time: string) => `마지막으로 내보낸 시각 ${time}`,
+    neverExported: '아직 내보내지 않았어요.',
+    exportNow: '지금 내보내기',
+    exporting: '내보내는 중…',
+    syncTitle: '동기화 점검',
+    gitNone: 'git 저장소가 아니에요. 점검할 것이 없어요.',
+    gitOk: 'vault 가 git 저장소예요. 옵시디언의 작업 영역 파일은 이미 제외되어 있어요.',
+    gitMissing: 'vault 가 git 저장소인데, 옵시디언이 계속 바꾸는 작업 영역 파일이 제외되어 있지 않아요(충돌이 자주 생겨요).',
+    gitAdd: (line: string) => `제외 목록에 추가: ${line}`,
+    gitHelp: '누르면 추가할 줄을 보여 주고 확인을 받아요. 자동으로 고치지 않아요.',
+    previewTitle: '옵시디언에 보이는 모습',
+    previewHelp: '지금 할 일로 만든 내용이에요. 할 일을 바꾸면 몇 초 안에 파일에도 반영돼요.',
+    noPreview: '연결하면 미리보기가 보여요.'
   }
 } as const

@@ -23,6 +23,7 @@ const SHOTS = [
   ['arms', 'arms'],
   ['arms-mcp', 'arms-mcp'],
   ['inbox', 'inbox'],
+  ['obsidian', 'obsidian'],
   ['today', 'today'],
   ['routines', 'routines'],
   ['memos', 'memos']

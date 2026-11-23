@@ -15,6 +15,12 @@ import { createMemorySecureStore } from '../../src/main/dev/captureArms'
 import { createCandidateRepository, type CandidateRepository } from '../../src/main/core/inbox/candidateRepository'
 import { createArmsHandlers, createCandidateHandlers } from '../../src/main/ipc/arms'
 import type { ArmsApi, CandidatesApi } from '../../src/shared/arms/ipcApi'
+import { mkdirSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createObsidianArm, type ObsidianArm } from '../../src/main/arms/obsidian/arm'
+import { createObsidianHandlers } from '../../src/main/ipc/obsidian'
+import type { ObsidianApi } from '../../src/shared/obsidian/types'
 import { createMcpService, type McpService } from '../../src/main/arms/mcp/service'
 import type { McpArmDeps } from '../../src/main/arms/mcp/arm'
 import type { McpConnection, McpConnector } from '../../src/main/arms/mcp/connection'
@@ -52,6 +58,7 @@ export type SettingsSpies = { [K in keyof SettingsApi]: Mock<SettingsApi[K]> }
 export type ShortcutSpies = { [K in keyof ShortcutsApi]: Mock<ShortcutsApi[K]> }
 export type ArmsSpies = { [K in keyof ArmsApi]: Mock<ArmsApi[K]> }
 export type CandidateSpies = { [K in keyof CandidatesApi]: Mock<CandidatesApi[K]> }
+export type ObsidianSpies = { [K in keyof ObsidianApi]: Mock<ObsidianApi[K]> }
 export type McpSpies = { [K in keyof McpApi]: Mock<McpApi[K]> }
 export type CalendarSpies = { [K in keyof CalendarApi]: Mock<CalendarApi[K]> }
 export type CommandSpies = { [K in keyof CommandApi]: Mock<CommandApi[K]> }
@@ -76,6 +83,12 @@ export interface Backend {
   arms: ArmsSpies
   candidates: CandidateSpies
   /** 시험용 Arm 을 등록·연결하는 진짜 관리자(비밀 저장소는 메모리) */
+  obsidian: ObsidianSpies
+  obsidianArm: ObsidianArm
+  /** 시험용 vault(임시 폴더, .obsidian 이 들어 있다) */
+  vault: string
+  /** .gitignore 수정 확인 창의 가짜(기본: 허용) */
+  obsidianConfirm: Mock<(info: { path: string; line: string }) => Promise<boolean>>
   mcp: McpSpies
   mcpService: McpService
   /** stdio 처음 실행 확인 창의 가짜(기본: 허용) */
@@ -186,7 +199,13 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     },
     coreFor: (armId) => ({
       addInboxCandidate: (c) => candidateRepo.add(armId, c, { autoAccept: armSettings.autoAccept.includes(armId) }),
-      listTasks: () => []
+      listTasks: (view) => {
+        const day = localDateString(now())
+        if (view !== 'today') return t.repo.listView(view, day)
+        const today = t.repo.listView('today', day)
+        return [...today.overdue, ...today.today]
+      },
+      onTasksChanged: () => () => {}
     }),
     http: { fetch: async () => { throw new Error('tests must not use the network') }, sleep: async () => {} },
     logSink: () => {},
@@ -202,6 +221,33 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     close: async () => {},
     pid: () => null
   })
+  // 옵시디언: 임시 vault 폴더에 진짜로 쓴다(사용자 폴더는 건드리지 않는다).
+  const vault = mkdtempSync(join(tmpdir(), 'octopus-test-vault-'))
+  mkdirSync(join(vault, '.obsidian'))
+  const obsidianConfirm = vi.fn<(info: { path: string; line: string }) => Promise<boolean>>(async () => true)
+  const obsidianArm = createObsidianArm({
+    config: { get: () => settingsRepo.get('obsidian.config'), set: (next) => void settingsRepo.set('obsidian.config', next) },
+    pickFolder: async () => vault,
+    confirmGitignore: obsidianConfirm,
+    openExternal: async (url) => void opened.push(url),
+    backupDir: join(vault, '..', `${vault.split(/[\/]/).pop()}-backup`),
+    setAutoAcceptDefault: () => void armManager.setAutoAccept('obsidian', true),
+    now: () => now(),
+    debounceMs: 20,
+    watchDebounceMs: 20,
+    watch: () => () => {},
+    runGit: async () => null // 시험에서는 진짜 git 을 실행하지 않는다(.gitignore 해석으로 점검)
+  })
+  // 옵시디언 Arm 은 필요한 시험에서만 armManager.register(obsidianArm) 로 등록한다(Arms 화면 기본 시험이 영향받지 않게).
+  const obsidianHandlers = createObsidianHandlers({ getArm: () => obsidianArm, logError })
+  const obsidian = {
+    state: vi.fn(async () => obsidianHandlers.state()),
+    setConfig: vi.fn(async (patch: unknown) => obsidianHandlers.setConfig(patch)),
+    changeVault: vi.fn(async () => obsidianHandlers.changeVault()),
+    exportNow: vi.fn(async () => obsidianHandlers.exportNow()),
+    fixGitignore: vi.fn(async () => obsidianHandlers.fixGitignore()),
+    open: vi.fn(async () => obsidianHandlers.open())
+  } as unknown as ObsidianSpies
   const mcpConnector = { current: (async () => fakeConnection()) as McpConnector }
   const mcpServers: McpServerConfig[] = []
   const mcpApprovals: McpApproval[] = []
@@ -317,9 +363,10 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     arms: arms as unknown as ArmsApi,
     candidates: candidates as unknown as CandidatesApi,
     calendar: calendar as unknown as CalendarApi,
-    mcp: mcp as unknown as McpApi
+    mcp: mcp as unknown as McpApi,
+    obsidian: obsidian as unknown as ObsidianApi
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, obsidian, obsidianArm, vault, obsidianConfirm, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
 }

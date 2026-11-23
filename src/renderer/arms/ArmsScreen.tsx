@@ -83,9 +83,10 @@ interface ArmCardProps {
   onDisconnect: () => void
   onAutoAccept: (on: boolean) => void
   onSaveClient: (client: { clientId: string; clientSecret?: string } | null) => Promise<string | null>
+  onOpenSettings?: () => void
 }
 
-function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDisconnect, onDisconnect, onAutoAccept, onSaveClient }: ArmCardProps) {
+function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDisconnect, onDisconnect, onAutoAccept, onSaveClient, onOpenSettings }: ArmCardProps) {
   const { state, reason } = arm.status
   const connecting = busy || state === 'connecting'
   const primary = 'min-h-9 rounded-lg px-3 text-[13px] font-semibold disabled:opacity-40'
@@ -152,6 +153,11 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
           <span className="text-xs text-[#5e5d58]">{t.auth[arm.auth] ?? arm.auth}</span>
           <span className="flex gap-1.5">
+            {arm.settingsScreen && onOpenSettings && (
+              <button type="button" onClick={onOpenSettings} className={`${primary} border border-line bg-white font-normal hover:bg-black/5`}>
+                {t.settings}
+              </button>
+            )}
             {(state === 'on' || state === 'error') && (
               <button type="button" onClick={onAskDisconnect} className={`${primary} border border-line bg-white font-normal hover:bg-black/5`}>
                 {t.disconnect}
@@ -171,7 +177,7 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
 
 /** Arms 화면: 등록된 Arm 만 카드로 보여 주고 연결·끊기를 한다. */
 /** scrollToMcp: 개발용 캡처에서 MCP 구역이 보이도록 처음에 그쪽으로 내린다. */
-export function ArmsScreen({ scrollToMcp = false }: { scrollToMcp?: boolean }) {
+export function ArmsScreen({ scrollToMcp = false, onOpenSettings }: { scrollToMcp?: boolean; onOpenSettings?: (screen: string) => void }) {
   const [arms, setArms] = useState<ArmInfo[] | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -236,6 +242,7 @@ export function ArmsScreen({ scrollToMcp = false }: { scrollToMcp?: boolean }) {
                 setConfirmId(null)
                 void act(arm.id, () => window.octopus.arms.disconnect(arm.id))
               }}
+              onOpenSettings={arm.settingsScreen && onOpenSettings ? () => onOpenSettings(arm.settingsScreen as string) : undefined}
               onAutoAccept={(on) => void act(arm.id, () => window.octopus.arms.setAutoAccept(arm.id, on))}
               onSaveClient={async (client) => {
                 const result = await window.octopus.arms.setClient(arm.id, client)
@@ -251,7 +258,7 @@ export function ArmsScreen({ scrollToMcp = false }: { scrollToMcp?: boolean }) {
         </section>
       )}
 
-      <McpSection scrollIntoViewOnMount={scrollToMcp} />
+      <McpSection scrollIntoViewOnMount={scrollToMcp} armsReady={arms !== null} />
     </div>
   )
 }

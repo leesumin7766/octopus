@@ -3,7 +3,7 @@ import { Icon, LayoutIcon, type IconName } from '../ui/Icon'
 
 const t = ko.nav
 
-export type Screen = 'home' | 'tasks' | 'routines' | 'memos' | 'arms' | 'settings'
+export type Screen = 'home' | 'tasks' | 'routines' | 'memos' | 'arms' | 'obsidian' | 'settings'
 
 interface NavItem {
   id: Screen | 'command' | 'arms'

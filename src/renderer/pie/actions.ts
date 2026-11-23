@@ -65,11 +65,13 @@ export interface Capabilities {
   command: boolean
   /** 캘린더: Google 캘린더가 연결돼 있을 때 */
   calendar?: boolean
+  /** 옵시디언: Arm 이 연결돼 있을 때 */
+  obsidian?: boolean
 }
 
 export function describeAction(action: ActionId, index: number, shortcuts: readonly Shortcut[], capabilities: Capabilities = { command: false }): SlotInfo {
   if (isFixed(action)) {
-    const enabled = AVAILABLE_FIXED_ACTIONS.has(action) || (action === 'command' && capabilities.command) || (action === 'arm:google-calendar' && capabilities.calendar === true)
+    const enabled = AVAILABLE_FIXED_ACTIONS.has(action) || (action === 'command' && capabilities.command) || (action === 'arm:google-calendar' && capabilities.calendar === true) || (action === 'arm:obsidian' && capabilities.obsidian === true)
     const reasons = t.reasons as Record<string, string>
     return {
       index,

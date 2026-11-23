@@ -23,7 +23,7 @@ function fieldError(error: IpcError): string | null {
 }
 
 /** Arms 화면의 "MCP 서버 꽂기": 추가 폼과 서버 목록. 환경 변수 값은 입력 후 바로 비우고 다시 보여 주지 않는다. */
-export function McpSection({ scrollIntoViewOnMount = false }: { scrollIntoViewOnMount?: boolean }) {
+export function McpSection({ scrollIntoViewOnMount = false, armsReady = true }: { scrollIntoViewOnMount?: boolean; armsReady?: boolean }) {
   const [servers, setServers] = useState<McpServerInfo[] | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
@@ -42,8 +42,9 @@ export function McpSection({ scrollIntoViewOnMount = false }: { scrollIntoViewOn
 
   // 개발용 캡처에서만: 목록이 채워진 뒤에 이 구역이 보이도록 내린다.
   useEffect(() => {
-    if (scrollIntoViewOnMount && servers !== null) sectionRef.current?.scrollIntoView?.({ block: 'start' })
-  }, [scrollIntoViewOnMount, servers])
+    // Arm 카드가 먼저 자리를 잡은 뒤에 내려야 이 구역이 보인다.
+    if (scrollIntoViewOnMount && servers !== null && armsReady) sectionRef.current?.scrollIntoView?.({ block: 'start' })
+  }, [scrollIntoViewOnMount, servers, armsReady])
 
   const load = useCallback(async (): Promise<void> => {
     const result = await window.octopus.mcp.list()

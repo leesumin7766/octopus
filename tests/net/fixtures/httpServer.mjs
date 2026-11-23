@@ -6,7 +6,7 @@ import { createFixtureServer } from './mcpFixture.mjs'
 
 export async function startHttpFixture() {
   const hits = []
-  const http = createServer(async (req, res) => {
+  const handler = async (req, res) => {
     hits.push(`${req.method} ${req.url}`)
     if (req.url !== '/mcp') {
       res.writeHead(404).end()
@@ -22,10 +22,22 @@ export async function startHttpFixture() {
     })
     await server.connect(transport)
     await transport.handleRequest(req, res, body ? JSON.parse(body) : undefined)
-  })
-  await new Promise((resolve, reject) => {
-    http.once('error', reject)
-    http.listen(0, '127.0.0.1', resolve)
-  })
+  }
+  // 이 PC 의 네트워크 계층이 가끔 listen 을 EFAULT 로 거절한다(테스트 환경의 문제). 서버를 새로 만들어 다시 시도한다.
+  let http
+  for (let attempt = 0; ; attempt++) {
+    http = createServer(handler)
+    try {
+      await new Promise((resolve, reject) => {
+        http.once('error', reject)
+        http.listen(0, '127.0.0.1', resolve)
+      })
+      break
+    } catch (error) {
+      http.close()
+      if (attempt >= 25) throw error
+      await new Promise((r) => setTimeout(r, 60))
+    }
+  }
   return { url: `http://127.0.0.1:${http.address().port}/mcp`, hits, close: () => new Promise((r) => (http.closeAllConnections?.(), http.close(r))) }
 }

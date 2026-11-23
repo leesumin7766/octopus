@@ -7,6 +7,7 @@ import { HomeScreen } from './home/HomeScreen'
 import { MemosScreen } from './memos/MemosScreen'
 import { NavMenu, type Screen } from './nav/NavMenu'
 import { ArmsScreen } from './arms/ArmsScreen'
+import { ObsidianScreen } from './arms/ObsidianScreen'
 import { RoutinesScreen } from './routines/RoutinesScreen'
 import { SettingsScreen } from './settings/SettingsScreen'
 import { useSetting } from './settings/useSetting'
@@ -19,6 +20,7 @@ function initialScreen(initial: InitialView | null): Screen {
   if (initial === null || initial === 'home' || initial === 'home-arrange') return 'home'
   if (initial === 'routines' || initial === 'memos' || initial === 'settings') return initial
   if (initial === 'arms' || initial === 'arms-mcp') return 'arms'
+  if (initial === 'obsidian') return 'obsidian'
   if (initial === 'home-pie' || initial === 'command' || initial === 'command-nokey') return 'home'
   return 'tasks'
 }
@@ -87,7 +89,8 @@ export function App() {
         {screen === 'tasks' && <TasksScreen initialView={taskView} />}
         {screen === 'routines' && <RoutinesScreen />}
         {screen === 'memos' && <MemosScreen />}
-        {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} />}
+        {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} onOpenSettings={(name) => name === 'obsidian' && navigate('obsidian')} />}
+        {screen === 'obsidian' && <ObsidianScreen onBack={() => navigate('arms')} />}
         {screen === 'settings' && <SettingsScreen />}
       </main>
       {commandOpen && (

@@ -85,6 +85,7 @@ export function HomeScreen({
   const [notice, setNotice] = useState<Notice | null>(null)
   const [calendar, setCalendar] = useState<CalendarToday | null>(null)
   const [now, setNow] = useState(() => new Date())
+  const [obsidianOn, setObsidianOn] = useState(false)
   const mounted = useRef(true)
   const noticeTimer = useRef<number | undefined>(undefined)
 
@@ -116,6 +117,9 @@ export function HomeScreen({
     if (!mounted.current) return
     setNow(new Date())
     // 못 읽으면(저장소 문제 등) 연결 안 됨으로 보여 주고 앱은 계속 쓴다.
+    const armList = await window.octopus.arms.list()
+    if (!mounted.current) return
+    setObsidianOn(armList.ok && armList.data.some((arm) => arm.id === 'obsidian' && arm.status.state === 'on'))
     setCalendar(result.ok ? result.data : { configured: true, status: { state: 'off' }, events: [] })
   }, [])
 
@@ -178,6 +182,8 @@ export function HomeScreen({
         return onNavigate('arms')
       case 'arm:google-calendar':
         return void window.octopus.calendar.openWeb()
+      case 'arm:obsidian':
+        return void window.octopus.obsidian.open()
       default:
         // 아직 없는 기능(지시하기·Arm·위키)은 쓸 수 없는 칸이라 여기까지 오지 않는다.
         return
@@ -185,8 +191,8 @@ export function HomeScreen({
   }
 
   const slotInfos = useMemo(
-    () => (pie.value && shortcuts ? describeSlots(pie.value, shortcuts, { command: commandReady, calendar: calendar?.configured === true && calendar.status.state === 'on' }) : null),
-    [pie.value, shortcuts, commandReady, calendar]
+    () => (pie.value && shortcuts ? describeSlots(pie.value, shortcuts, { command: commandReady, calendar: calendar?.configured === true && calendar.status.state === 'on', obsidian: obsidianOn }) : null),
+    [pie.value, shortcuts, commandReady, calendar, obsidianOn]
   )
 
   const today = todayString()
