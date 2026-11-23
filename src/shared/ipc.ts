@@ -41,7 +41,17 @@ export const IPC = {
   commandPending: 'command:pending',
   commandConversations: 'command:conversations',
   commandTranscript: 'command:transcript',
-  commandRemoveConversation: 'command:removeConversation'
+  commandRemoveConversation: 'command:removeConversation',
+  armsList: 'arms:list',
+  armsConnect: 'arms:connect',
+  armsDisconnect: 'arms:disconnect',
+  armsSetAutoAccept: 'arms:setAutoAccept',
+  candidatesList: 'candidates:list',
+  candidatesAccept: 'candidates:accept',
+  candidatesDismiss: 'candidates:dismiss',
+  candidatesAcceptAll: 'candidates:acceptAll',
+  candidatesDismissAll: 'candidates:dismissAll',
+  candidatesOpenSource: 'candidates:openSource'
 } as const
 
 /** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. secure_unavailable: 이 PC 에서 키를 암호화해 저장할 수 없다. */

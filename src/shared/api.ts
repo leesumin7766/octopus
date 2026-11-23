@@ -1,3 +1,4 @@
+import type { ArmsApi, CandidatesApi } from './arms/ipcApi'
 import type { CommandApi } from './command/ipcApi'
 import type { MemosApi } from './memos/ipcApi'
 import type { RoutinesApi } from './routines/ipcApi'
@@ -17,4 +18,6 @@ export interface OctopusApi {
   settings: SettingsApi
   shortcuts: ShortcutsApi
   command: CommandApi
+  arms: ArmsApi
+  candidates: CandidatesApi
 }

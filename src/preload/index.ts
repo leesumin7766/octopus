@@ -60,6 +60,20 @@ const api: OctopusApi = {
     conversations: () => ipcRenderer.invoke(IPC.commandConversations),
     transcript: (conversationId) => ipcRenderer.invoke(IPC.commandTranscript, conversationId),
     removeConversation: (conversationId) => ipcRenderer.invoke(IPC.commandRemoveConversation, conversationId)
+  },
+  arms: {
+    list: () => ipcRenderer.invoke(IPC.armsList),
+    connect: (id) => ipcRenderer.invoke(IPC.armsConnect, id),
+    disconnect: (id) => ipcRenderer.invoke(IPC.armsDisconnect, id),
+    setAutoAccept: (id, on) => ipcRenderer.invoke(IPC.armsSetAutoAccept, id, on)
+  },
+  candidates: {
+    list: () => ipcRenderer.invoke(IPC.candidatesList),
+    accept: (id) => ipcRenderer.invoke(IPC.candidatesAccept, id),
+    dismiss: (id) => ipcRenderer.invoke(IPC.candidatesDismiss, id),
+    acceptAll: () => ipcRenderer.invoke(IPC.candidatesAcceptAll),
+    dismissAll: () => ipcRenderer.invoke(IPC.candidatesDismissAll),
+    openSource: (id) => ipcRenderer.invoke(IPC.candidatesOpenSource, id)
   }
 }
 
