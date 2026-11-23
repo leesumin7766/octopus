@@ -177,3 +177,27 @@ interface CandidateInput {
 2. 이 문서의 계약을 따른다. **코어 수정이 필요하면 계약 변경**이므로 먼저 보고한다.
 3. 바깥 서비스를 진짜로 부르는 테스트는 만들지 않는다(가짜 `fetch`·가짜 서버만). `tests/arms/helpers.ts` 의 `fakeArm`·`createManagerEnv` 를 참고한다.
 4. 특정 회사·팀에서만 쓰는 연동은 기본 Arm 이 아니라 별도 "업무 플러그인" Arm 으로 둔다.
+
+## 9. 연결할 수 없는 빌드와 고급 옵션 (M5-B 에서 추가)
+
+```ts
+interface Arm {
+  // …
+  availability?(): { available: true } | { available: false; reason: string }
+  advanced?: { clientIdSaved(): boolean; setClient(value: { clientId: string; clientSecret?: string } | null): void }
+}
+```
+
+- `availability()`: 이 빌드·설정에서 연결할 수 있는지(예: OAuth 클라이언트 ID 가 없는 빌드). 동기 함수이며 부작용이 없어야 한다. 연결할 수 없으면 관리자가 **`connect()` 를 부르지 않고**, `ArmInfo.unavailableReason` 으로 카드에 이유를 보이며 [연결]이 비활성이 된다. 던지면 연결할 수 있는 것으로 본다.
+- `advanced`: 기본 경로가 아닌 고급 옵션("내 OAuth 클라이언트 쓰기"). 카드의 접힌 "고급" 안에만 있다. 저장은 **그 Arm 의 비밀 이름공간**에만 하고, 화면에는 저장돼 있는지(`advanced.clientIdSaved`)만 알리며 값은 다시 돌려주지 않는다. 연결을 끊으면 이름공간과 함께 지워진다.
+- OAuth Arm 의 공용 클라이언트 ID 는 **빌드 때 환경 변수**(`OCTOPUS_GOOGLE_CLIENT_ID`, 필요하면 `OCTOPUS_GOOGLE_CLIENT_SECRET` — 데스크톱 클라이언트의 secret 은 공개 값으로 취급)로 넣는다. 저장소·커밋·테스트에 실제 값을 두지 않는다.
+
+## 10. OAuth 플랫폼 (`src/main/platform/oauth/`)
+
+OAuth Arm 이 공통으로 쓰는 데스크톱 흐름(루프백 + PKCE). 공급자 정보(인증·토큰·폐기 주소, 범위)는 인자로 받는다.
+
+- PKCE: `code_verifier` 는 무작위 64자(허용 43~128), `code_challenge = base64url(SHA-256(verifier))`(S256). `state` 는 무작위 32바이트.
+- 루프백 수신기: `127.0.0.1` 의 임의 빈 포트에 일회용 HTTP 서버. **Host 가 `127.0.0.1:<포트>` 인 GET 요청, redirect 경로, 맞는 state 만** 받는다(그 밖의 요청은 4xx 로 거절하고 계속 기다림). 맞는 요청 하나를 받으면 외부 리소스 없는 안내 페이지를 보내고 서버를 곧바로 닫는다. 시간 제한 5분, 취소 가능, 사용자가 거절하면 `denied`.
+- 토큰: 교환·새로 고침(만료 60초 전부터 자동, 동시 호출은 한 번만)·폐기(실패해도 계속). 토큰은 **그 Arm 의 비밀 이름공간**에만 저장하며 로그에 code·token 을 남기지 않는다.
+- 시스템 브라우저 열기는 Arm 을 만들 때 주입한다(`openExternal`). `ArmContext` 에는 넣지 않는다.
+- 자동 재연결(`interactive: false`)에서는 브라우저를 열지 않는다. 저장된 토큰으로 새로 고침이 되면 조용히 연결하고, 안 되면 "다시 로그인이 필요해요" 로 `error` 가 된다.

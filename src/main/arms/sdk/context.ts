@@ -23,6 +23,23 @@ export interface ContextDeps {
   core: ArmCoreServices
 }
 
+/** Arm 별 비밀 저장소 도구. ArmContext 가 아니라 Arm 을 만들 때 필요한 곳(고급 설정 등)에서도 같은 이름공간을 쓴다. */
+export function createArmSecrets(store: SecureStore, armId: string, onSeen?: (value: string) => void): ArmSecrets {
+  const namespace = `arm:${armId}`
+  return {
+    get(name) {
+      const value = store.get(namespace, name)
+      if (value) onSeen?.(value)
+      return value
+    },
+    set(name, value) {
+      onSeen?.(value)
+      store.set(namespace, name, value)
+    },
+    delete: (name) => store.delete(namespace, name)
+  }
+}
+
 /** Arm 별 비밀 이름공간 */
 export const armNamespace = (armId: string): string => `arm:${armId}`
 
@@ -33,21 +50,8 @@ export const armNamespace = (armId: string): string => `arm:${armId}`
  * - core: 후보 추가의 출처는 항상 이 Arm 이다.
  */
 export function createArmContext(deps: ContextDeps): ArmContext {
-  const namespace = armNamespace(deps.armId)
   const seen = new Set<string>()
-
-  const secrets: ArmSecrets = {
-    get(name) {
-      const value = deps.secureStore.get(namespace, name)
-      if (value) seen.add(value)
-      return value
-    },
-    set(name, value) {
-      seen.add(value)
-      deps.secureStore.set(namespace, name, value)
-    },
-    delete: (name) => deps.secureStore.delete(namespace, name)
-  }
+  const secrets = createArmSecrets(deps.secureStore, deps.armId, (value) => void seen.add(value))
 
   const emit = (level: LogLevel) => (message: string, data?: unknown) => {
     const known = [...seen]

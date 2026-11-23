@@ -10,6 +10,8 @@ export interface ArmsApi {
   /** 저장된 로그인 정보를 지우고 끊는다. 할 일은 그대로 남는다. */
   disconnect(id: string): Promise<IpcResult<ArmInfo>>
   setAutoAccept(id: string, on: boolean): Promise<IpcResult<ArmInfo>>
+  /** 고급: 내 OAuth 클라이언트 ID(와 선택적으로 secret)를 그 Arm 의 비밀 이름공간에 저장하거나(null 이면) 지운다. 값은 다시 돌려주지 않는다. */
+  setClient(id: string, client: { clientId: string; clientSecret?: string } | null): Promise<IpcResult<ArmInfo>>
 }
 
 /** 수신함 후보. 후보를 받아들이면 수신함 할 일이 된다. */

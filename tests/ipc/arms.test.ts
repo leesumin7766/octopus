@@ -89,7 +89,7 @@ describe('arms IPC handlers', () => {
     const handle = vi.fn()
     registerArmsHandlers({ handle }, arms, cand)
     expect(handle.mock.calls.map((c) => c[0]).sort()).toEqual(
-      [IPC.armsList, IPC.armsConnect, IPC.armsDisconnect, IPC.armsSetAutoAccept, IPC.candidatesList, IPC.candidatesAccept, IPC.candidatesDismiss, IPC.candidatesAcceptAll, IPC.candidatesDismissAll, IPC.candidatesOpenSource].sort()
+      [IPC.armsList, IPC.armsConnect, IPC.armsDisconnect, IPC.armsSetAutoAccept, IPC.armsSetClient, IPC.candidatesList, IPC.candidatesAccept, IPC.candidatesDismiss, IPC.candidatesAcceptAll, IPC.candidatesDismissAll, IPC.candidatesOpenSource].sort()
     )
   })
 })

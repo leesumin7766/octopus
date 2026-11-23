@@ -62,6 +62,8 @@ export interface ArmManager {
   /** 지금 한 번 가져오기 */
   syncNow(id: string): Promise<ArmInfo | undefined>
   setAutoAccept(id: string, on: boolean): ArmInfo | undefined
+  /** 고급 옵션: 내 OAuth 클라이언트 저장/지우기. 지원하지 않는 Arm 이면 undefined. */
+  setClient(id: string, value: { clientId: string; clientSecret?: string } | null): ArmInfo | undefined
   /** 앱을 켤 때: 이전에 연결돼 있던 Arm 을 조용히(interactive=false) 다시 연결한다. */
   start(): Promise<void>
   /** 연결된 Arm 들이 내놓는 지시하기 도구. 도구 레지스트리의 출처로 꽂는다. */
@@ -188,6 +190,19 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
         // status() 가 던져도 관리자 상태를 쓴다.
       }
     }
+    let unavailableReason: string | undefined
+    try {
+      const a = entry.arm.availability?.()
+      if (a && !a.available) unavailableReason = a.reason
+    } catch {
+      // availability() 가 던져도 연결할 수 있는 것으로 본다.
+    }
+    let clientIdSaved: boolean | undefined
+    try {
+      clientIdSaved = entry.arm.advanced?.clientIdSaved()
+    } catch {
+      clientIdSaved = undefined
+    }
     return {
       id: m.id,
       name: m.name,
@@ -196,6 +211,8 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
       auth: m.auth,
       capabilities: [...m.capabilities],
       status: { ...status },
+      ...(unavailableReason ? { unavailableReason } : {}),
+      ...(clientIdSaved === undefined ? {} : { advanced: { clientIdSaved } }),
       autoAccept: deps.settings.getAutoAccept().includes(m.id)
     }
   }
@@ -214,6 +231,7 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
   async function connect(id: string, options: { interactive?: boolean; keepListOnFailure?: boolean } = {}): Promise<ArmInfo | undefined> {
     const entry = entries.get(id)
     if (!entry) return undefined
+    if (infoOf(entry).unavailableReason) return infoOf(entry) // 이 빌드에서는 연결할 수 없다: Arm 을 부르지 않는다.
     if (entry.connecting) {
       await entry.connecting
       return infoOf(entry)
@@ -288,6 +306,18 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
       if (on) ids.add(id)
       else ids.delete(id)
       deps.settings.setAutoAccept([...ids])
+      notify()
+      return infoOf(entry)
+    },
+
+    setClient(id, value) {
+      const entry = entries.get(id)
+      if (!entry?.arm.advanced) return undefined
+      try {
+        entry.arm.advanced.setClient(value)
+      } catch {
+        log(id, 'warn', 'could not save the client setting')
+      }
       notify()
       return infoOf(entry)
     },

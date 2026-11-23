@@ -23,6 +23,7 @@ export interface ArmsHandlers {
   connect(id: unknown): Promise<IpcResult<ArmInfo>>
   disconnect(id: unknown): Promise<IpcResult<ArmInfo>>
   setAutoAccept(id: unknown, on: unknown): IpcResult<ArmInfo>
+  setClient(id: unknown, client: unknown): IpcResult<ArmInfo>
 }
 
 export interface CandidateHandlers {
@@ -34,6 +35,8 @@ export interface CandidateHandlers {
   openSource(id: unknown): Promise<IpcResult<null>>
 }
 
+/** 클라이언트 ID·secret 으로 쓸 수 있는 글자(공백·따옴표 없이 200자까지) */
+const CLIENT_VALUE = /^[A-Za-z0-9._~:@/+=-]{8,200}$/
 const ARM_ID = /^[a-z0-9][a-z0-9-]{0,39}$/
 const parseArmId = (value: unknown): { ok: true; value: string } | { ok: false; field: string } =>
   typeof value === 'string' && ARM_ID.test(value) ? { ok: true, value } : bad('id')
@@ -83,6 +86,27 @@ export function createArmsHandlers(deps: ArmsHandlerDeps): ArmsHandlers {
       return runGuarded(IPC.armsSetAutoAccept, deps.logError, () => {
         const info = m.setAutoAccept(parsed.value, on)
         if (!info) throw new EntityNotFoundError('arm', parsed.value)
+        return info
+      })
+    },
+
+    setClient(id, client) {
+      const parsed = parseArmId(id)
+      if (!parsed.ok) return invalidInput(parsed.field)
+      let value: { clientId: string; clientSecret?: string } | null = null
+      if (client !== null) {
+        const c = client as { clientId?: unknown; clientSecret?: unknown } | undefined
+        const idOk = typeof c?.clientId === 'string' && CLIENT_VALUE.test(c.clientId)
+        const secretOk = c?.clientSecret === undefined || (typeof c.clientSecret === 'string' && CLIENT_VALUE.test(c.clientSecret))
+        if (!idOk) return invalidInput('clientId')
+        if (!secretOk) return invalidInput('clientSecret')
+        value = { clientId: c!.clientId as string, ...(c!.clientSecret ? { clientSecret: c!.clientSecret as string } : {}) }
+      }
+      const m = manager()
+      if (!m) return dbUnavailable()
+      return runGuarded(IPC.armsSetClient, deps.logError, () => {
+        const info = m.setClient(parsed.value, value)
+        if (!info) throw new EntityNotFoundError('arm', parsed.value) // 없는 Arm 이거나 고급 설정을 지원하지 않는 Arm
         return info
       })
     }
@@ -141,6 +165,7 @@ export function registerArmsHandlers(ipc: IpcMainLike, arms: ArmsHandlers, candi
   ipc.handle(IPC.armsConnect, (_e, id) => arms.connect(id))
   ipc.handle(IPC.armsDisconnect, (_e, id) => arms.disconnect(id))
   ipc.handle(IPC.armsSetAutoAccept, (_e, id, on) => arms.setAutoAccept(id, on))
+  ipc.handle(IPC.armsSetClient, (_e, id, client) => arms.setClient(id, client))
   ipc.handle(IPC.candidatesList, () => candidates.list())
   ipc.handle(IPC.candidatesAccept, (_e, id) => candidates.accept(id))
   ipc.handle(IPC.candidatesDismiss, (_e, id) => candidates.dismiss(id))

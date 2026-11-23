@@ -112,6 +112,16 @@ export interface Arm {
   status(): ArmStatus
   /** 주기 실행. 가능하면 예외를 던지지 않고 ArmSyncResult 로 끝낸다(던져도 관리자가 잡는다). */
   sync?(): Promise<ArmSyncResult>
+  /**
+   * 이 빌드·설정에서 연결할 수 있는지(예: OAuth 클라이언트 ID 가 설정되지 않은 빌드). 생략하면 항상 연결할 수 있다.
+   * 연결할 수 없으면 관리자가 connect() 를 부르지 않고, 카드의 [연결]이 비활성이 되며 reason 이 보인다. 동기·무부작용이어야 한다.
+   */
+  availability?(): { available: true } | { available: false; reason: string }
+  /** 고급 옵션: 사용자가 자기 OAuth 클라이언트를 쓰게 한다(기본 경로가 아니다). 저장은 이 Arm 의 비밀 이름공간에. */
+  advanced?: {
+    clientIdSaved(): boolean
+    setClient(value: { clientId: string; clientSecret?: string } | null): void
+  }
   /** 지시하기에 줄 도구. 연결된 동안만 쓰이고, 끊기면 도구도 사라진다. */
   tools?(): CommandTool[]
 }

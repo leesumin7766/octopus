@@ -80,7 +80,7 @@ export function createManagerEnv(over: Partial<ArmManagerDeps> = {}): ManagerEnv
   const logs: ManagerEnv['logs'] = []
   const added: ManagerEnv['added'] = []
   const manager = createArmManager({
-    secureStore: store,
+    secureStore: over.secureStore ?? store,
     settings: {
       getConnected: () => settings.connected,
       setConnected: (ids) => void (settings.connected = ids),
@@ -99,5 +99,5 @@ export function createManagerEnv(over: Partial<ArmManagerDeps> = {}): ManagerEnv
     scheduler,
     ...over
   })
-  return { manager, store, settings, scheduler, logs, added }
+  return { manager, store: (over.secureStore ?? store) as typeof store, settings, scheduler, logs, added }
 }
