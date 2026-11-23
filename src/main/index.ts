@@ -41,6 +41,7 @@ import { autoUpdater } from 'electron-updater'
 import { createUpdateHandlers, registerUpdateHandlers } from './ipc/update'
 import { createUpdateChecker, type UpdateChecker } from './platform/updater'
 import { acquireSingleInstance } from './singleInstance'
+import { guardWindow } from './windowGuard'
 import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
 import { createCaptureAdapter, createCaptureKeyStore, seedCaptureCommand } from './dev/captureLlm'
 import { createSampleData, seedCaptureSettings } from './dev/captureSupport'
@@ -242,10 +243,13 @@ function createWindow(): void {
   })
 
   const devUrl = process.env['ELECTRON_RENDERER_URL']
+  const indexFilePath = join(__dirname, '../renderer/index.html')
+  // 새 창과 앱 밖으로의 이동을 막는다. 바깥 주소는 main 이 검증해서 여는 IPC 로만 열린다.
+  guardWindow(win.webContents, { devUrl, indexFilePath })
   if (devUrl) {
     void win.loadURL(devUrl)
   } else {
-    void win.loadFile(join(__dirname, '../renderer/index.html'))
+    void win.loadFile(indexFilePath)
   }
 }
 
