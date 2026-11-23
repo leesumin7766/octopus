@@ -4,6 +4,7 @@ import { LlmError } from '../../src/main/core/command/llm/types'
 import { createCommandSession, type CommandSession } from '../../src/main/core/command/session'
 import { createCoreTools } from '../../src/main/core/command/tools/coreTools'
 import { createToolRegistry, type CommandTool, type ToolRegistry } from '../../src/main/core/command/tools/registry'
+import { createRoutineRepository } from '../../src/main/core/routines/routineRepository'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
 import type { ContentBlock } from '../../src/shared/command/types'
 import { createTestRepo, type TestRepo } from '../tasks/helpers'
@@ -47,7 +48,8 @@ export function createEnv(steps: (ChatResponse | LlmError)[], extraTools: Comman
   const memos = createMemoRepository(t.db, { now: () => new Date(2026, 2, 10, 12, 0, 0), tasks: t.repo })
   let n = 0
   const conv = createConversationRepository(t.db, { newId: () => `01ARZ3NDEKTSV4RRFFQ69G5F${String(10 + n++).padStart(2, '0')}`, now: () => `2026-03-10T12:00:${String(n % 60).padStart(2, '0')}.000Z` })
-  const core = createCoreTools({ tasks: t.repo, memos, today: () => '2026-03-10' })
+  const routines = createRoutineRepository(t.db, { now: () => new Date(2026, 2, 10, 12, 0, 0), tasks: t.repo })
+  const core = createCoreTools({ tasks: t.repo, memos, routines, today: () => '2026-03-10' })
   const registry = createToolRegistry([() => core, () => extraTools])
   const adapter = scripted(steps)
   const session = createCommandSession({ repo: conv, registry, getAdapter: () => adapter, maxSteps })

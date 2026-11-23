@@ -68,7 +68,7 @@ function initDatabase(): void {
     // 지시하기: 도구 레지스트리(지금은 코어 도구만) + 세션. 키가 없어도 앱의 나머지는 그대로 동작한다.
     const newId = createUlidGenerator()
     conversationRepository = createConversationRepository(db, { newId: () => newId(Date.now()), now: () => now().toISOString() })
-    const coreTools = createCoreTools({ tasks: taskRepository, memos: memoRepository, today: () => localDateString(now()) })
+    const coreTools = createCoreTools({ tasks: taskRepository, memos: memoRepository, routines: routineRepository, today: () => localDateString(now()) })
     commandSession = createCommandSession({
       repo: conversationRepository,
       registry: createToolRegistry([() => coreTools]),

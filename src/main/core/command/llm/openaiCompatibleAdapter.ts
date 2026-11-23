@@ -61,7 +61,7 @@ export function createOpenAiCompatibleAdapter(options: OpenAiAdapterOptions): Ll
     async chat(request: ChatRequest): Promise<ChatResponse> {
       const body: Record<string, unknown> = {
         model: options.model,
-        max_tokens: options.maxTokens ?? 4096,
+        max_tokens: options.maxTokens ?? 16000,
         messages: toWire(request.messages, request.system)
       }
       if (request.tools.length > 0) {

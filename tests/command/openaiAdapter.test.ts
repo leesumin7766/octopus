@@ -27,6 +27,12 @@ describe('openai-compatible adapter', () => {
     expect(body.tool_choice).toBe('auto')
   })
 
+  it('asks for 16000 output tokens by default', async () => {
+    const fetch = fakeFetch({ choices: [{ message: { content: 'ok' } }] })
+    await createOpenAiCompatibleAdapter({ fetch, baseUrl: 'u', model: 'm', apiKey: '' }).chat(request)
+    expect(JSON.parse(fetch.mock.calls[0][1].body).max_tokens).toBe(16000)
+  })
+
   it('sends no authorization header when there is no key (local servers)', async () => {
     const fetch = fakeFetch({ choices: [{ message: { content: 'ok' } }] })
     await createOpenAiCompatibleAdapter({ fetch, baseUrl: 'http://localhost:1234/v1', model: 'm', apiKey: '' }).chat(request)

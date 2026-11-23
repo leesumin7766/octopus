@@ -82,7 +82,7 @@ export function createAnthropicAdapter(options: AnthropicAdapterOptions): LlmAda
     async chat(request: ChatRequest): Promise<ChatResponse> {
       const params: Record<string, unknown> = {
         model: options.model,
-        max_tokens: options.maxTokens ?? 4096,
+        max_tokens: options.maxTokens ?? 16000,
         system: request.system,
         messages: request.messages.map((m) => ({ role: m.role, content: m.content.map(toWire) })),
         // 강제 호출(tool_choice any/tool)은 Opus/Sonnet 5.5 에서 400 이라 auto 만 쓴다(기본값이지만 명시).

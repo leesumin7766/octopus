@@ -44,6 +44,12 @@ describe('anthropic adapter', () => {
     expect('thinking' in params).toBe(false)
   })
 
+  it('asks for 16000 output tokens by default (the non-streaming recommendation)', async () => {
+    const f = fakeClient()
+    await createAnthropicAdapter({ client: f.client, model: 'claude-opus-5-5' }).chat(request)
+    expect(f.beta.mock.calls[0][0].max_tokens).toBe(16000)
+  })
+
   it('can turn fallbacks off, and never sends them for Haiku 5.5', async () => {
     const off = fakeClient()
     await createAnthropicAdapter({ client: off.client, model: 'claude-opus-5-5', fallbacks: false }).chat(request)
