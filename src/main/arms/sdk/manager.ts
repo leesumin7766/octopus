@@ -214,6 +214,7 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
       capabilities: [...m.capabilities],
       status: { ...status },
       ...(unavailableReason ? { unavailableReason } : {}),
+      ...(entry.arm.settingsScreen ? { settingsScreen: entry.arm.settingsScreen } : {}),
       ...(clientIdSaved === undefined ? {} : { advanced: { clientIdSaved } }),
       autoAccept: deps.settings.getAutoAccept().includes(m.id)
     }

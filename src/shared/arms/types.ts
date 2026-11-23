@@ -48,6 +48,8 @@ export interface ArmInfo {
   auth: ArmAuth
   capabilities: ArmCapability[]
   status: ArmStatus
+  /** 설정 화면이 있는 Arm 이면 그 화면 이름(예: 'obsidian') */
+  settingsScreen?: string
   /** 이 빌드·설정에서는 연결할 수 없을 때 그 이유(연결 버튼이 비활성이 된다) */
   unavailableReason?: string
   /** 고급 옵션(내 OAuth 클라이언트 ID 쓰기)을 지원하는 Arm 이면 있다. 값은 돌려주지 않고 저장돼 있는지만 알린다. */

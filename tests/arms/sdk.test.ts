@@ -75,7 +75,7 @@ describe('ArmContext', () => {
       secureStore: store,
       http: { fetch: vi.fn() as never },
       logSink: (e) => void entries.push(e),
-      core: { addInboxCandidate: (c) => (added.push(c), { added: true, accepted: false }), listTasks: () => [] }
+      core: { addInboxCandidate: (c) => (added.push(c), { added: true, accepted: false }), listTasks: () => [], onTasksChanged: () => () => {} }
     })
     return { ctx, entries, store, added }
   }
@@ -116,7 +116,7 @@ describe('ArmContext', () => {
 
   it('core: the candidate source is the arm the context was built for, and there is no write access to tasks', () => {
     const { ctx } = make('arm-a')
-    expect(Object.keys(ctx.core).sort()).toEqual(['addInboxCandidate', 'listTasks'])
+    expect(Object.keys(ctx.core).sort()).toEqual(['addInboxCandidate', 'listTasks', 'onTasksChanged'])
     expect(ctx.interactive).toBe(true)
   })
 })

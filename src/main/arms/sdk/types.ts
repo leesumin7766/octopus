@@ -86,6 +86,8 @@ export interface ArmCoreServices {
   addInboxCandidate(candidate: CandidateInput): AddCandidateResult
   /** 할 일 읽기(today 는 지난 것 포함). 쓰기는 없다. */
   listTasks(view: TaskView): Task[]
+  /** 할 일이 바뀐 뒤(만들기·고치기·완료·삭제·옮기기)에 불린다. 돌려주는 함수로 구독을 끝낸다. 바뀐 내용은 알려 주지 않는다 — 필요하면 listTasks 로 읽는다. */
+  onTasksChanged(listener: () => void): () => void
 }
 
 /** Arm 이 쓸 수 있는 전부. 이것 밖의 것(DB·파일·전역 fetch)을 직접 쓰지 않는다. */
@@ -122,6 +124,8 @@ export interface Arm {
     clientIdSaved(): boolean
     setClient(value: { clientId: string; clientSecret?: string } | null): void
   }
+  /** 이 Arm 의 설정 화면 이름(있으면 Arms 카드에 [설정] 이 생긴다). 화면은 렌더러가 이름으로 찾는다. */
+  settingsScreen?: string
   /** 앱을 끝낼 때 불린다: 열려 있는 연결·자식 프로세스를 정리한다. 비밀을 지우지 않는다. 던져도 무시된다. */
   dispose?(): void
   /** 지시하기에 줄 도구. 연결된 동안만 쓰이고, 끊기면 도구도 사라진다. */
