@@ -225,11 +225,11 @@ describe('pie menu', () => {
       const circle = await show()
       await user.click(circle)
 
-      for (const name of ['지시하기', '캘린더', '메일', '위키', '옵시디언', 'Arms']) {
+      for (const name of ['지시하기', '캘린더', '메일', '위키', '옵시디언']) {
         expect(wedge(name).getAttribute('aria-disabled'), name).toBe('true')
         expect(wedge(name).className).toContain('opacity-50')
       }
-      for (const name of ['할 일 추가', '메모']) expect(wedge(name).getAttribute('aria-disabled'), name).toBeNull()
+      for (const name of ['할 일 추가', '메모', 'Arms']) expect(wedge(name).getAttribute('aria-disabled'), name).toBeNull()
     })
 
     it('pointing at one shows why, and the reason goes away when pointing elsewhere', async () => {
@@ -278,7 +278,7 @@ describe('pie menu', () => {
       await user.click(circle)
 
       await user.click(wedge('지시하기'))
-      await user.click(wedge('Arms'))
+      await user.click(wedge('위키'))
 
       expect(menu()).toBeTruthy()
       expect(screen.queryByRole('dialog')).toBeNull()

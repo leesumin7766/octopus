@@ -245,6 +245,20 @@ export const ko = {
   },
 
   tasks: {
+    candidates: {
+      title: (n: number) => `들어온 후보 (${n})`,
+      help: '연결된 도구에서 온 할 일 후보예요. 넣기 전에는 할 일이 되지 않아요.',
+      accept: '수신함에 넣기',
+      dismiss: '무시',
+      acceptAll: '전체 넣기',
+      dismissAll: '전체 무시',
+      openSource: '원본 열기',
+      from: (name: string) => `출처: ${name}`,
+      due: (date: string) => `마감 ${date}`,
+      acceptLabel: (title: string) => `수신함에 넣기: ${title}`,
+      dismissLabel: (title: string) => `무시: ${title}`,
+      openLabel: (title: string) => `원본 열기: ${title}`
+    },
     viewsNavLabel: '보기',
     routineBadge: '루틴',
     views: {
@@ -431,5 +445,34 @@ export const ko = {
       step_limit: '한 번에 너무 많은 단계가 필요했어요. 요청을 나눠서 다시 보내 주세요.',
       unknown: '문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.'
     } as Record<string, string>
+  },
+  arms: {
+    title: 'Arms',
+    subtitle: '다리',
+    intro: '쓰는 도구를 끼우고 빼세요. 로그인 한 번이면 돼요. Arm 을 빼도 할 일은 Octopus 에 그대로 남아요.',
+    listLabel: 'Arm 목록',
+    empty: '아직 연결할 수 있는 Arm 이 없어요. Arm 은 앞으로 하나씩 추가돼요. 그동안에도 할 일·메모·지시하기는 그대로 쓸 수 있어요.',
+    statuses: { off: '연결 안 됨', connecting: '연결 중…', on: '연결됨', error: '문제가 있어요' },
+    connect: '연결',
+    connecting: '연결 중…',
+    reconnect: '다시 연결',
+    disconnect: '연결 끊기',
+    disconnectConfirm: '저장된 로그인 정보가 지워져요. 할 일은 그대로 남아요.',
+    disconnectYes: '연결 끊기',
+    disconnectNo: '취소',
+    autoAccept: '들어온 후보를 확인 없이 수신함에 넣기',
+    cardLabel: (name: string) => `${name} Arm`,
+    auth: { none: '로그인 없음', oauth: '로그인 한 번으로 연결', apiKey: 'API 키로 연결', folder: '폴더를 골라 연결', mcp: 'MCP 서버' } as Record<string, string>,
+    capabilities: {
+      'tasks.import': '할 일 가져오기',
+      'tasks.export': '할 일 내보내기',
+      'events.read': '일정 읽기',
+      'events.write': '일정 쓰기(승인 후)',
+      links: '원본 링크',
+      notify: '알림',
+      'command.tools': '지시하기 도구',
+      'home.card': '홈 카드'
+    } as Record<string, string>,
+    mcp: { title: 'MCP 서버', soon: 'MCP 서버는 곧 추가할 수 있어요.' }
   }
 } as const

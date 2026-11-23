@@ -5,6 +5,7 @@ import type { TasksApi } from '../../shared/tasks/ipcApi'
 import type { Task, TaskFields, TaskView, TodayView } from '../../shared/tasks/types'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
+import { CandidatesSection } from './CandidatesSection'
 import { DetailPanel } from './DetailPanel'
 import { msUntilNextMidnight, todayString } from './format'
 import { OverdueSection } from './OverdueSection'
@@ -286,6 +287,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
 
         <section aria-label={t.views[view]} className="flex-1 overflow-y-auto px-5 py-4">
           <h1 className="mb-3 text-lg font-semibold">{t.views[view]}</h1>
+          {view === 'inbox' && <CandidatesSection onChanged={() => void refresh()} />}
           {renderContent()}
         </section>
       </main>

@@ -34,7 +34,8 @@ export const AVAILABLE_FIXED_ACTIONS: ReadonlySet<FixedAction> = new Set<FixedAc
   'nav:memos',
   'nav:settings',
   'task:quickAdd',
-  'memo:quickAdd'
+  'memo:quickAdd',
+  'arms'
 ])
 
 export interface SlotInfo {

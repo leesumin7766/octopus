@@ -146,6 +146,8 @@ export function HomeScreen({
         return setDialog('memo')
       case 'command':
         return onOpenCommand?.()
+      case 'arms':
+        return onNavigate('arms')
       default:
         // 아직 없는 기능(지시하기·Arm·위키)은 쓸 수 없는 칸이라 여기까지 오지 않는다.
         return

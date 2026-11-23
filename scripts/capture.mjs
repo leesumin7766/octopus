@@ -20,6 +20,8 @@ const SHOTS = [
   ['settings', 'settings'],
   ['command', 'command'],
   ['command-nokey', 'command-nokey'],
+  ['arms', 'arms'],
+  ['inbox', 'inbox'],
   ['today', 'today'],
   ['routines', 'routines'],
   ['memos', 'memos']

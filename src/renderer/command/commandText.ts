@@ -21,6 +21,12 @@ export function toolLine(item: ToolItem): string {
   return t.toolDone(toolLabel(item.name))
 }
 
+/** 도구 출처 배지 글자 */
+export function sourceLabel(source: string): string {
+  if (source.startsWith('arm:')) return t.sources.arm
+  return source === 'mcp' ? t.sources.mcp : t.sources.core
+}
+
 /** 오류 종류별 안내 문구 */
 export function errorText(kind: string): string {
   return t.errors[kind] ?? t.errors.unknown

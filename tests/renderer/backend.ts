@@ -10,6 +10,11 @@ import type { CommandApi } from '../../src/shared/command/ipcApi'
 import type { LlmProvider } from '../../src/shared/command/types'
 import { createUlidGenerator } from '../../src/shared/tasks/ulid'
 import { scripted } from '../command/helpers'
+import { createArmManager, type ArmManager } from '../../src/main/arms/sdk/manager'
+import { createMemorySecureStore } from '../../src/main/dev/captureArms'
+import { createCandidateRepository, type CandidateRepository } from '../../src/main/core/inbox/candidateRepository'
+import { createArmsHandlers, createCandidateHandlers } from '../../src/main/ipc/arms'
+import type { ArmsApi, CandidatesApi } from '../../src/shared/arms/ipcApi'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
 import { createRoutineRepository, type RoutineRepository } from '../../src/main/core/routines/routineRepository'
 import { createSettingsRepository, type SettingsRepository } from '../../src/main/core/settings/settingsRepository'
@@ -37,6 +42,8 @@ export type RoutineSpies = { [K in keyof RoutinesApi]: Mock<RoutinesApi[K]> }
 export type MemoSpies = { [K in keyof MemosApi]: Mock<MemosApi[K]> }
 export type SettingsSpies = { [K in keyof SettingsApi]: Mock<SettingsApi[K]> }
 export type ShortcutSpies = { [K in keyof ShortcutsApi]: Mock<ShortcutsApi[K]> }
+export type ArmsSpies = { [K in keyof ArmsApi]: Mock<ArmsApi[K]> }
+export type CandidateSpies = { [K in keyof CandidatesApi]: Mock<CandidatesApi[K]> }
 export type CommandSpies = { [K in keyof CommandApi]: Mock<CommandApi[K]> }
 
 /** 운영체제와 닿는 동작의 가짜. 테스트가 실제로 무언가를 열 일은 없다. */
@@ -56,6 +63,13 @@ export interface Backend {
   settings: SettingsSpies
   shortcuts: ShortcutSpies
   command: CommandSpies
+  arms: ArmsSpies
+  candidates: CandidateSpies
+  /** 시험용 Arm 을 등록·연결하는 진짜 관리자(비밀 저장소는 메모리) */
+  armManager: ArmManager
+  candidateRepo: CandidateRepository
+  /** 원본 열기로 main 이 연 주소들 */
+  opened: string[]
   /** 보안 저장소 대신 메모리에 있는 키. 테스트가 직접 넣고 확인한다(화면에는 나오지 않아야 한다). */
   keys: Partial<Record<LlmProvider, string>>
   /** 가짜 모델의 다음 응답들을 정한다. 진짜 API 는 부르지 않는다. */
@@ -140,6 +154,43 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     removeConversation: vi.fn(async (id: unknown) => commandHandlers.removeConversation(id))
   } as unknown as CommandSpies
 
+  const candidateRepo = createCandidateRepository(t.db, { newId: () => newId(Date.now()), now, tasks: t.repo })
+  const armSettings = { connected: [] as string[], autoAccept: [] as string[] }
+  const armManager = createArmManager({
+    secureStore: createMemorySecureStore(),
+    settings: {
+      getConnected: () => armSettings.connected,
+      setConnected: (ids) => void (armSettings.connected = ids),
+      getAutoAccept: () => armSettings.autoAccept,
+      setAutoAccept: (ids) => void (armSettings.autoAccept = ids)
+    },
+    coreFor: (armId) => ({
+      addInboxCandidate: (c) => candidateRepo.add(armId, c, { autoAccept: armSettings.autoAccept.includes(armId) }),
+      listTasks: () => []
+    }),
+    http: { fetch: async () => { throw new Error('tests must not use the network') }, sleep: async () => {} },
+    logSink: () => {},
+    scheduler: { setInterval: () => 0, clearInterval: () => {} }
+  })
+  const opened: string[] = []
+  const armsDeps = { getManager: () => armManager, getCandidates: () => candidateRepo, openExternal: async (url: string) => void opened.push(url), logError }
+  const armHandlers = createArmsHandlers(armsDeps)
+  const candidateHandlers = createCandidateHandlers(armsDeps)
+  const arms = {
+    list: vi.fn(async () => armHandlers.list()),
+    connect: vi.fn(async (id: unknown) => armHandlers.connect(id)),
+    disconnect: vi.fn(async (id: unknown) => armHandlers.disconnect(id)),
+    setAutoAccept: vi.fn(async (id: unknown, on: unknown) => armHandlers.setAutoAccept(id, on))
+  } as unknown as ArmsSpies
+  const candidates = {
+    list: vi.fn(async () => candidateHandlers.list()),
+    accept: vi.fn(async (id: unknown) => candidateHandlers.accept(id)),
+    dismiss: vi.fn(async (id: unknown) => candidateHandlers.dismiss(id)),
+    acceptAll: vi.fn(async () => candidateHandlers.acceptAll()),
+    dismissAll: vi.fn(async () => candidateHandlers.dismissAll()),
+    openSource: vi.fn(async (id: unknown) => candidateHandlers.openSource(id))
+  } as unknown as CandidateSpies
+
   const tasks = {
     list: vi.fn(async (view: unknown) => taskHandlers.list(view)),
     quickAdd: vi.fn(async (text: unknown) => taskHandlers.quickAdd(text)),
@@ -195,9 +246,11 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     memos: memos as unknown as MemosApi,
     settings: settings as unknown as SettingsApi,
     shortcuts: shortcuts as unknown as ShortcutsApi,
-    command: command as unknown as CommandApi
+    command: command as unknown as CommandApi,
+    arms: arms as unknown as ArmsApi,
+    candidates: candidates as unknown as CandidatesApi
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, keys, setLlm: (steps) => (llm = scripted(steps)) }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
 }

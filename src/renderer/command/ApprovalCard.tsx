@@ -1,6 +1,6 @@
 import type { PendingApproval } from '../../shared/command/types'
 import { ko } from '../i18n/ko'
-import { toolLabel } from './commandText'
+import { sourceLabel, toolLabel } from './commandText'
 
 const t = ko.command
 
@@ -18,7 +18,7 @@ export function ApprovalCard({ approval, choice, disabled, onChoose }: ApprovalC
     <section aria-label={`${t.approvalLabel}: ${approval.preview.title}`} className="rounded-xl border-2 border-accent bg-accent-soft p-3">
       <div className="mb-1 flex items-center gap-2 text-xs text-accent-strong">
         <span className="font-bold">{toolLabel(approval.toolName)}</span>
-        <span className="rounded-full bg-white px-2 py-0.5">{t.sources[approval.source]}</span>
+        <span className="rounded-full bg-white px-2 py-0.5">{sourceLabel(approval.source)}</span>
       </div>
       <p className="text-sm font-semibold text-ink">{approval.preview.title}</p>
       {approval.preview.lines.length > 0 && (

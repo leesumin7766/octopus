@@ -3,7 +3,7 @@ import { Icon, LayoutIcon, type IconName } from '../ui/Icon'
 
 const t = ko.nav
 
-export type Screen = 'home' | 'tasks' | 'routines' | 'memos' | 'settings'
+export type Screen = 'home' | 'tasks' | 'routines' | 'memos' | 'arms' | 'settings'
 
 interface NavItem {
   id: Screen | 'command' | 'arms'
@@ -19,7 +19,7 @@ const ITEMS: readonly NavItem[] = [
   { id: 'routines', label: t.routines, icon: 'checklist' },
   { id: 'memos', label: t.memos, icon: 'memo' },
   { id: 'command', label: t.command, icon: 'command' },
-  { id: 'arms', label: t.arms, icon: 'arms', soon: true }
+  { id: 'arms', label: t.arms, icon: 'arms' }
 ]
 
 interface NavMenuProps {
