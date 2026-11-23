@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron'
 import { existsSync, mkdirSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
@@ -51,6 +51,7 @@ import { createSettingsHandlers, registerSettingsHandlers } from './ipc/settings
 import { createShortcutHandlers, registerShortcutHandlers } from './ipc/shortcuts'
 import { createCommandHandlers, registerCommandHandlers } from './ipc/command'
 import { createSafeStorageCipher } from './platform/safeStorageCipher'
+import type { SecretCipher } from './platform/secureStore'
 import { createSecureStore } from './platform/secureStore'
 import { createAnthropicClient, createKeyStore, timedFetch } from './platform/llmClients'
 import { createUlidGenerator } from '../shared/tasks/ulid'
@@ -86,8 +87,14 @@ const updateChecker: UpdateChecker = createUpdateChecker({
 // API 키 보관(Electron safeStorage 로 암호화한 파일). app ready 이후에 만든다.
 // 개발용 캡처에서는 진짜 보관소 대신 메모리의 가짜를 쓴다(진짜 키를 읽지도 쓰지도 않는다).
 let secureStore: SecureStore | null = null
+// safeStorage 로 만든 cipher: app ready 뒤 비동기 확인을 기다려 한 번 만든다(캡처 모드는 쓰지 않는다).
+let secretCipher: SecretCipher | null = null
 function openSecureStore(): SecureStore {
-  secureStore ??= captureSession ? createMemorySecureStore() : createSecureStore(join(app.getPath('userData'), 'secrets.bin'), createSafeStorageCipher())
+  if (!secureStore) {
+    if (captureSession) secureStore = createMemorySecureStore()
+    else if (secretCipher) secureStore = createSecureStore(join(app.getPath('userData'), 'secrets.bin'), secretCipher)
+    else throw new Error('secure storage was not prepared')
+  }
   return secureStore
 }
 let keyStore: KeyStore | null = null
@@ -257,6 +264,7 @@ function createWindow(): void {
 const primaryInstance = acquireSingleInstance(app, () => BrowserWindow.getAllWindows()[0] ?? null, captureSession !== null)
 
 if (primaryInstance) void app.whenReady().then(async () => {
+  if (!captureSession) secretCipher = await createSafeStorageCipher(safeStorage)
   initDatabase()
   if (captureSession && taskRepository && routineRepository && memoRepository && shortcutRepository) {
     createSampleData(
