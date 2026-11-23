@@ -9,7 +9,7 @@ import { buildWebPreferences } from '../shared/securityOptions'
 import { openDatabase } from './core/db/connection'
 import { runMigrations } from './core/db/migrate'
 import { migrations } from './core/db/migrations'
-import { createAdapterResolver } from './core/command/adapterResolver'
+import { createAdapterResolver, type KeyStore } from './core/command/adapterResolver'
 import { createConversationRepository, type ConversationRepository } from './core/command/conversationRepository'
 import { createCommandSession, type CommandSession } from './core/command/session'
 import { createCoreTools } from './core/command/tools/coreTools'
@@ -20,6 +20,7 @@ import { createSettingsRepository, type SettingsRepository } from './core/settin
 import { createShortcutRepository, type ShortcutRepository } from './core/shortcuts/shortcutRepository'
 import { createTaskRepository, type TaskRepository } from './core/tasks/taskRepository'
 import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
+import { createCaptureAdapter, createCaptureKeyStore, seedCaptureCommand } from './dev/captureLlm'
 import { createSampleData, seedCaptureSettings } from './dev/captureSupport'
 import { createMemoHandlers, registerMemoHandlers } from './ipc/memos'
 import { createRoutineHandlers, registerRoutineHandlers } from './ipc/routines'
@@ -35,6 +36,8 @@ import { createTaskHandlers, registerTaskHandlers } from './ipc/tasks'
 
 // 개발용 화면 캡처(OCTOPUS_CAPTURE). userData 를 임시 폴더로 옮기므로 app ready 전에 먼저 부른다.
 const captureSession = prepareCapture(app)
+// 캡처 때는 소프트웨어 렌더링을 써서, 화면이 잠겨 있거나 가려져 있어도 창을 PNG 로 읽을 수 있게 한다(캡처 모드에서만).
+if (captureSession) app.disableHardwareAcceleration()
 
 let database: DatabaseSync | null = null
 // DB 를 열지 못하면 null 로 남고, 할 일 IPC 는 db_unavailable 을 돌려준다.
@@ -46,8 +49,14 @@ let shortcutRepository: ShortcutRepository | null = null
 let conversationRepository: ConversationRepository | null = null
 let commandSession: CommandSession | null = null
 // API 키 보관(Electron safeStorage 로 암호화한 파일). app ready 이후에 만든다.
-const keyStore = (): ReturnType<typeof createKeyStore> =>
-  createKeyStore(createSecureStore(join(app.getPath('userData'), 'secrets.bin'), createSafeStorageCipher()))
+// 개발용 캡처에서는 진짜 보관소 대신 메모리의 가짜를 쓴다(진짜 키를 읽지도 쓰지도 않는다).
+let keyStore: KeyStore | null = null
+function openKeyStore(): KeyStore {
+  keyStore ??= captureSession
+    ? createCaptureKeyStore(captureSession.config.view)
+    : createKeyStore(createSecureStore(join(app.getPath('userData'), 'secrets.bin'), createSafeStorageCipher()))
+  return keyStore
+}
 
 function initDatabase(): void {
   try {
@@ -72,12 +81,18 @@ function initDatabase(): void {
     commandSession = createCommandSession({
       repo: conversationRepository,
       registry: createToolRegistry([() => coreTools]),
-      getAdapter: createAdapterResolver({
-        keys: keyStore(),
-        models: () => settingsRepository?.get('command.models') ?? [],
-        createAnthropicClient,
-        fetch: timedFetch
-      })
+      getAdapter: (() => {
+        const resolve = createAdapterResolver({
+          keys: openKeyStore(),
+          models: () => settingsRepository?.get('command.models') ?? [],
+          createAnthropicClient,
+          fetch: timedFetch
+        })
+        // 캡처의 "지시하기" 화면만 가짜 모델을 쓴다. 배포된 앱에서는 captureSession 이 항상 null 이다.
+        if (captureSession?.config.view !== 'command') return resolve
+        const fake = createCaptureAdapter()
+        return (modelId: string) => (resolve(modelId), fake)
+      })()
     })
     // 앱을 켜면 오늘의 루틴 항목을 보장한다. 실패해도 앱은 계속 뜬다.
     try {
@@ -96,10 +111,14 @@ function createWindow(): void {
     width: 900,
     height: 700,
     title: 'Octopus',
-    webPreferences: buildWebPreferences(
-      join(__dirname, '../preload/index.js'),
-      captureSession ? [initialViewArgument(captureSession.config.view)] : []
-    )
+    webPreferences: {
+      ...buildWebPreferences(
+        join(__dirname, '../preload/index.js'),
+        captureSession ? [initialViewArgument(captureSession.config.view)] : []
+      ),
+      // 캡처 때만: 화면 없이 메모리에 그려서, 화면이 잠겨 있어도 PNG 를 읽을 수 있게 한다.
+      ...(captureSession ? { offscreen: true } : {})
+    }
   })
 
   if (captureSession) captureWhenLoaded(win, captureSession, app)
@@ -116,7 +135,7 @@ function createWindow(): void {
   }
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   initDatabase()
   if (captureSession && taskRepository && routineRepository && memoRepository && shortcutRepository) {
     createSampleData(
@@ -162,10 +181,11 @@ void app.whenReady().then(() => {
       getSession: () => commandSession,
       getRepository: () => conversationRepository,
       getModels: () => settingsRepository?.get('command.models') ?? [],
-      keys: keyStore(),
+      keys: openKeyStore(),
       logError
     })
   )
+  if (captureSession?.config.view === 'command' && commandSession) await seedCaptureCommand(commandSession, 'anthropic-opus')
   createWindow()
 
   app.on('activate', () => {

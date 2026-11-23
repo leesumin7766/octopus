@@ -18,6 +18,8 @@ const SHOTS = [
   ['home-arrange', 'home-layout'],
   ['home-pie', 'home-pie'],
   ['settings', 'settings'],
+  ['command', 'command'],
+  ['command-nokey', 'command-nokey'],
   ['today', 'today'],
   ['routines', 'routines'],
   ['memos', 'memos']
