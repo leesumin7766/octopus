@@ -4,6 +4,7 @@ import type { ObsidianConfigPatch, ObsidianMode, ObsidianState } from '../../sha
 import { normalizeExportPath } from '../../shared/validation/obsidian'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
+import { safeInvoke } from '../safeInvoke'
 
 const t = ko.obsidian
 const MODES: ObsidianMode[] = ['off', 'export', 'both']
@@ -33,7 +34,7 @@ export function ObsidianScreen({ onBack }: { onBack: () => void }) {
   }, [])
 
   const load = useCallback(async (): Promise<void> => {
-    const result = await window.octopus.obsidian.state()
+    const result = await safeInvoke(() => window.octopus.obsidian.state())
     if (!mounted.current) return
     if (result.ok) apply(result.data)
     else setError(result.error)

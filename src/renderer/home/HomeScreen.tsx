@@ -12,6 +12,7 @@ import {
 import { shortcutIdOf } from '../../shared/pie/actions'
 import type { Shortcut } from '../../shared/shortcuts/types'
 import { ko } from '../i18n/ko'
+import { safeInvoke } from '../safeInvoke'
 import type { Screen } from '../nav/NavMenu'
 import { describeSlots, type SlotInfo } from '../pie/actions'
 import { PieMenu } from '../pie/PieMenu'
@@ -113,14 +114,14 @@ export function HomeScreen({
   }, [loadShortcuts])
 
   const loadCalendar = useCallback(async (): Promise<void> => {
-    const result = await window.octopus.calendar.today()
+    const result = await safeInvoke(() => window.octopus.calendar.today())
     if (!mounted.current) return
     setNow(new Date())
-    // 못 읽으면(저장소 문제 등) 연결 안 됨으로 보여 주고 앱은 계속 쓴다.
-    const armList = await window.octopus.arms.list()
+    const armList = await safeInvoke(() => window.octopus.arms.list())
     if (!mounted.current) return
     setObsidianOn(armList.ok && armList.data.some((arm) => arm.id === 'obsidian' && arm.status.state === 'on'))
-    setCalendar(result.ok ? result.data : { configured: true, status: { state: 'off' }, events: [] })
+    // 못 읽으면(main 이 응답하지 않음·저장소 문제 등) 오류 상태로 보여 주고(다음 주기에 다시 읽는다) 앱은 계속 쓴다.
+    setCalendar(result.ok ? result.data : { configured: true, status: { state: 'error', reason: t.calendar.loadFailed }, events: [] })
   }, [])
 
   // 일정은 처음, 데이터가 바뀔 때, 그리고 1분마다 다시 읽는다(진행 중·지난 일정 표시도 함께 갱신).
@@ -131,12 +132,12 @@ export function HomeScreen({
   }, [loadCalendar, refreshKey])
 
   async function reconnectCalendar(): Promise<void> {
-    await window.octopus.arms.connect('google-calendar')
+    await safeInvoke(() => window.octopus.arms.connect('google-calendar'))
     void loadCalendar()
   }
 
   async function openCalendarEvent(id: string): Promise<void> {
-    const result = await window.octopus.calendar.openEvent(id)
+    const result = await safeInvoke(() => window.octopus.calendar.openEvent(id))
     if (!result.ok) showNotice({ kind: 'error', text: t.calendar.openFailed })
   }
 

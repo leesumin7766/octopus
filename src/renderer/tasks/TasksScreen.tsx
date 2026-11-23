@@ -4,6 +4,7 @@ import type { Memo } from '../../shared/memos/types'
 import type { TasksApi } from '../../shared/tasks/ipcApi'
 import type { Task, TaskFields, TaskView, TodayView } from '../../shared/tasks/types'
 import { ErrorBanner } from '../ErrorBanner'
+import { safeInvoke } from '../safeInvoke'
 import { ko } from '../i18n/ko'
 import { CandidatesSection } from './CandidatesSection'
 import { DetailPanel } from './DetailPanel'
@@ -85,7 +86,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
 
   const refresh = useCallback(async (): Promise<void> => {
     const seq = ++loadSeq.current
-    const result = await loadLists(api())
+    const result = await safeInvoke(() => loadLists(api()))
     if (!mounted.current || seq !== loadSeq.current) return
     if (result.ok) setLists(result.data)
     else setError(result.error)
@@ -108,7 +109,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
       return
     }
     let cancelled = false
-    void window.octopus.memos.list().then((result) => {
+    void safeInvoke(() => window.octopus.memos.list()).then((result) => {
       if (!cancelled) setLinkedMemo(result.ok ? (result.data.find((memo) => memo.taskId === selectedId) ?? null) : null)
     })
     return () => {

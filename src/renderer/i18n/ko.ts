@@ -152,7 +152,8 @@ export const ko = {
       notConfiguredHelp: 'Arms 화면에서 확인할 수 있어요.',
       openArms: 'Arms 화면 열기',
       eventLabel: (title: string) => `일정 열기: ${title}`,
-      openFailed: '일정을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.'
+      openFailed: '일정을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+      loadFailed: '일정을 불러오지 못했어요. 잠시 뒤 자동으로 다시 시도해요.'
     },
     memo: {
       empty: '메모가 없어요. 아래에 한 줄로 적어 보세요.',

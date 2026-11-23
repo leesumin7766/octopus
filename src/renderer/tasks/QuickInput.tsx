@@ -3,6 +3,7 @@ import type { QuickParseResult } from '../../shared/tasks/quickParse'
 import { MAX_TEXT_LENGTH } from '../../shared/validation/taskIpc'
 import { ko } from '../i18n/ko'
 import { formatDate, formatRepeat, todayString } from './format'
+import { safeInvoke } from '../safeInvoke'
 
 const t = ko.tasks
 
@@ -37,7 +38,7 @@ export function QuickInput({ inputRef, onSubmit, debounceMs }: QuickInputProps) 
       return
     }
     const timer = window.setTimeout(() => {
-      void window.octopus.tasks.parsePreview(text).then((result) => {
+      void safeInvoke(() => window.octopus.tasks.parsePreview(text)).then((result) => {
         if (id === requestId.current) setPreview(result.ok ? result.data : null)
       })
     }, debounceMs)

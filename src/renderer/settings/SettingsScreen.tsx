@@ -6,6 +6,7 @@ import { longLabel } from '../pie/actions'
 import type { UpdateState } from '../../shared/update/types'
 import { ModelSection } from './ModelSection'
 import { useSetting } from './useSetting'
+import { safeInvoke } from '../safeInvoke'
 
 const t = ko.settings
 
@@ -20,7 +21,7 @@ export function SettingsScreen() {
 
   useEffect(() => {
     let cancelled = false
-    void window.octopus.shortcuts.list().then((result) => {
+    void safeInvoke(() => window.octopus.shortcuts.list()).then((result) => {
       if (!cancelled && result.ok) setShortcuts(result.data)
     })
     return () => {
@@ -31,7 +32,7 @@ export function SettingsScreen() {
   // 새 버전 알림(패키지된 앱이 시작할 때 확인해 둔 결과를 읽는다)
   useEffect(() => {
     let cancelled = false
-    void window.octopus.update.state().then((result) => {
+    void safeInvoke(() => window.octopus.update.state()).then((result) => {
       if (!cancelled && result.ok) setUpdate(result.data)
     })
     return () => {

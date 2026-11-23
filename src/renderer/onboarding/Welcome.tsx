@@ -4,6 +4,7 @@ import type { IpcError } from '../../shared/ipc'
 import { ko } from '../i18n/ko'
 import { errorMessage } from '../tasks/errors'
 import { QuickInput } from '../tasks/QuickInput'
+import { safeInvoke } from '../safeInvoke'
 
 const t = ko.onboarding
 
@@ -41,7 +42,7 @@ export function Welcome({ onDone, initialStep = 1, initialChosen = [], previewDe
 
   useEffect(() => {
     mounted.current = true
-    void window.octopus.arms.list().then((result) => {
+    void safeInvoke(() => window.octopus.arms.list()).then((result) => {
       if (mounted.current) setArms(result.ok ? result.data.filter(choosable) : [])
     })
     return () => {

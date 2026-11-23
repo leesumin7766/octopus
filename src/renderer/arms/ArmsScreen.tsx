@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ArmInfo } from '../../shared/arms/types'
 import type { IpcError } from '../../shared/ipc'
 import { ErrorBanner } from '../ErrorBanner'
+import { safeInvoke } from '../safeInvoke'
 import { McpSection } from './McpSection'
 import { ko } from '../i18n/ko'
 
@@ -185,7 +186,7 @@ export function ArmsScreen({ scrollToMcp = false, onOpenSettings }: { scrollToMc
   const mounted = useRef(true)
 
   const load = useCallback(async (): Promise<void> => {
-    const result = await window.octopus.arms.list()
+    const result = await safeInvoke(() => window.octopus.arms.list())
     if (!mounted.current) return
     if (result.ok) setArms(result.data)
     else setError(result.error)

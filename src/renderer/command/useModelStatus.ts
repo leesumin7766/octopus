@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LlmProvider, ModelEntry } from '../../shared/command/types'
 import { useModelsChanged } from '../dataEvents'
+import { safeInvoke } from '../safeInvoke'
 
 export interface ModelStatus {
   loaded: boolean
@@ -23,7 +24,7 @@ export function useModelStatus(): ModelStatus {
   const mounted = useRef(true)
 
   const reload = useCallback(() => {
-    void window.octopus.command.models().then((result) => {
+    void safeInvoke(() => window.octopus.command.models()).then((result) => {
       if (!mounted.current) return
       setState(result.ok ? { loaded: true, models: result.data.models, hasKey: result.data.hasKey } : { loaded: true, models: [], hasKey: NONE })
     })

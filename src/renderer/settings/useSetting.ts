@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { defaultSetting, type SettingKey, type SettingsMap } from '../../shared/settings/schema'
+import { safeInvoke } from '../safeInvoke'
 
 export interface UseSetting<K extends SettingKey> {
   /** 저장된 값. 처음 읽어 오기 전에는 null. */
@@ -18,7 +19,7 @@ export function useSetting<K extends SettingKey>(key: K): UseSetting<K> {
 
   useEffect(() => {
     mounted.current = true
-    void window.octopus.settings.get(key).then((result) => {
+    void safeInvoke(() => window.octopus.settings.get(key)).then((result) => {
       if (!mounted.current) return
       const loaded = result.ok ? result.data : defaultSetting(key)
       // 읽어 오는 사이에 이미 바꾼 값이 있으면 그것을 지키지 않고 저장된 값으로 시작한다(처음 한 번뿐).

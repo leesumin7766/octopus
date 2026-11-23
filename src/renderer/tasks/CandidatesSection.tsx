@@ -3,6 +3,7 @@ import type { InboxCandidate } from '../../shared/arms/types'
 import type { IpcError } from '../../shared/ipc'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
+import { safeInvoke } from '../safeInvoke'
 
 const t = ko.tasks.candidates
 
@@ -22,7 +23,7 @@ export function CandidatesSection({ onChanged }: CandidatesSectionProps) {
   const mounted = useRef(true)
 
   const load = useCallback(async (): Promise<void> => {
-    const [list, arms] = await Promise.all([window.octopus.candidates.list(), window.octopus.arms.list()])
+    const [list, arms] = await Promise.all([safeInvoke(() => window.octopus.candidates.list()), safeInvoke(() => window.octopus.arms.list())])
     if (!mounted.current) return
     if (list.ok) setCandidates(list.data)
     if (arms.ok) setNames(Object.fromEntries(arms.data.map((arm) => [arm.id, arm.name])))

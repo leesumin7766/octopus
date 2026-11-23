@@ -3,6 +3,7 @@ import type { McpServerInfo, McpTransport } from '../../shared/mcp/types'
 import type { IpcError } from '../../shared/ipc'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
+import { safeInvoke } from '../safeInvoke'
 
 const t = ko.arms.mcp
 const INPUT = 'min-h-9 w-full min-w-0 rounded-lg border border-[#dad9d4] bg-white px-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20'
@@ -47,7 +48,7 @@ export function McpSection({ scrollIntoViewOnMount = false, armsReady = true }: 
   }, [scrollIntoViewOnMount, servers, armsReady])
 
   const load = useCallback(async (): Promise<void> => {
-    const result = await window.octopus.mcp.list()
+    const result = await safeInvoke(() => window.octopus.mcp.list())
     if (!mounted.current) return
     if (result.ok) setServers(result.data)
     else setError(result.error)
