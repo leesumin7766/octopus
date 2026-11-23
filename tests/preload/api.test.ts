@@ -26,6 +26,7 @@ type Api = {
   candidates: Fns
   calendar: Fns
   mcp: Fns
+  obsidian: Fns
 }
 
 describe('preload', () => {
@@ -43,10 +44,10 @@ describe('preload', () => {
   })
 
   it('exposes only getAppVersion, initialView, tasks, routines and memos (no ipcRenderer, no generic invoke)', () => {
-    expect(Object.keys(api).sort()).toEqual(['arms', 'calendar', 'candidates', 'command', 'getAppVersion', 'initialView', 'mcp', 'memos', 'routines', 'settings', 'shortcuts', 'tasks'])
+    expect(Object.keys(api).sort()).toEqual(['arms', 'calendar', 'candidates', 'command', 'getAppVersion', 'initialView', 'mcp', 'memos', 'obsidian', 'routines', 'settings', 'shortcuts', 'tasks'])
     for (const key of ['ipcRenderer', 'invoke', 'send', 'on', 'electron']) {
       expect(key in api).toBe(false)
-      for (const group of [api.tasks, api.routines, api.memos, api.settings, api.shortcuts, api.arms, api.candidates, api.calendar, api.mcp]) expect(key in group).toBe(false)
+      for (const group of [api.tasks, api.routines, api.memos, api.settings, api.shortcuts, api.arms, api.candidates, api.calendar, api.mcp, api.obsidian]) expect(key in group).toBe(false)
       if (key !== 'send') expect(key in api.command).toBe(false) // command.send 는 지시 보내기(채널 고정)이지 범용 send 가 아니다.
     }
   })
@@ -63,6 +64,7 @@ describe('preload', () => {
 
   it('exposes exactly the arms and candidate functions; nothing takes an address or a path', () => {
     expect(Object.keys(api.arms).sort()).toEqual(['connect', 'disconnect', 'list', 'setAutoAccept', 'setClient'])
+    expect(Object.keys(api.obsidian).sort()).toEqual(['changeVault', 'exportNow', 'fixGitignore', 'open', 'setConfig', 'state'])
     expect(Object.keys(api.mcp).sort()).toEqual(['add', 'list', 'reconnect', 'remove'])
     expect(Object.keys(api.calendar).sort()).toEqual(['openEvent', 'openWeb', 'today'])
     expect(Object.keys(api.candidates).sort()).toEqual(['accept', 'acceptAll', 'dismiss', 'dismissAll', 'list', 'openSource'])
@@ -114,6 +116,12 @@ describe('preload', () => {
     ['arms', 'disconnect', ['example'], IPC.armsDisconnect],
     ['arms', 'setAutoAccept', ['example', true], IPC.armsSetAutoAccept],
     ['arms', 'setClient', ['example', { clientId: 'x' }], IPC.armsSetClient],
+    ['obsidian', 'state', [], IPC.obsidianState],
+    ['obsidian', 'setConfig', [{ mode: 'export' }], IPC.obsidianSetConfig],
+    ['obsidian', 'changeVault', [], IPC.obsidianChangeVault],
+    ['obsidian', 'exportNow', [], IPC.obsidianExportNow],
+    ['obsidian', 'fixGitignore', [], IPC.obsidianFixGitignore],
+    ['obsidian', 'open', [], IPC.obsidianOpen],
     ['mcp', 'list', [], IPC.mcpList],
     ['mcp', 'add', [{ name: 'x', transport: 'http', url: 'http://localhost:1/mcp' }], IPC.mcpAdd],
     ['mcp', 'remove', ['mcp-abcd1234'], IPC.mcpRemove],

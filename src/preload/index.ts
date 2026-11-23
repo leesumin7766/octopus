@@ -86,6 +86,14 @@ const api: OctopusApi = {
     add: (input) => ipcRenderer.invoke(IPC.mcpAdd, input),
     remove: (id) => ipcRenderer.invoke(IPC.mcpRemove, id),
     reconnect: (id) => ipcRenderer.invoke(IPC.mcpReconnect, id)
+  },
+  obsidian: {
+    state: () => ipcRenderer.invoke(IPC.obsidianState),
+    setConfig: (patch) => ipcRenderer.invoke(IPC.obsidianSetConfig, patch),
+    changeVault: () => ipcRenderer.invoke(IPC.obsidianChangeVault),
+    exportNow: () => ipcRenderer.invoke(IPC.obsidianExportNow),
+    fixGitignore: () => ipcRenderer.invoke(IPC.obsidianFixGitignore),
+    open: () => ipcRenderer.invoke(IPC.obsidianOpen)
   }
 }
 

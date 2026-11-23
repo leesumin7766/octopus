@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
 import { initialViewArgument } from '../shared/initialView'
@@ -9,6 +9,9 @@ import { buildWebPreferences } from '../shared/securityOptions'
 import { openDatabase } from './core/db/connection'
 import { runMigrations } from './core/db/migrate'
 import { migrations } from './core/db/migrations'
+import { createObsidianArm, OBSIDIAN_ID, type ObsidianArm } from './arms/obsidian/arm'
+import { createFolderPicker, createGitignoreConfirm } from './platform/obsidianDialogs'
+import { createObsidianHandlers, registerObsidianHandlers } from './ipc/obsidian'
 import { createMcpService, type McpService } from './arms/mcp/service'
 import { sdkConnector } from './arms/mcp/connection'
 import { createCommandConfirm } from './platform/commandConfirm'
@@ -27,6 +30,8 @@ import { createConversationRepository, type ConversationRepository } from './cor
 import { createCommandSession, type CommandSession } from './core/command/session'
 import { createCoreTools } from './core/command/tools/coreTools'
 import { createToolRegistry } from './core/command/tools/registry'
+import { createChangeBus, type ChangeBus } from './core/changes'
+import { notifyOnChange } from './core/tasks/notifying'
 import { createMemoRepository, type MemoRepository } from './core/memos/memoRepository'
 import { createRoutineRepository, type RoutineRepository } from './core/routines/routineRepository'
 import { createSettingsRepository, type SettingsRepository } from './core/settings/settingsRepository'
@@ -62,9 +67,11 @@ let shortcutRepository: ShortcutRepository | null = null
 let conversationRepository: ConversationRepository | null = null
 let commandSession: CommandSession | null = null
 let candidateRepository: CandidateRepository | null = null
+let taskChanges: ChangeBus | null = null
 let armManager: ArmManager | null = null
 let calendarProvider: CalendarProvider | null = null
 let mcpService: McpService | null = null
+let obsidianArm: ObsidianArm | null = null
 // API 키 보관(Electron safeStorage 로 암호화한 파일). app ready 이후에 만든다.
 // 개발용 캡처에서는 진짜 보관소 대신 메모리의 가짜를 쓴다(진짜 키를 읽지도 쓰지도 않는다).
 let secureStore: SecureStore | null = null
@@ -89,7 +96,9 @@ function initDatabase(): void {
     }
     database = db
     const now = (): Date => new Date()
-    taskRepository = createTaskRepository(db, { now })
+    // 할 일 변경 알림(옵시디언 내보내기 등이 core 공개 서비스로 구독한다)
+    taskChanges = createChangeBus()
+    taskRepository = notifyOnChange(createTaskRepository(db, { now }), () => taskChanges?.emit())
     routineRepository = createRoutineRepository(db, { now, tasks: taskRepository })
     memoRepository = createMemoRepository(db, { now, tasks: taskRepository })
     settingsRepository = createSettingsRepository(db)
@@ -117,7 +126,8 @@ function initDatabase(): void {
           if (view !== 'today') return tasksForArms.listView(view, day)
           const today = tasksForArms.listView('today', day)
           return [...today.overdue, ...today.today]
-        }
+        },
+        onTasksChanged: (listener) => taskChanges?.subscribe(listener) ?? (() => {})
       }),
       http: { fetch: (url, init) => fetch(url, init) },
       logSink: (entry) => console.log(`[octopus] arm:${entry.armId} ${entry.level} ${entry.message}`, entry.data ?? '')
@@ -134,6 +144,20 @@ function initDatabase(): void {
       }
     })
     arms.register(googleCalendar)
+    // 옵시디언 Arm: 할 일을 vault 의 파일 하나로 내보낸다(CLAUDE.md 6.3). 폴더 선택·확인 창은 main 의 대화상자만 쓴다.
+    const focusedWindow = (): BrowserWindow | null => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null
+    obsidianArm = createObsidianArm({
+      config: { get: () => settingsForArms.get('obsidian.config'), set: (next) => void settingsForArms.set('obsidian.config', next) },
+      pickFolder: createFolderPicker({ dialog, getWindow: focusedWindow }),
+      confirmGitignore: createGitignoreConfirm({ dialog, getWindow: focusedWindow }),
+      openExternal: async (url) => {
+        if (!url.startsWith('obsidian://open?')) throw new Error('refusing to open an unexpected address')
+        await shell.openExternal(url)
+      },
+      backupDir: join(app.getPath('userData'), 'obsidian-backup'),
+      setAutoAcceptDefault: () => void arms.setAutoAccept(OBSIDIAN_ID, true)
+    })
+    arms.register(obsidianArm)
     // MCP 서버: 서버 하나 = 동적 Arm 하나. 저장된 서버를 등록해 두면 아래 ArmManager.start() 가 이전에 연결돼 있던 것을 조용히 다시 연결한다.
     mcpService = createMcpService({
       manager: arms,
@@ -252,6 +276,7 @@ void app.whenReady().then(async () => {
     logError
   }
   registerArmsHandlers(ipcMain, createArmsHandlers(armsDeps), createCandidateHandlers(armsDeps))
+  registerObsidianHandlers(ipcMain, createObsidianHandlers({ getArm: () => obsidianArm, logError }))
   registerMcpHandlers(ipcMain, createMcpHandlers({ getService: () => mcpService, logError }))
   registerCalendarHandlers(ipcMain, createCalendarHandlers({ getProvider: () => calendarProvider, openExternal: (url) => shortcutPlatform.openExternal(url), logError }))
   registerCommandHandlers(
@@ -279,6 +304,15 @@ void app.whenReady().then(async () => {
     // 이전에 연결돼 있던 Arm 을 조용히 다시 연결한다. 기다리지 않고, 실패해도 앱은 그대로 뜬다.
     void armManager.start().catch(() => undefined)
   }
+  if (captureSession?.config.view === 'obsidian' && armManager && settingsRepository) {
+    // 캡처 전용: 임시 userData 안의 가짜 vault(.obsidian 과 비어 있는 .git 이 있는 폴더)에 연결해 실제 표본 할 일로 내보낸다.
+    const vault = join(app.getPath('userData'), 'capture-vault')
+    mkdirSync(join(vault, '.obsidian'), { recursive: true })
+    mkdirSync(join(vault, '.git'), { recursive: true })
+    const base = settingsRepository.get('obsidian.config')
+    settingsRepository.set('obsidian.config', { ...base, vaultPath: vault, mode: 'export', autoAcceptInitialized: true })
+    await armManager.connect('obsidian')
+  }
   if (captureSession?.config.view === 'command' && commandSession) await seedCaptureCommand(commandSession, 'anthropic-opus')
   createWindow()
 
@@ -296,10 +330,12 @@ app.on('will-quit', () => {
   conversationRepository = null
   commandSession = null
   candidateRepository = null
+  taskChanges = null
   armManager?.dispose()
   armManager = null
   calendarProvider = null
   mcpService = null
+  obsidianArm = null
   database?.close()
   cleanupCapture(captureSession)
 })
