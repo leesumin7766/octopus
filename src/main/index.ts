@@ -9,10 +9,14 @@ import { buildWebPreferences } from '../shared/securityOptions'
 import { openDatabase } from './core/db/connection'
 import { runMigrations } from './core/db/migrate'
 import { migrations } from './core/db/migrations'
+import { createGoogleCalendarArm, GOOGLE_CALENDAR_ID } from './arms/google-calendar'
+import { createCalendarProvider, type CalendarProvider } from './arms/google-calendar/provider'
+import { createArmSecrets } from './arms/sdk/context'
+import { createCalendarHandlers, registerCalendarHandlers } from './ipc/calendar'
 import { createArmManager, type ArmManager } from './arms/sdk/manager'
 import { createCandidateRepository, type CandidateRepository } from './core/inbox/candidateRepository'
 import { createArmsHandlers, createCandidateHandlers, registerArmsHandlers } from './ipc/arms'
-import { CAPTURE_ARM_VIEWS, createBrokenExampleArm, createExampleArm, createMemorySecureStore } from './dev/captureArms'
+import { CAPTURE_ARM_VIEWS, createBrokenExampleArm, createCaptureCalendar, createExampleArm, createMemorySecureStore } from './dev/captureArms'
 import type { SecureStore } from './platform/secureStore'
 import { createAdapterResolver, type KeyStore } from './core/command/adapterResolver'
 import { createConversationRepository, type ConversationRepository } from './core/command/conversationRepository'
@@ -55,6 +59,7 @@ let conversationRepository: ConversationRepository | null = null
 let commandSession: CommandSession | null = null
 let candidateRepository: CandidateRepository | null = null
 let armManager: ArmManager | null = null
+let calendarProvider: CalendarProvider | null = null
 // API 키 보관(Electron safeStorage 로 암호화한 파일). app ready 이후에 만든다.
 // 개발용 캡처에서는 진짜 보관소 대신 메모리의 가짜를 쓴다(진짜 키를 읽지도 쓰지도 않는다).
 let secureStore: SecureStore | null = null
@@ -113,6 +118,18 @@ function initDatabase(): void {
       logSink: (entry) => console.log(`[octopus] arm:${entry.armId} ${entry.level} ${entry.message}`, entry.data ?? '')
     })
     const arms = armManager
+    // Google 캘린더 Arm: 공용 클라이언트는 빌드 때 환경 변수로 주입된 값만 쓴다(캡처에서는 항상 비어 있는 빌드로 본다).
+    const googleCalendar = createGoogleCalendarArm({
+      clientId: captureSession ? '' : __OCTOPUS_GOOGLE_CLIENT_ID__,
+      clientSecret: captureSession ? '' : __OCTOPUS_GOOGLE_CLIENT_SECRET__,
+      secrets: createArmSecrets(openSecureStore(), GOOGLE_CALENDAR_ID),
+      openExternal: async (url) => {
+        if (!/^https:\/\//i.test(url)) throw new Error('refusing to open a non-https address')
+        await shell.openExternal(url)
+      }
+    })
+    arms.register(googleCalendar)
+    calendarProvider = captureSession?.config.view === 'home' ? createCaptureCalendar() : createCalendarProvider(arms, googleCalendar)
     const coreTools = createCoreTools({ tasks: taskRepository, memos: memoRepository, routines: routineRepository, today: () => localDateString(now()) })
     commandSession = createCommandSession({
       repo: conversationRepository,
@@ -212,6 +229,7 @@ void app.whenReady().then(async () => {
     logError
   }
   registerArmsHandlers(ipcMain, createArmsHandlers(armsDeps), createCandidateHandlers(armsDeps))
+  registerCalendarHandlers(ipcMain, createCalendarHandlers({ getProvider: () => calendarProvider, openExternal: (url) => shortcutPlatform.openExternal(url), logError }))
   registerCommandHandlers(
     ipcMain,
     createCommandHandlers({
@@ -251,6 +269,7 @@ app.on('will-quit', () => {
   candidateRepository = null
   armManager?.dispose()
   armManager = null
+  calendarProvider = null
   database?.close()
   cleanupCapture(captureSession)
 })

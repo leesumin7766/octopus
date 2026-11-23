@@ -15,6 +15,8 @@ import { createMemorySecureStore } from '../../src/main/dev/captureArms'
 import { createCandidateRepository, type CandidateRepository } from '../../src/main/core/inbox/candidateRepository'
 import { createArmsHandlers, createCandidateHandlers } from '../../src/main/ipc/arms'
 import type { ArmsApi, CandidatesApi } from '../../src/shared/arms/ipcApi'
+import { createCalendarHandlers } from '../../src/main/ipc/calendar'
+import type { CalendarApi, CalendarToday } from '../../src/shared/calendar/types'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
 import { createRoutineRepository, type RoutineRepository } from '../../src/main/core/routines/routineRepository'
 import { createSettingsRepository, type SettingsRepository } from '../../src/main/core/settings/settingsRepository'
@@ -44,6 +46,7 @@ export type SettingsSpies = { [K in keyof SettingsApi]: Mock<SettingsApi[K]> }
 export type ShortcutSpies = { [K in keyof ShortcutsApi]: Mock<ShortcutsApi[K]> }
 export type ArmsSpies = { [K in keyof ArmsApi]: Mock<ArmsApi[K]> }
 export type CandidateSpies = { [K in keyof CandidatesApi]: Mock<CandidatesApi[K]> }
+export type CalendarSpies = { [K in keyof CalendarApi]: Mock<CalendarApi[K]> }
 export type CommandSpies = { [K in keyof CommandApi]: Mock<CommandApi[K]> }
 
 /** 운영체제와 닿는 동작의 가짜. 테스트가 실제로 무언가를 열 일은 없다. */
@@ -66,6 +69,9 @@ export interface Backend {
   arms: ArmsSpies
   candidates: CandidateSpies
   /** 시험용 Arm 을 등록·연결하는 진짜 관리자(비밀 저장소는 메모리) */
+  calendar: CalendarSpies
+  /** 오늘 일정 카드가 읽는 값. 테스트가 바꾼다(기본: 캘린더 연결 안 됨). */
+  calendarState: CalendarToday
   armManager: ArmManager
   candidateRepo: CandidateRepository
   /** 원본 열기로 main 이 연 주소들 */
@@ -180,7 +186,8 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     list: vi.fn(async () => armHandlers.list()),
     connect: vi.fn(async (id: unknown) => armHandlers.connect(id)),
     disconnect: vi.fn(async (id: unknown) => armHandlers.disconnect(id)),
-    setAutoAccept: vi.fn(async (id: unknown, on: unknown) => armHandlers.setAutoAccept(id, on))
+    setAutoAccept: vi.fn(async (id: unknown, on: unknown) => armHandlers.setAutoAccept(id, on)),
+    setClient: vi.fn(async (id: unknown, client: unknown) => armHandlers.setClient(id, client))
   } as unknown as ArmsSpies
   const candidates = {
     list: vi.fn(async () => candidateHandlers.list()),
@@ -190,6 +197,18 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     dismissAll: vi.fn(async () => candidateHandlers.dismissAll()),
     openSource: vi.fn(async (id: unknown) => candidateHandlers.openSource(id))
   } as unknown as CandidateSpies
+
+  const calendarState: CalendarToday = { configured: true, status: { state: 'off' }, events: [] }
+  const calendarHandlers = createCalendarHandlers({
+    getProvider: () => ({ today: () => calendarState, findEvent: (id) => calendarState.events.find((e) => e.id === id) }),
+    openExternal: async (url) => void opened.push(url),
+    logError
+  })
+  const calendar = {
+    today: vi.fn(async () => calendarHandlers.today()),
+    openEvent: vi.fn(async (id: unknown) => calendarHandlers.openEvent(id)),
+    openWeb: vi.fn(async () => calendarHandlers.openWeb())
+  } as unknown as CalendarSpies
 
   const tasks = {
     list: vi.fn(async (view: unknown) => taskHandlers.list(view)),
@@ -248,9 +267,10 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     shortcuts: shortcuts as unknown as ShortcutsApi,
     command: command as unknown as CommandApi,
     arms: arms as unknown as ArmsApi,
-    candidates: candidates as unknown as CandidatesApi
+    candidates: candidates as unknown as CandidatesApi,
+    calendar: calendar as unknown as CalendarApi
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
 }

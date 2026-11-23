@@ -20,7 +20,8 @@ import { errorMessage } from '../tasks/errors'
 import { formatHomeDate, msUntilNextMidnight, todayString } from '../tasks/format'
 import { CardFrame } from './CardFrame'
 import { MemoCard } from './cards/MemoCard'
-import { CalendarCard } from './cards/PlaceholderCards'
+import type { CalendarToday } from '../../shared/calendar/types'
+import { CalendarCard } from './cards/CalendarCard'
 import { ShortcutsCard } from './cards/ShortcutsCard'
 import { TodoCard } from './cards/TodoCard'
 import { MemoQuickDialog, TaskQuickDialog } from './QuickDialogs'
@@ -82,6 +83,8 @@ export function HomeScreen({
   const [dialog, setDialog] = useState<'task' | 'memo' | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [calendar, setCalendar] = useState<CalendarToday | null>(null)
+  const [now, setNow] = useState(() => new Date())
   const mounted = useRef(true)
   const noticeTimer = useRef<number | undefined>(undefined)
 
@@ -107,6 +110,31 @@ export function HomeScreen({
   useEffect(() => {
     void loadShortcuts()
   }, [loadShortcuts])
+
+  const loadCalendar = useCallback(async (): Promise<void> => {
+    const result = await window.octopus.calendar.today()
+    if (!mounted.current) return
+    setNow(new Date())
+    // 못 읽으면(저장소 문제 등) 연결 안 됨으로 보여 주고 앱은 계속 쓴다.
+    setCalendar(result.ok ? result.data : { configured: true, status: { state: 'off' }, events: [] })
+  }, [])
+
+  // 일정은 처음, 데이터가 바뀔 때, 그리고 1분마다 다시 읽는다(진행 중·지난 일정 표시도 함께 갱신).
+  useEffect(() => {
+    void loadCalendar()
+    const timer = window.setInterval(() => void loadCalendar(), 60_000)
+    return () => window.clearInterval(timer)
+  }, [loadCalendar, refreshKey])
+
+  async function reconnectCalendar(): Promise<void> {
+    await window.octopus.arms.connect('google-calendar')
+    void loadCalendar()
+  }
+
+  async function openCalendarEvent(id: string): Promise<void> {
+    const result = await window.octopus.calendar.openEvent(id)
+    if (!result.ok) showNotice({ kind: 'error', text: t.calendar.openFailed })
+  }
 
   function showNotice(next: Notice): void {
     setNotice(next)
@@ -148,6 +176,8 @@ export function HomeScreen({
         return onOpenCommand?.()
       case 'arms':
         return onNavigate('arms')
+      case 'arm:google-calendar':
+        return void window.octopus.calendar.openWeb()
       default:
         // 아직 없는 기능(지시하기·Arm·위키)은 쓸 수 없는 칸이라 여기까지 오지 않는다.
         return
@@ -155,8 +185,8 @@ export function HomeScreen({
   }
 
   const slotInfos = useMemo(
-    () => (pie.value && shortcuts ? describeSlots(pie.value, shortcuts, { command: commandReady }) : null),
-    [pie.value, shortcuts, commandReady]
+    () => (pie.value && shortcuts ? describeSlots(pie.value, shortcuts, { command: commandReady, calendar: calendar?.configured === true && calendar.status.state === 'on' }) : null),
+    [pie.value, shortcuts, commandReady, calendar]
   )
 
   const today = todayString()
@@ -179,7 +209,15 @@ export function HomeScreen({
           />
         )
       case 'calendar':
-        return <CalendarCard />
+        return (
+          <CalendarCard
+            today={calendar}
+            now={now}
+            onOpenArms={() => onNavigate('arms')}
+            onReconnect={() => void reconnectCalendar()}
+            onOpenEvent={(id) => void openCalendarEvent(id)}
+          />
+        )
       case 'memo':
         return <MemoCard refreshKey={refreshKey} onOpenMemos={() => onNavigate('memos')} />
       case 'shortcuts':

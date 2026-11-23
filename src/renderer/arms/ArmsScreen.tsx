@@ -16,6 +16,62 @@ const DOT: Record<ArmInfo['status']['state'], string> = {
   error: 'bg-[#c0392b]'
 }
 
+/** 고급: 내 OAuth 클라이언트 쓰기. 접어 둔 곳에만 있고, 저장한 값은 다시 보여 주지 않는다. */
+function AdvancedClient({ arm, onSave }: { arm: ArmInfo; onSave: (client: { clientId: string; clientSecret?: string } | null) => Promise<string | null> }) {
+  const a = t.advanced
+  const [clientId, setClientId] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [message, setMessage] = useState<string | null>(null)
+  const input = 'min-h-9 w-full rounded-lg border border-[#dad9d4] bg-white px-2 text-sm outline-none focus:border-accent'
+
+  async function save(): Promise<void> {
+    const problem = await onSave({ clientId: clientId.trim(), ...(clientSecret.trim() ? { clientSecret: clientSecret.trim() } : {}) })
+    setMessage(problem)
+    if (!problem) {
+      setClientId('')
+      setClientSecret('')
+    }
+  }
+
+  return (
+    <details className="rounded-lg border border-line bg-page px-3 py-2 text-[13px]">
+      <summary className="cursor-pointer font-medium">{a.summary}</summary>
+      <div className="mt-2 flex flex-col gap-2">
+        <h4 className="font-semibold">{a.title}</h4>
+        <p className="text-xs text-[#5e5d58]">{a.help}</p>
+        <label className="flex flex-col gap-1">
+          {a.clientId}
+          <input value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" spellCheck={false} className={input} />
+        </label>
+        <label className="flex flex-col gap-1">
+          {a.clientSecret}
+          <input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} autoComplete="off" className={input} />
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" disabled={clientId.trim() === ''} onClick={() => void save()} className="min-h-9 rounded-lg bg-accent px-3 font-semibold text-white disabled:opacity-40">
+            {a.save}
+          </button>
+          {arm.advanced?.clientIdSaved && (
+            <>
+              <span role="status" className="font-semibold text-[#2e7d4f]">
+                {a.saved}
+              </span>
+              <button type="button" onClick={() => void onSave(null)} className="min-h-9 rounded-lg border border-line bg-white px-3">
+                {a.clear}
+              </button>
+            </>
+          )}
+        </div>
+        {message && (
+          <p role="alert" className="text-[#a33a2d]">
+            {message}
+          </p>
+        )}
+      </div>
+    </details>
+  )
+}
+
 interface ArmCardProps {
   arm: ArmInfo
   busy: boolean
@@ -25,9 +81,10 @@ interface ArmCardProps {
   onCancelDisconnect: () => void
   onDisconnect: () => void
   onAutoAccept: (on: boolean) => void
+  onSaveClient: (client: { clientId: string; clientSecret?: string } | null) => Promise<string | null>
 }
 
-function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDisconnect, onDisconnect, onAutoAccept }: ArmCardProps) {
+function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDisconnect, onDisconnect, onAutoAccept, onSaveClient }: ArmCardProps) {
   const { state, reason } = arm.status
   const connecting = busy || state === 'connecting'
   const primary = 'min-h-9 rounded-lg px-3 text-[13px] font-semibold disabled:opacity-40'
@@ -49,6 +106,12 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
 
       {arm.description && <p className="text-[13px] leading-relaxed text-[#4a4945]">{arm.description}</p>}
 
+      {arm.unavailableReason && (
+        <p role="status" className="rounded-lg bg-[#fff6e0] px-3 py-2 text-[13px] text-[#6b4a00]">
+          {arm.unavailableReason}
+        </p>
+      )}
+
       {state === 'error' && reason && (
         <p role="alert" className="rounded-lg bg-[#fbeceb] px-3 py-2 text-[13px] text-[#7d2a21]">
           {reason}
@@ -69,6 +132,8 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
           {t.autoAccept}
         </label>
       )}
+
+      {arm.advanced && <AdvancedClient arm={arm} onSave={onSaveClient} />}
 
       {confirming ? (
         <div role="alert" className="flex flex-col gap-2 rounded-lg bg-page p-3 text-[13px]">
@@ -92,7 +157,7 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
               </button>
             )}
             {state !== 'on' && (
-              <button type="button" disabled={connecting} onClick={onConnect} className={`${primary} bg-accent text-white hover:bg-accent-strong`}>
+              <button type="button" disabled={connecting || !!arm.unavailableReason} onClick={onConnect} className={`${primary} bg-accent text-white hover:bg-accent-strong`}>
                 {connecting ? t.connecting : state === 'error' ? t.reconnect : t.connect}
               </button>
             )}
@@ -167,6 +232,15 @@ export function ArmsScreen() {
                 void act(arm.id, () => window.octopus.arms.disconnect(arm.id))
               }}
               onAutoAccept={(on) => void act(arm.id, () => window.octopus.arms.setAutoAccept(arm.id, on))}
+              onSaveClient={async (client) => {
+                const result = await window.octopus.arms.setClient(arm.id, client)
+                if (result.ok) {
+                  setArms((current) => current?.map((a) => (a.id === arm.id ? result.data : a)) ?? current)
+                  return null
+                }
+                const field = result.error.fields?.[0]
+                return field === 'clientSecret' ? t.advanced.errors.clientSecret : t.advanced.errors.clientId
+              }}
             />
           ))}
         </section>

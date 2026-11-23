@@ -72,3 +72,22 @@ export function createMemorySecureStore(): import('../platform/secureStore').Sec
     deleteNamespace: (ns) => void data.delete(ns)
   }
 }
+
+/** 캡처 모드(home)의 가짜 캘린더: 지금 시각을 기준으로 종일 1 · 진행 중 1 · 예정 1. 중립적인 제목. */
+export function createCaptureCalendar(): import('../arms/google-calendar/provider').CalendarProvider {
+  const events = () => {
+    const now = Date.now()
+    const at = (minutes: number): string => new Date(now + minutes * 60_000).toISOString()
+    const today = new Date().toLocaleDateString('sv-SE')
+    const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('sv-SE')
+    return [
+      { id: 'cap-1', title: '월간 마감일', start: today, end: tomorrow, allDay: true, url: 'https://calendar.example.com/e/1' },
+      { id: 'cap-2', title: '팀 정기 회의', start: at(-30), end: at(30), allDay: false, url: 'https://calendar.example.com/e/2' },
+      { id: 'cap-3', title: '점심 약속', start: at(120), end: at(180), allDay: false, url: null }
+    ]
+  }
+  return {
+    today: () => ({ configured: true, status: { state: 'on' }, events: events() }),
+    findEvent: (id) => events().find((e) => e.id === id)
+  }
+}

@@ -65,7 +65,8 @@ const api: OctopusApi = {
     list: () => ipcRenderer.invoke(IPC.armsList),
     connect: (id) => ipcRenderer.invoke(IPC.armsConnect, id),
     disconnect: (id) => ipcRenderer.invoke(IPC.armsDisconnect, id),
-    setAutoAccept: (id, on) => ipcRenderer.invoke(IPC.armsSetAutoAccept, id, on)
+    setAutoAccept: (id, on) => ipcRenderer.invoke(IPC.armsSetAutoAccept, id, on),
+    setClient: (id, client) => ipcRenderer.invoke(IPC.armsSetClient, id, client)
   },
   candidates: {
     list: () => ipcRenderer.invoke(IPC.candidatesList),
@@ -74,6 +75,11 @@ const api: OctopusApi = {
     acceptAll: () => ipcRenderer.invoke(IPC.candidatesAcceptAll),
     dismissAll: () => ipcRenderer.invoke(IPC.candidatesDismissAll),
     openSource: (id) => ipcRenderer.invoke(IPC.candidatesOpenSource, id)
+  },
+  calendar: {
+    today: () => ipcRenderer.invoke(IPC.calendarToday),
+    openEvent: (id) => ipcRenderer.invoke(IPC.calendarOpenEvent, id),
+    openWeb: () => ipcRenderer.invoke(IPC.calendarOpenWeb)
   }
 }
 

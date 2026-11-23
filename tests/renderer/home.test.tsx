@@ -206,17 +206,17 @@ describe('home screen', () => {
   })
 
   describe('today\'s schedule card', () => {
-    it('is an empty state with a disabled "connect calendar" button', async () => {
+    it('when no calendar is connected it offers an active "connect calendar" button that opens the Arms screen', async () => {
       const user = userEvent.setup()
       open()
       const calendar = await card(t.cards.calendar)
 
-      expect(within(calendar).getByText(t.calendar.empty)).toBeTruthy()
+      expect(await within(calendar).findByText(t.calendar.empty)).toBeTruthy()
       const connect = within(calendar).getByRole('button', { name: t.calendar.connect })
-      expect(connect.getAttribute('aria-disabled')).toBe('true')
-      expect(within(calendar).getByText(t.calendar.connectSoon)).toBeTruthy()
-      await user.click(connect) // 아무 일도 없다
-      expect(slots()[1]).toBe(t.cards.calendar)
+      expect(connect.getAttribute('aria-disabled')).toBeNull()
+      await user.click(connect)
+
+      expect(await screen.findByRole('heading', { level: 1, name: /Arms/ })).toBeTruthy()
     })
   })
 

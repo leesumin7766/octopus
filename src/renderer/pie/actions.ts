@@ -63,11 +63,13 @@ function shortcutIcon(shortcut: Shortcut): IconName {
 export interface Capabilities {
   /** 지시하기: 모델(키 또는 서버)이 연결돼 있을 때 */
   command: boolean
+  /** 캘린더: Google 캘린더가 연결돼 있을 때 */
+  calendar?: boolean
 }
 
 export function describeAction(action: ActionId, index: number, shortcuts: readonly Shortcut[], capabilities: Capabilities = { command: false }): SlotInfo {
   if (isFixed(action)) {
-    const enabled = AVAILABLE_FIXED_ACTIONS.has(action) || (action === 'command' && capabilities.command)
+    const enabled = AVAILABLE_FIXED_ACTIONS.has(action) || (action === 'command' && capabilities.command) || (action === 'arm:google-calendar' && capabilities.calendar === true)
     const reasons = t.reasons as Record<string, string>
     return {
       index,

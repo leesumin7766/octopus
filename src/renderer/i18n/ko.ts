@@ -136,7 +136,17 @@ export const ko = {
     calendar: {
       empty: '연결된 캘린더가 없어요.',
       connect: '캘린더 연결하기',
-      connectSoon: 'Arms 화면은 곧 준비돼요.'
+      loading: '일정을 불러오는 중…',
+      connecting: '연결 중…',
+      noEvents: '오늘 일정이 없어요.',
+      allDay: '종일',
+      now: '진행 중',
+      reconnect: '다시 연결',
+      notConfigured: '이 빌드에는 Google 연결이 아직 설정되지 않았어요.',
+      notConfiguredHelp: 'Arms 화면에서 확인할 수 있어요.',
+      openArms: 'Arms 화면 열기',
+      eventLabel: (title: string) => `일정 열기: ${title}`,
+      openFailed: '일정을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.'
     },
     memo: {
       empty: '메모가 없어요. 아래에 한 줄로 적어 보세요.',
@@ -473,6 +483,17 @@ export const ko = {
       'command.tools': '지시하기 도구',
       'home.card': '홈 카드'
     } as Record<string, string>,
-    mcp: { title: 'MCP 서버', soon: 'MCP 서버는 곧 추가할 수 있어요.' }
+    mcp: { title: 'MCP 서버', soon: 'MCP 서버는 곧 추가할 수 있어요.' },
+    advanced: {
+      summary: '고급',
+      title: '내 OAuth 클라이언트 쓰기',
+      help: '기본 방법이 아니에요. Google Cloud 에서 직접 만든 데스크톱 클라이언트를 쓰려는 경우에만 쓰세요. 입력한 값은 이 PC 에 암호화해 저장하고 화면에는 다시 보여 주지 않아요. 연결을 끊으면 함께 지워져요.',
+      clientId: '클라이언트 ID',
+      clientSecret: '클라이언트 시크릿 (선택)',
+      save: '저장',
+      saved: '내 클라이언트 저장됨',
+      clear: '지우기',
+      errors: { clientId: '클라이언트 ID 는 8~200자의 영문·숫자·점·하이픈으로 적어 주세요.', clientSecret: '시크릿에 쓸 수 없는 글자가 있어요.' }
+    }
   }
 } as const
