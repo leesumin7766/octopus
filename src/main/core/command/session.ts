@@ -3,6 +3,7 @@ import type {
   ContentBlock,
   Message,
   PendingApproval,
+  ToolSource,
   TranscriptItem,
   TurnState
 } from '../../../shared/command/types'
@@ -57,6 +58,7 @@ interface Waiting {
 const REJECTED = '사용자가 이 동작을 거절했습니다. 같은 동작을 다시 시도하지 마세요.'
 const CANCELED = '이 동작은 승인 전에 취소되었습니다.'
 
+const sourceOf = (tool: CommandTool): ToolSource => tool.source ?? 'core'
 const summary = (text: string): string => (text.length > 200 ? text.slice(0, 200) + '…' : text)
 
 export function createCommandSession(deps: SessionDeps): CommandSession {
@@ -134,19 +136,19 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
         const tool = deps.registry.get(use.name)
         if (!tool) {
           results.set(use.id, result(use, `알 수 없는 도구: ${use.name}`, true))
-          items.push({ kind: 'tool', name: use.name, status: 'error', summary: '알 수 없는 도구' })
+          items.push({ kind: 'tool', name: use.name, source: 'core', readOnly: true, status: 'error', summary: '알 수 없는 도구' })
           continue
         }
         const parsed = tool.parse(use.input)
         if (!parsed.ok) {
           results.set(use.id, result(use, `입력이 올바르지 않습니다: ${parsed.message}`, true))
-          items.push({ kind: 'tool', name: use.name, status: 'error', summary: '입력이 올바르지 않음' })
+          items.push({ kind: 'tool', name: use.name, source: sourceOf(tool), readOnly: tool.readOnly, status: 'error', summary: '입력이 올바르지 않음' })
           continue
         }
         if (tool.readOnly) {
           const out = await execute(tool, parsed.value)
           results.set(use.id, result(use, out.text, out.isError))
-          items.push({ kind: 'tool', name: use.name, status: out.isError ? 'error' : 'done', summary: summary(out.text) })
+          items.push({ kind: 'tool', name: use.name, source: sourceOf(tool), readOnly: true, status: out.isError ? 'error' : 'done', summary: summary(out.text) })
           continue
         }
         // write: 미리보기만 만들고 사용자의 승인을 기다린다.
@@ -155,10 +157,10 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
           preview = tool.preview ? tool.preview(parsed.value) : { title: use.name, lines: [] }
         } catch {
           results.set(use.id, result(use, '미리보기를 만들지 못해 실행하지 않았습니다.', true))
-          items.push({ kind: 'tool', name: use.name, status: 'error', summary: '미리보기 실패' })
+          items.push({ kind: 'tool', name: use.name, source: sourceOf(tool), readOnly: false, status: 'error', summary: '미리보기 실패' })
           continue
         }
-        calls.push({ use, tool, input: parsed.value, approval: { callId: use.id, toolName: use.name, preview } })
+        calls.push({ use, tool, input: parsed.value, approval: { callId: use.id, toolName: use.name, source: sourceOf(tool), preview } })
       }
 
       if (calls.length > 0) {
@@ -182,12 +184,12 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
     for (const call of w.calls) {
       if (!approved.has(call.use.id)) {
         w.results.set(call.use.id, result(call.use, REJECTED, true))
-        items.push({ kind: 'tool', name: call.use.name, status: 'rejected', summary: call.approval.preview.title })
+        items.push({ kind: 'tool', name: call.use.name, source: call.approval.source, readOnly: false, status: 'rejected', summary: call.approval.preview.title })
         continue
       }
       const out = await execute(call.tool, call.input)
       w.results.set(call.use.id, result(call.use, out.text, out.isError))
-      items.push({ kind: 'tool', name: call.use.name, status: out.isError ? 'error' : 'done', summary: summary(out.text) })
+      items.push({ kind: 'tool', name: call.use.name, source: call.approval.source, readOnly: false, status: out.isError ? 'error' : 'done', summary: summary(out.text) })
     }
     deps.repo.append(conversationId, { role: 'user', content: w.uses.map((u) => w.results.get(u.id) as ToolResult) })
     return { w, items }

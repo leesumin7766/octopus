@@ -58,10 +58,14 @@ export interface ApprovalPreview {
   lines: string[]
 }
 
+export type ToolSource = 'core' | 'arm' | 'mcp'
+
 export interface PendingApproval {
   /** tool_use id */
   callId: string
   toolName: string
+  /** 도구가 어디서 왔는지 */
+  source: ToolSource
   preview: ApprovalPreview
 }
 
@@ -69,7 +73,7 @@ export interface PendingApproval {
 export type TranscriptItem =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string }
-  | { kind: 'tool'; name: string; status: 'done' | 'error' | 'rejected'; summary: string }
+  | { kind: 'tool'; name: string; source: ToolSource; readOnly: boolean; status: 'done' | 'error' | 'rejected'; summary: string }
 
 export interface TurnState {
   conversationId: string

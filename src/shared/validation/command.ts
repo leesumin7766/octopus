@@ -11,7 +11,7 @@ export function isProvider(value: unknown): value is LlmProvider {
   return value === 'anthropic' || value === 'openai-compatible'
 }
 
-function isHttpUrl(value: string): boolean {
+export function isHttpUrl(value: string): boolean {
   try {
     const u = new URL(value)
     return u.protocol === 'https:' || u.protocol === 'http:'
@@ -54,6 +54,11 @@ export function parseModelList(raw: unknown): ModelEntry[] | null {
 /** 저장되어 있던 값을 읽는다. 깨졌으면 기본 목록. */
 export function normalizeModelList(raw: unknown): ModelEntry[] {
   return parseModelList(raw) ?? DEFAULT_MODELS.map((m) => ({ ...m }))
+}
+
+/** 지시하기에서 고른 모델 id. 빈 문자열은 아직 고르지 않음. */
+export function parseSelectedModel(raw: unknown): string | null {
+  return typeof raw === 'string' && raw.length <= 60 ? raw : null
 }
 
 export function parseProvider(value: unknown): Parsed<LlmProvider> {

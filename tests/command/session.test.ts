@@ -62,7 +62,7 @@ describe('command session', () => {
     const turn = await e.session.send({ conversationId: null, modelId: 'm', text: '해' })
 
     expect(turn.status).toBe('awaiting_approval')
-    expect(turn.pending).toEqual([{ callId: 'w1', toolName: 'danger', preview: { title: '바꾸기: A', lines: ['어디에'] } }])
+    expect(turn.pending).toEqual([{ callId: 'w1', toolName: 'danger', source: 'core', preview: { title: '바꾸기: A', lines: ['어디에'] } }])
     expect(ran).toEqual([])
     expect(e.adapter.requests).toHaveLength(1) // 승인 전에는 모델을 더 부르지 않는다
     expect(e.session.pending(turn.conversationId)).toHaveLength(1)

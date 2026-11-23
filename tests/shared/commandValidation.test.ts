@@ -41,4 +41,13 @@ describe('model list (command.models)', () => {
   it('has no place to put an API key', () => {
     expect(parseModelList([{ ...DEFAULT_MODELS[0], apiKey: 'sk' }])?.[0]).not.toHaveProperty('apiKey')
   })
+
+  it('command.model (the chosen model id) is a short string; empty means not chosen yet', () => {
+    expect(defaultSetting('command.model')).toBe('')
+    expect(parseSetting('command.model', 'anthropic-sonnet')).toBe('anthropic-sonnet')
+    expect(parseSetting('command.model', '')).toBe('')
+    expect(parseSetting('command.model', 5)).toBeNull()
+    expect(parseSetting('command.model', 'x'.repeat(61))).toBeNull()
+    expect(readSetting('command.model', { a: 1 })).toBe('')
+  })
 })
