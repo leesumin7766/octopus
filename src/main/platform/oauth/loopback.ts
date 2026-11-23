@@ -19,7 +19,7 @@ export class OAuthError extends Error {
 export const LOOPBACK_HOST = '127.0.0.1'
 export const DEFAULT_REDIRECT_PATH = '/oauth/callback'
 export const DEFAULT_LOOPBACK_TIMEOUT_MS = 5 * 60_000
-const LISTEN_ATTEMPTS = 12
+const LISTEN_ATTEMPTS = 25
 
 export interface LoopbackOptions {
   /** 이 요청에 묶인 state. 다르면 그 요청은 무시한다. */
@@ -119,7 +119,7 @@ export const startLoopback: StartLoopback = (options) =>
       candidate.once('error', () => {
         candidate.close()
         if (++attempts >= LISTEN_ATTEMPTS) return rejectStart(new OAuthError('browser'))
-        setTimeout(listen, 40)
+        setTimeout(listen, 60)
       })
       candidate.once('listening', () => {
         candidate.on('error', () => undefined) // 시작한 뒤의 소켓 오류는 흐름을 바꾸지 않는다.

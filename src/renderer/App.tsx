@@ -17,7 +17,8 @@ type InitialView = NonNullable<typeof window.octopus.initialView>
 /** 앱을 켜면 홈. (개발용 캡처는 initialView 로 다른 화면을 바로 열 수 있다.) */
 function initialScreen(initial: InitialView | null): Screen {
   if (initial === null || initial === 'home' || initial === 'home-arrange') return 'home'
-  if (initial === 'routines' || initial === 'memos' || initial === 'settings' || initial === 'arms') return initial
+  if (initial === 'routines' || initial === 'memos' || initial === 'settings') return initial
+  if (initial === 'arms' || initial === 'arms-mcp') return 'arms'
   if (initial === 'home-pie' || initial === 'command' || initial === 'command-nokey') return 'home'
   return 'tasks'
 }
@@ -86,7 +87,7 @@ export function App() {
         {screen === 'tasks' && <TasksScreen initialView={taskView} />}
         {screen === 'routines' && <RoutinesScreen />}
         {screen === 'memos' && <MemosScreen />}
-        {screen === 'arms' && <ArmsScreen />}
+        {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} />}
         {screen === 'settings' && <SettingsScreen />}
       </main>
       {commandOpen && (

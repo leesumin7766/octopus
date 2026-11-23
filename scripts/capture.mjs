@@ -21,6 +21,7 @@ const SHOTS = [
   ['command', 'command'],
   ['command-nokey', 'command-nokey'],
   ['arms', 'arms'],
+  ['arms-mcp', 'arms-mcp'],
   ['inbox', 'inbox'],
   ['today', 'today'],
   ['routines', 'routines'],

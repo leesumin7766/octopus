@@ -24,7 +24,7 @@ export function toolLine(item: ToolItem): string {
 /** 도구 출처 배지 글자 */
 export function sourceLabel(source: string): string {
   if (source.startsWith('arm:')) return t.sources.arm
-  return source === 'mcp' ? t.sources.mcp : t.sources.core
+  return source === 'mcp' || source.startsWith('mcp:') ? t.sources.mcp : t.sources.core
 }
 
 /** 오류 종류별 안내 문구 */

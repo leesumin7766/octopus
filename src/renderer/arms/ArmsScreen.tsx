@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ArmInfo } from '../../shared/arms/types'
 import type { IpcError } from '../../shared/ipc'
 import { ErrorBanner } from '../ErrorBanner'
+import { McpSection } from './McpSection'
 import { ko } from '../i18n/ko'
 
 const t = ko.arms
@@ -169,7 +170,8 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
 }
 
 /** Arms 화면: 등록된 Arm 만 카드로 보여 주고 연결·끊기를 한다. */
-export function ArmsScreen() {
+/** scrollToMcp: 개발용 캡처에서 MCP 구역이 보이도록 처음에 그쪽으로 내린다. */
+export function ArmsScreen({ scrollToMcp = false }: { scrollToMcp?: boolean }) {
   const [arms, setArms] = useState<ArmInfo[] | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -204,6 +206,9 @@ export function ArmsScreen() {
     else setError(result.error)
   }
 
+  // MCP 서버는 아래 "MCP 서버 꽂기" 구역에서 따로 다룬다(카드로 보이지 않는다).
+  const visibleArms = (arms ?? []).filter((arm) => arm.auth !== 'mcp')
+
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-page px-5 py-4 text-ink">
       <h1 className="flex items-baseline gap-2.5 text-lg font-semibold">
@@ -214,11 +219,11 @@ export function ArmsScreen() {
 
       {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
 
-      {arms === null ? null : arms.length === 0 ? (
+      {arms === null ? null : visibleArms.length === 0 ? (
         <p className="max-w-xl rounded-xl border border-line bg-white p-4 text-sm text-[#4a4945]">{t.empty}</p>
       ) : (
         <section aria-label={t.listLabel} className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
-          {arms.map((arm) => (
+          {visibleArms.map((arm) => (
             <ArmCard
               key={arm.id}
               arm={arm}
@@ -246,10 +251,7 @@ export function ArmsScreen() {
         </section>
       )}
 
-      <section aria-label={t.mcp.title} className="mt-6 max-w-2xl rounded-xl border border-line bg-white p-4">
-        <h2 className="text-[15px] font-bold">{t.mcp.title}</h2>
-        <p className="mt-1 text-[13px] text-[#5e5d58]">{t.mcp.soon}</p>
-      </section>
+      <McpSection scrollIntoViewOnMount={scrollToMcp} />
     </div>
   )
 }

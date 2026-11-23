@@ -15,6 +15,12 @@ import { createMemorySecureStore } from '../../src/main/dev/captureArms'
 import { createCandidateRepository, type CandidateRepository } from '../../src/main/core/inbox/candidateRepository'
 import { createArmsHandlers, createCandidateHandlers } from '../../src/main/ipc/arms'
 import type { ArmsApi, CandidatesApi } from '../../src/shared/arms/ipcApi'
+import { createMcpService, type McpService } from '../../src/main/arms/mcp/service'
+import type { McpArmDeps } from '../../src/main/arms/mcp/arm'
+import type { McpConnection, McpConnector } from '../../src/main/arms/mcp/connection'
+import { createMcpHandlers } from '../../src/main/ipc/mcp'
+import type { McpApi, McpServerConfig } from '../../src/shared/mcp/types'
+import type { McpApproval } from '../../src/shared/validation/mcp'
 import { createCalendarHandlers } from '../../src/main/ipc/calendar'
 import type { CalendarApi, CalendarToday } from '../../src/shared/calendar/types'
 import { createMemoRepository, type MemoRepository } from '../../src/main/core/memos/memoRepository'
@@ -46,6 +52,7 @@ export type SettingsSpies = { [K in keyof SettingsApi]: Mock<SettingsApi[K]> }
 export type ShortcutSpies = { [K in keyof ShortcutsApi]: Mock<ShortcutsApi[K]> }
 export type ArmsSpies = { [K in keyof ArmsApi]: Mock<ArmsApi[K]> }
 export type CandidateSpies = { [K in keyof CandidatesApi]: Mock<CandidatesApi[K]> }
+export type McpSpies = { [K in keyof McpApi]: Mock<McpApi[K]> }
 export type CalendarSpies = { [K in keyof CalendarApi]: Mock<CalendarApi[K]> }
 export type CommandSpies = { [K in keyof CommandApi]: Mock<CommandApi[K]> }
 
@@ -69,6 +76,12 @@ export interface Backend {
   arms: ArmsSpies
   candidates: CandidateSpies
   /** 시험용 Arm 을 등록·연결하는 진짜 관리자(비밀 저장소는 메모리) */
+  mcp: McpSpies
+  mcpService: McpService
+  /** stdio 처음 실행 확인 창의 가짜(기본: 허용) */
+  mcpConfirm: Mock<McpArmDeps['confirmRun']>
+  /** 진짜 SDK 대신 쓰는 가짜 MCP 연결. 테스트가 바꿀 수 있다. */
+  mcpConnector: { current: McpConnector }
   calendar: CalendarSpies
   /** 오늘 일정 카드가 읽는 값. 테스트가 바꾼다(기본: 캘린더 연결 안 됨). */
   calendarState: CalendarToday
@@ -162,8 +175,9 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
 
   const candidateRepo = createCandidateRepository(t.db, { newId: () => newId(Date.now()), now, tasks: t.repo })
   const armSettings = { connected: [] as string[], autoAccept: [] as string[] }
+  const armStore = createMemorySecureStore()
   const armManager = createArmManager({
-    secureStore: createMemorySecureStore(),
+    secureStore: armStore,
     settings: {
       getConnected: () => armSettings.connected,
       setConnected: (ids) => void (armSettings.connected = ids),
@@ -179,6 +193,40 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     scheduler: { setInterval: () => 0, clearInterval: () => {} }
   })
   const opened: string[] = []
+  const fakeConnection = (): McpConnection => ({
+    tools: () => [
+      { name: 'search_notes', description: '노트를 찾아요.', inputSchema: { type: 'object', properties: {} }, annotations: { readOnlyHint: true } },
+      { name: 'create_page', description: '페이지를 만들어요.', inputSchema: { type: 'object', properties: {} } }
+    ],
+    callTool: async () => ({ content: [{ type: 'text', text: 'ok' }] }),
+    close: async () => {},
+    pid: () => null
+  })
+  const mcpConnector = { current: (async () => fakeConnection()) as McpConnector }
+  const mcpServers: McpServerConfig[] = []
+  const mcpApprovals: McpApproval[] = []
+  const mcpConfirm = vi.fn<McpArmDeps['confirmRun']>(async () => true)
+  let mcpCounter = 0
+  const mcpService = createMcpService({
+    manager: armManager,
+    settings: {
+      getServers: () => mcpServers,
+      setServers: (next) => void mcpServers.splice(0, mcpServers.length, ...next),
+      getApprovals: () => mcpApprovals,
+      setApprovals: (next) => void mcpApprovals.splice(0, mcpApprovals.length, ...next)
+    },
+    secureStore: armStore,
+    connector: (options) => mcpConnector.current(options),
+    confirmRun: mcpConfirm,
+    newUlid: () => `XXXXXXXXXXXXXXXXXX${String(10_000_000 + mcpCounter++)}`
+  })
+  const mcpHandlers = createMcpHandlers({ getService: () => mcpService, logError })
+  const mcp = {
+    list: vi.fn(async () => mcpHandlers.list()),
+    add: vi.fn(async (input: unknown) => mcpHandlers.add(input)),
+    remove: vi.fn(async (id: unknown) => mcpHandlers.remove(id)),
+    reconnect: vi.fn(async (id: unknown) => mcpHandlers.reconnect(id))
+  } as unknown as McpSpies
   const armsDeps = { getManager: () => armManager, getCandidates: () => candidateRepo, openExternal: async (url: string) => void opened.push(url), logError }
   const armHandlers = createArmsHandlers(armsDeps)
   const candidateHandlers = createCandidateHandlers(armsDeps)
@@ -268,9 +316,10 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     command: command as unknown as CommandApi,
     arms: arms as unknown as ArmsApi,
     candidates: candidates as unknown as CandidatesApi,
-    calendar: calendar as unknown as CalendarApi
+    calendar: calendar as unknown as CalendarApi,
+    mcp: mcp as unknown as McpApi
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
 }

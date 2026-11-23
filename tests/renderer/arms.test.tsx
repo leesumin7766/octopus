@@ -34,7 +34,7 @@ describe('Arms screen', () => {
 
     expect(await screen.findByText(t.empty)).toBeTruthy()
     expect(screen.queryAllByRole('article')).toHaveLength(0)
-    expect(screen.getByRole('region', { name: t.mcp.title }).textContent).toContain(t.mcp.soon)
+    expect(screen.getByRole('region', { name: t.mcp.title }).textContent).toContain(t.mcp.empty)
     for (const name of ['Slack', 'GitHub', 'Google', 'Gmail']) expect(screen.queryByText(new RegExp(name))).toBeNull()
   })
 
