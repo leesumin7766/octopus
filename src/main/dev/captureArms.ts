@@ -6,7 +6,7 @@ import type { InitialView } from '../../shared/initialView'
 // 진짜 로그인·네트워크는 쓰지 않는다. 캡처 모드(배포 앱 아님)가 아니면 등록되지 않는다.
 
 /** 이 화면들에서만 가짜 Arm 을 등록한다. */
-export const CAPTURE_ARM_VIEWS: readonly InitialView[] = ['arms', 'inbox']
+export const CAPTURE_ARM_VIEWS: readonly InitialView[] = ['arms', 'arms-mcp', 'inbox']
 
 /** 상태 'on' 인 가짜 Arm. 연결되면 수신함 후보 3개를 보낸다. */
 export function createExampleArm(): Arm {
@@ -89,5 +89,18 @@ export function createCaptureCalendar(): import('../arms/google-calendar/provide
   return {
     today: () => ({ configured: true, status: { state: 'on' }, events: events() }),
     findEvent: (id) => events().find((e) => e.id === id)
+  }
+}
+
+/** 캡처 모드의 가짜 MCP 연결: 서버 이름·명령에 따라 도구 2개를 주거나(연결됨), 실행 실패로 끝난다(오류). 진짜 서버는 띄우지 않는다. */
+export function createCaptureMcpConnector(): import('../arms/mcp/connection').McpConnector {
+  return async (options) => {
+    const { McpSpawnError } = await import('../arms/mcp/connection')
+    if (options.transport.kind === 'stdio' && options.transport.command === 'missing-server') throw new McpSpawnError()
+    const tools = [
+      { name: 'search_notes', description: '노트에서 글자를 찾아요.', inputSchema: { type: 'object', properties: { query: { type: 'string' } } }, annotations: { readOnlyHint: true } },
+      { name: 'create_page', description: '새 페이지를 만들어요.', inputSchema: { type: 'object', properties: { title: { type: 'string' } } } }
+    ]
+    return { tools: () => tools, callTool: async () => ({ content: [] }), close: async () => {}, pid: () => null }
   }
 }

@@ -9,6 +9,10 @@ import { buildWebPreferences } from '../shared/securityOptions'
 import { openDatabase } from './core/db/connection'
 import { runMigrations } from './core/db/migrate'
 import { migrations } from './core/db/migrations'
+import { createMcpService, type McpService } from './arms/mcp/service'
+import { sdkConnector } from './arms/mcp/connection'
+import { createCommandConfirm } from './platform/commandConfirm'
+import { createMcpHandlers, registerMcpHandlers } from './ipc/mcp'
 import { createGoogleCalendarArm, GOOGLE_CALENDAR_ID } from './arms/google-calendar'
 import { createCalendarProvider, type CalendarProvider } from './arms/google-calendar/provider'
 import { createArmSecrets } from './arms/sdk/context'
@@ -16,7 +20,7 @@ import { createCalendarHandlers, registerCalendarHandlers } from './ipc/calendar
 import { createArmManager, type ArmManager } from './arms/sdk/manager'
 import { createCandidateRepository, type CandidateRepository } from './core/inbox/candidateRepository'
 import { createArmsHandlers, createCandidateHandlers, registerArmsHandlers } from './ipc/arms'
-import { CAPTURE_ARM_VIEWS, createBrokenExampleArm, createCaptureCalendar, createExampleArm, createMemorySecureStore } from './dev/captureArms'
+import { CAPTURE_ARM_VIEWS, createBrokenExampleArm, createCaptureCalendar, createCaptureMcpConnector, createExampleArm, createMemorySecureStore } from './dev/captureArms'
 import type { SecureStore } from './platform/secureStore'
 import { createAdapterResolver, type KeyStore } from './core/command/adapterResolver'
 import { createConversationRepository, type ConversationRepository } from './core/command/conversationRepository'
@@ -60,6 +64,7 @@ let commandSession: CommandSession | null = null
 let candidateRepository: CandidateRepository | null = null
 let armManager: ArmManager | null = null
 let calendarProvider: CalendarProvider | null = null
+let mcpService: McpService | null = null
 // API 키 보관(Electron safeStorage 로 암호화한 파일). app ready 이후에 만든다.
 // 개발용 캡처에서는 진짜 보관소 대신 메모리의 가짜를 쓴다(진짜 키를 읽지도 쓰지도 않는다).
 let secureStore: SecureStore | null = null
@@ -129,6 +134,24 @@ function initDatabase(): void {
       }
     })
     arms.register(googleCalendar)
+    // MCP 서버: 서버 하나 = 동적 Arm 하나. 저장된 서버를 등록해 두면 아래 ArmManager.start() 가 이전에 연결돼 있던 것을 조용히 다시 연결한다.
+    mcpService = createMcpService({
+      manager: arms,
+      settings: {
+        getServers: () => settingsForArms.get('mcp.servers'),
+        setServers: (servers) => void settingsForArms.set('mcp.servers', servers),
+        getApprovals: () => settingsForArms.get('mcp.approvals'),
+        setApprovals: (approvals) => void settingsForArms.set('mcp.approvals', approvals)
+      },
+      secureStore: openSecureStore(),
+      connector: captureSession ? createCaptureMcpConnector() : sdkConnector,
+      // 캡처에서는 확인 창을 띄우지 않는다(진짜 프로그램은 어차피 실행하지 않는다).
+      confirmRun: captureSession
+        ? async () => true
+        : createCommandConfirm({ dialog, getWindow: () => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null }),
+      newUlid: () => newId(Date.now())
+    })
+    mcpService.init()
     calendarProvider = captureSession?.config.view === 'home' ? createCaptureCalendar() : createCalendarProvider(arms, googleCalendar)
     const coreTools = createCoreTools({ tasks: taskRepository, memos: memoRepository, routines: routineRepository, today: () => localDateString(now()) })
     commandSession = createCommandSession({
@@ -229,6 +252,7 @@ void app.whenReady().then(async () => {
     logError
   }
   registerArmsHandlers(ipcMain, createArmsHandlers(armsDeps), createCandidateHandlers(armsDeps))
+  registerMcpHandlers(ipcMain, createMcpHandlers({ getService: () => mcpService, logError }))
   registerCalendarHandlers(ipcMain, createCalendarHandlers({ getProvider: () => calendarProvider, openExternal: (url) => shortcutPlatform.openExternal(url), logError }))
   registerCommandHandlers(
     ipcMain,
@@ -246,6 +270,11 @@ void app.whenReady().then(async () => {
     armManager.register(createBrokenExampleArm())
     await armManager.connect('example')
     await armManager.connect('example-two')
+    // 가짜 MCP 서버 둘: 하나는 연결됨(도구 2개), 하나는 실행 실패(오류).
+    if (mcpService && (captureSession.config.view === 'arms' || captureSession.config.view === 'arms-mcp')) {
+      await mcpService.add({ name: '예시 노트 서버', transport: 'http', url: 'http://localhost:3333/mcp' })
+      await mcpService.add({ name: '예시 도구 서버', transport: 'stdio', command: 'missing-server', args: ['--stdio'], env: [{ name: 'EXAMPLE_TOKEN', value: 'capture-value' }] })
+    }
   } else if (armManager) {
     // 이전에 연결돼 있던 Arm 을 조용히 다시 연결한다. 기다리지 않고, 실패해도 앱은 그대로 뜬다.
     void armManager.start().catch(() => undefined)
@@ -270,6 +299,7 @@ app.on('will-quit', () => {
   armManager?.dispose()
   armManager = null
   calendarProvider = null
+  mcpService = null
   database?.close()
   cleanupCapture(captureSession)
 })

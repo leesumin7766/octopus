@@ -55,7 +55,11 @@ export const IPC = {
   armsSetClient: 'arms:setClient',
   calendarToday: 'calendar:today',
   calendarOpenEvent: 'calendar:openEvent',
-  calendarOpenWeb: 'calendar:openWeb'
+  calendarOpenWeb: 'calendar:openWeb',
+  mcpList: 'mcp:list',
+  mcpAdd: 'mcp:add',
+  mcpRemove: 'mcp:remove',
+  mcpReconnect: 'mcp:reconnect'
 } as const
 
 /** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. secure_unavailable: 이 PC 에서 키를 암호화해 저장할 수 없다. */

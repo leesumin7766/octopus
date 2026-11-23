@@ -80,6 +80,12 @@ const api: OctopusApi = {
     today: () => ipcRenderer.invoke(IPC.calendarToday),
     openEvent: (id) => ipcRenderer.invoke(IPC.calendarOpenEvent, id),
     openWeb: () => ipcRenderer.invoke(IPC.calendarOpenWeb)
+  },
+  mcp: {
+    list: () => ipcRenderer.invoke(IPC.mcpList),
+    add: (input) => ipcRenderer.invoke(IPC.mcpAdd, input),
+    remove: (id) => ipcRenderer.invoke(IPC.mcpRemove, id),
+    reconnect: (id) => ipcRenderer.invoke(IPC.mcpReconnect, id)
   }
 }
 
