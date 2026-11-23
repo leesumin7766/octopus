@@ -5,7 +5,7 @@ import { defaultSetting, isSettingKey, parseSetting, readSetting, SETTING_KEYS }
 
 describe('settings schema', () => {
   it('knows its keys and nothing else', () => {
-    expect([...SETTING_KEYS]).toEqual(['home.layout', 'nav.collapsed', 'pie.slots', 'command.models', 'command.model', 'arms.connected', 'arms.autoAccept'])
+    expect([...SETTING_KEYS]).toEqual(['home.layout', 'nav.collapsed', 'pie.slots', 'command.models', 'command.model', 'arms.connected', 'arms.autoAccept', 'mcp.servers', 'mcp.approvals'])
     for (const key of SETTING_KEYS) expect(isSettingKey(key)).toBe(true)
     for (const value of ['home', 'nav', '', 'HOME.LAYOUT', 'constructor', '__proto__', 5, null, undefined, {}]) {
       expect(isSettingKey(value)).toBe(false)

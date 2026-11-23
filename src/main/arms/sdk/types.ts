@@ -122,6 +122,8 @@ export interface Arm {
     clientIdSaved(): boolean
     setClient(value: { clientId: string; clientSecret?: string } | null): void
   }
+  /** 앱을 끝낼 때 불린다: 열려 있는 연결·자식 프로세스를 정리한다. 비밀을 지우지 않는다. 던져도 무시된다. */
+  dispose?(): void
   /** 지시하기에 줄 도구. 연결된 동안만 쓰이고, 끊기면 도구도 사라진다. */
   tools?(): CommandTool[]
 }

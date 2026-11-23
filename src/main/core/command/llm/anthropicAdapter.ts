@@ -90,7 +90,7 @@ export function createAnthropicAdapter(options: AnthropicAdapterOptions): LlmAda
       }
       if (options.effort) params.output_config = { effort: options.effort }
       if (request.tools.length > 0) {
-        params.tools = request.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema, strict: true }))
+        params.tools = request.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema, ...(t.strict === false ? {} : { strict: true }) }))
       }
 
       try {

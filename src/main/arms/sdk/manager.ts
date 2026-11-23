@@ -64,6 +64,8 @@ export interface ArmManager {
   setAutoAccept(id: string, on: boolean): ArmInfo | undefined
   /** 고급 옵션: 내 OAuth 클라이언트 저장/지우기. 지원하지 않는 Arm 이면 undefined. */
   setClient(id: string, value: { clientId: string; clientSecret?: string } | null): ArmInfo | undefined
+  /** Arm 을 등록에서 뺀다: 먼저 끊고(비밀 삭제 포함) 목록에서 지운다. 없는 id 면 false. */
+  unregister(id: string): Promise<boolean>
   /** 앱을 켤 때: 이전에 연결돼 있던 Arm 을 조용히(interactive=false) 다시 연결한다. */
   start(): Promise<void>
   /** 연결된 Arm 들이 내놓는 지시하기 도구. 도구 레지스트리의 출처로 꽂는다. */
@@ -322,6 +324,15 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
       return infoOf(entry)
     },
 
+    async unregister(id) {
+      const entry = entries.get(id)
+      if (!entry) return false
+      await this.disconnect(id)
+      entries.delete(id)
+      notify()
+      return true
+    },
+
     async start() {
       const wanted = new Set(deps.settings.getConnected())
       // 한 Arm 이 오래 걸려도 다른 Arm 의 재연결을 막지 않는다.
@@ -331,7 +342,7 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
     tools() {
       const out: CommandTool[] = []
       for (const entry of entries.values()) {
-        if (entry.state.state !== 'on' || !entry.arm.tools) continue
+        if (!entry.arm.tools || infoOf(entry).status.state !== 'on') continue // 연결이 끊겼다고 알려 온 Arm 의 도구는 내놓지 않는다
         let tools: CommandTool[] = []
         try {
           tools = entry.arm.tools()
@@ -339,7 +350,7 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
           log(entry.arm.manifest.id, 'warn', 'tools() failed')
           continue
         }
-        for (const tool of tools) out.push({ ...tool, source: `arm:${entry.arm.manifest.id}` })
+        for (const tool of tools) out.push({ ...tool, source: tool.source ?? `arm:${entry.arm.manifest.id}` }) // Arm 이 출처를 직접 밝히면(MCP: mcp:<id>) 그대로 둔다
       }
       return out
     },
@@ -350,7 +361,14 @@ export function createArmManager(deps: ArmManagerDeps): ArmManager {
     },
 
     dispose() {
-      for (const entry of entries.values()) stopSchedule(entry)
+      for (const entry of entries.values()) {
+        stopSchedule(entry)
+        try {
+          entry.arm.dispose?.() // 자식 프로세스·연결 정리(비밀은 지우지 않는다)
+        } catch {
+          // 종료 중의 오류는 무시
+        }
+      }
       listeners.clear()
     }
   }

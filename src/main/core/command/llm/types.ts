@@ -5,6 +5,8 @@ export interface LlmTool {
   name: string
   description: string
   inputSchema: Record<string, unknown>
+  /** false 면 strict 로 보내지 않는다(스키마가 strict 규칙을 따르지 않는 바깥 도구). 생략하면 true. */
+  strict?: boolean
 }
 
 export interface ChatRequest {

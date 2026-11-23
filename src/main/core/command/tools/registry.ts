@@ -10,6 +10,10 @@ export interface CommandTool<I = unknown> {
   /** JSON Schema(object, additionalProperties:false, 모든 속성 required — strict 호환) */
   inputSchema: Record<string, unknown>
   readOnly: boolean
+  /** 모델에 "엄격한 스키마"(strict)로 알릴지. 코어 도구는 true(기본), 남이 만든 스키마(MCP 등)는 false. */
+  strict?: boolean
+  /** 결과를 감쌀 <data source=…> 이름. 생략하면 tool:<이름>. 바깥 서버의 결과는 출처를 구분해 쓴다. */
+  dataSource?: string
   /** 어디서 온 도구인지(core, mcp, 'arm:<id>'). 생략하면 core. */
   source?: ToolOrigin
   /** 모델이 준 입력을 검사한다. 검사를 통과한 값만 preview·run 에 간다. */
@@ -48,7 +52,7 @@ export function createToolRegistry(sources: readonly ToolSource[]): ToolRegistry
   return {
     list: collect,
     get: (name) => collect().find((t) => t.name === name),
-    llmTools: () => collect().map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }))
+    llmTools: () => collect().map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema, ...(t.strict === false ? { strict: false } : {}) }))
   }
 }
 

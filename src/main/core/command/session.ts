@@ -68,7 +68,7 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
   const result = (use: ToolUse, text: string, isError: boolean): ToolResult => ({
     type: 'tool_result',
     toolUseId: use.id,
-    content: wrapToolResult(use.name, text),
+    content: wrapToolResult(deps.registry.get(use.name)?.dataSource ?? `tool:${use.name}`, text),
     ...(isError ? { isError: true } : {})
   })
 
