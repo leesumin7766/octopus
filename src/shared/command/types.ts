@@ -104,6 +104,8 @@ export type CommandErrorKind =
   | 'auth'
   | 'rate_limit'
   | 'network'
+  /** 서버가 한동안 아무것도 보내지 않아 우리가 끊었다 */
+  | 'no_response'
   | 'overloaded'
   | 'bad_request'
   | 'refusal'

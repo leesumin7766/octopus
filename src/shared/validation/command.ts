@@ -92,7 +92,7 @@ export function parseSendInput(value: unknown, isId: (v: unknown) => boolean): P
   return good({ conversationId: conversationId as string | null, modelId, text })
 }
 
-const ERROR_KINDS: readonly unknown[] = ['no_key', 'auth', 'rate_limit', 'network', 'overloaded', 'bad_request', 'refusal', 'too_long', 'step_limit', 'unknown']
+const ERROR_KINDS: readonly unknown[] = ['no_key', 'auth', 'rate_limit', 'network', 'no_response', 'overloaded', 'bad_request', 'refusal', 'too_long', 'step_limit', 'unknown']
 
 /** 중지할 대화: 대화 id, 또는 null(모두) */
 export function parseCancelTarget(value: unknown, isId: (v: unknown) => boolean): Parsed<string | null> {

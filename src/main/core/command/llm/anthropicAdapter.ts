@@ -28,6 +28,8 @@ export interface AnthropicAdapterOptions {
   maxTokens?: number
   /** 서버 쪽 대체 모델(fallback). 기본 켜짐. Haiku 5.5 에는 보내지 않는다. */
   fallbacks?: boolean
+  /** 스트리밍 중 이 시간(ms) 동안 아무 이벤트도 오지 않으면 멈추고 network 오류로 끝낸다. 기본 STREAM_IDLE_MS. */
+  idleMs?: number
 }
 
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01'
@@ -35,6 +37,13 @@ export const FALLBACK_BETA = 'server-side-fallback-2026-07-01'
 /** 스트리밍은 긴 출력을 허용하므로 기본 한도를 넉넉히(한 번에 받는 경로는 16000 을 넘기면 SDK 가 거절한다). */
 export const STREAMING_MAX_TOKENS = 64000
 export const PLAIN_MAX_TOKENS = 16000
+
+/**
+ * 스트림 무응답 제한(ms). SDK 의 timeout(클라이언트 120초)은 응답 헤더를 받을 때까지만 걸리고 본문 스트림에는 걸리지 않는다
+ * (node_modules/@anthropic-ai/sdk/client.js 의 fetchWithTimeout: fetch 가 돌아오면 타이머를 지운다).
+ * 그래서 헤더를 받은 뒤 이 시간 동안 이벤트가 하나도 없으면 우리가 끊는다.
+ */
+export const STREAM_IDLE_MS = 90_000
 
 function supportsFallbacks(model: string): boolean {
   return !model.startsWith('claude-haiku-5-5')
@@ -111,11 +120,16 @@ export function classifyAnthropicError(error: unknown): LlmError {
 /** 실제 SDK 스트림(일반·베타) 중 어댑터가 쓰는 부분 */
 interface TextStream {
   on(event: 'text', listener: (textDelta: string, snapshot: string) => void): unknown
+  /** 응답 헤더를 받았다 */
+  on(event: 'connect', listener: () => void): unknown
+  /** 스트림 이벤트가 하나 왔다(글·생각·도구 입력·ping 모두) */
+  on(event: 'streamEvent', listener: () => void): unknown
   finalMessage(): Promise<AnthropicResponse>
 }
 
 export function createAnthropicAdapter(options: AnthropicAdapterOptions): LlmAdapter {
   const useFallbacks = (options.fallbacks ?? true) && supportsFallbacks(options.model)
+  const idleMs = options.idleMs ?? STREAM_IDLE_MS
 
   /**
    * 요청 내용(일반/베타 SDK 가 같은 필드 이름·모양으로 받는다)을 만든다.
@@ -169,20 +183,42 @@ export function createAnthropicAdapter(options: AnthropicAdapterOptions): LlmAda
     const core = buildCore(request, STREAMING_MAX_TOKENS)
     // 멈췄을 때만 쓰는, 그때까지 받은 글. 완성된 메시지는 항상 SDK 의 finalMessage() 가 준다.
     let partial = ''
+    // 사용자의 중지(signal)와 우리의 무응답 제한을 한 컨트롤러로 모아 SDK 에 건넨다.
+    const controller = new AbortController()
+    const onUserAbort = (): void => controller.abort()
+    signal?.addEventListener('abort', onUserAbort, { once: true })
+    let stalled = false
+    let idle: ReturnType<typeof setTimeout> | undefined
+    const arm = (): void => {
+      clearTimeout(idle)
+      idle = setTimeout(() => {
+        stalled = true
+        controller.abort()
+      }, idleMs)
+    }
     try {
-      // 일반/베타 스트림은 서로 다른 클래스라, 쓰는 두 메서드만 같은 모양으로 본다(호출 자체는 각자의 실제 SDK 시그니처로 검사된다).
-      const stream: TextStream = useFallbacks ? options.client.beta.messages.stream(asBeta(core), { signal }) : options.client.messages.stream(asPlain(core), { signal })
+      // 일반/베타 스트림은 서로 다른 클래스라, 쓰는 메서드만 같은 모양으로 본다(호출 자체는 각자의 실제 SDK 시그니처로 검사된다).
+      const stream: TextStream = useFallbacks
+        ? options.client.beta.messages.stream(asBeta(core), { signal: controller.signal })
+        : options.client.messages.stream(asPlain(core), { signal: controller.signal })
+      // 헤더를 받은 뒤부터 센다(그 앞은 SDK 의 120초 timeout 이 맡는다). 이벤트가 올 때마다 다시 센다.
+      stream.on('connect', arm)
+      stream.on('streamEvent', arm)
       stream.on('text', (delta) => {
         partial += delta
         onText(delta)
       })
       return mapResponse(await stream.finalMessage())
     } catch (error) {
+      // 무응답으로 우리가 끊은 것은 사용자의 중지가 아니라 네트워크 문제다.
+      if (stalled && !signal?.aborted) throw new LlmError('no_response', 'stream stalled')
       if (signal?.aborted || (error as { name?: string } | null)?.name === 'APIUserAbortError') return aborted(partial)
       throw classifyAnthropicError(error)
+    } finally {
+      clearTimeout(idle)
+      signal?.removeEventListener('abort', onUserAbort)
     }
   }
-
   return {
     chat(request: ChatRequest): Promise<ChatResponse> {
       return request.onText ? streaming(request, request.onText) : plain(request)

@@ -50,8 +50,8 @@ function fakeStream(options: FakeStreamOptions, signal?: AbortSignal): FakeStrea
     return options.final ?? { content: [], stop_reason: 'end_turn' }
   }
   return {
-    on(_event, l) {
-      listener = l
+    on(event, l) {
+      if (event === 'text') listener = l // connect·streamEvent 는 무응답 제한용이라 여기서는 쓰지 않는다
       return undefined
     },
     finalMessage: run,
@@ -97,7 +97,24 @@ describe('anthropic adapter: streaming', () => {
     const [params, options] = f.beta.mock.calls[0]
     expect(params).toMatchObject({ model: 'claude-opus-5-5', system: 'sys', max_tokens: STREAMING_MAX_TOKENS, output_config: { effort: 'medium' }, tool_choice: { type: 'auto' }, betas: [FALLBACK_BETA], fallbacks: 'default' })
     expect(STREAMING_MAX_TOKENS).toBe(64000)
-    expect(options?.signal).toBe(controller.signal)
+    // SDK 에는 사용자의 중지와 무응답 제한을 한데 모은 signal 을 건넨다.
+    expect(options?.signal).toBeInstanceOf(AbortSignal)
+    expect(controller.signal.aborted).toBe(false)
+  })
+
+  it('a stop by the user reaches the SDK stream through the signal it was given', async () => {
+    const controller = new AbortController()
+    const f = streamClient({ pieces: ['글'], waitForAbort: true })
+    const seen: string[] = []
+    const promise = createAnthropicAdapter({ client: f.client, model: 'claude-opus-5-5' }).chat({ ...base, signal: controller.signal, onText: (t) => seen.push(t) })
+    await vi.waitFor(() => expect(seen).toEqual(['글']))
+    const sdkSignal = f.beta.mock.calls[0][1]?.signal
+    expect(sdkSignal?.aborted).toBe(false)
+
+    controller.abort()
+
+    expect(sdkSignal?.aborted).toBe(true)
+    expect(await promise).toMatchObject({ aborted: true })
   })
 
   it('keeps strict tool validation: tool definitions never ask for eager input streaming', async () => {
