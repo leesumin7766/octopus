@@ -6,6 +6,7 @@ import { MAX_SEARCH_LENGTH } from '../../shared/validation/memoIpc'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
 import { formatTimestamp } from '../tasks/format'
+import { highlightMatches } from './highlight'
 
 const t = ko.memos
 
@@ -228,7 +229,7 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
                       onClick={() => setEditing({ id: memo.id, text: memo.body, invalid: false })}
                       className="block w-full text-left"
                     >
-                      <p className="whitespace-pre-wrap break-words text-sm">{memo.body}</p>
+                      <p className="whitespace-pre-wrap break-words text-sm">{searching ? highlightMatches(memo.body, query) : memo.body}</p>
                     </button>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-slate-400">{t.updated(formatTimestamp(memo.updatedAt))}</span>
