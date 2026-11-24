@@ -70,8 +70,8 @@ export const IPC = {
   updateInstall: 'update:install'
 } as const
 
-/** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. secure_unavailable: 이 PC 에서 키를 암호화해 저장할 수 없다. */
-export type IpcErrorCode = 'invalid_input' | 'not_found' | 'not_found_path' | 'db_unavailable' | 'secure_unavailable' | 'internal'
+/** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. secure_unavailable: 이 PC 에서 키를 암호화해 저장할 수 없다. forbidden: 앱 화면이 아닌 곳에서 보낸 요청이라 거부했다. */
+export type IpcErrorCode = 'invalid_input' | 'not_found' | 'not_found_path' | 'db_unavailable' | 'secure_unavailable' | 'forbidden' | 'internal'
 
 export interface IpcError {
   code: IpcErrorCode

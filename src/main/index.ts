@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain as electronIpcMain, safeStorage, shell } from 'electron'
 import { existsSync, mkdirSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
@@ -23,7 +23,6 @@ import { createCalendarHandlers, registerCalendarHandlers } from './ipc/calendar
 import { createArmManager, type ArmManager } from './arms/sdk/manager'
 import { createCandidateRepository, type CandidateRepository } from './core/inbox/candidateRepository'
 import { createArmsHandlers, createCandidateHandlers, registerArmsHandlers } from './ipc/arms'
-import { CAPTURE_ARM_VIEWS, createBrokenExampleArm, createCaptureCalendar, createCaptureMcpConnector, createExampleArm, createMemorySecureStore } from './dev/captureArms'
 import type { SecureStore } from './platform/secureStore'
 import { createAdapterResolver, type KeyStore } from './core/command/adapterResolver'
 import { createConversationRepository, type ConversationRepository } from './core/command/conversationRepository'
@@ -42,9 +41,8 @@ import { createUpdateHandlers, registerUpdateHandlers } from './ipc/update'
 import { createUpdateChecker, type UpdateChecker } from './platform/updater'
 import { acquireSingleInstance } from './singleInstance'
 import { guardWindow } from './windowGuard'
-import { cleanupCapture, captureWhenLoaded, prepareCapture } from './dev/capture'
-import { createCaptureAdapter, createCaptureKeyStore, seedCaptureCommand } from './dev/captureLlm'
-import { createSampleData, seedCaptureSettings } from './dev/captureSupport'
+import { guardIpc } from './ipc/senderCheck'
+import type { CaptureSession } from './dev/capture'
 import { createMemoHandlers, registerMemoHandlers } from './ipc/memos'
 import { createRoutineHandlers, registerRoutineHandlers } from './ipc/routines'
 import { createSettingsHandlers, registerSettingsHandlers } from './ipc/settings'
@@ -59,9 +57,27 @@ import { createShortcutPlatform } from './platform/shortcutPlatform'
 import { createTaskHandlers, registerTaskHandlers } from './ipc/tasks'
 
 // 개발용 화면 캡처(OCTOPUS_CAPTURE). userData 를 임시 폴더로 옮기므로 app ready 전에 먼저 부른다.
-const captureSession = prepareCapture(app)
+// 개발용 캡처 도구는 OCTOPUS_DEV_TOOLS=1 로 빌드할 때만 번들에 들어간다. 배포 빌드에서는 이 import 가 사라진다.
+type DevTools = typeof import('./dev/devTools')
+let dev: DevTools | null = null
+let captureSession: CaptureSession | null = null
+// 캡처 실행 여부는 동기로 정한다(단일 인스턴스 잠금이 이 값을 쓴다).
+const isCaptureRun = __OCTOPUS_DEV_TOOLS__ && Boolean(process.env['OCTOPUS_CAPTURE'])
+// 개발용 도구 적재. 모듈 평가 직후(app ready 전) 끝나므로 아래 하드웨어 가속 끄기도 ready 전에 실행된다.
+const devToolsReady: Promise<void> = __OCTOPUS_DEV_TOOLS__
+  ? import('./dev/devTools').then((loaded) => {
+      dev = loaded
+      captureSession = loaded.prepareCapture(app)
+      if (captureSession) app.disableHardwareAcceleration()
+    })
+  : Promise.resolve()
 // 캡처 때는 소프트웨어 렌더링을 써서, 화면이 잠겨 있거나 가려져 있어도 창을 PNG 로 읽을 수 있게 한다(캡처 모드에서만).
-if (captureSession) app.disableHardwareAcceleration()
+
+// 앱 화면 주소: 개발 서버(개발 중에만 있다) 또는 빌드된 index.html. 창 이동 검사와 IPC 보낸 쪽 검사가 같이 쓴다.
+const devUrl = process.env['ELECTRON_RENDERER_URL']
+const indexFilePath = join(__dirname, '../renderer/index.html')
+// 모든 IPC 핸들러는 이 래퍼로 등록한다: 앱 화면이 아닌 곳에서 온 요청은 핸들러를 부르지 않는다.
+const ipcMain = guardIpc(electronIpcMain, { devUrl, indexFilePath }, (channel) => console.warn(`[octopus] denied ipc from an unexpected page: ${channel}`), new Set([IPC.appVersion]))
 
 let database: DatabaseSync | null = null
 // DB 를 열지 못하면 null 로 남고, 할 일 IPC 는 db_unavailable 을 돌려준다.
@@ -91,7 +107,7 @@ let secureStore: SecureStore | null = null
 let secretCipher: SecretCipher | null = null
 function openSecureStore(): SecureStore {
   if (!secureStore) {
-    if (captureSession) secureStore = createMemorySecureStore()
+    if (dev && captureSession) secureStore = dev.createMemorySecureStore()
     else if (secretCipher) secureStore = createSecureStore(join(app.getPath('userData'), 'secrets.bin'), secretCipher)
     else throw new Error('secure storage was not prepared')
   }
@@ -99,7 +115,7 @@ function openSecureStore(): SecureStore {
 }
 let keyStore: KeyStore | null = null
 function openKeyStore(): KeyStore {
-  keyStore ??= captureSession ? createCaptureKeyStore(captureSession.config.view) : createKeyStore(openSecureStore())
+  keyStore ??= dev && captureSession ? dev.createCaptureKeyStore(captureSession.config.view) : createKeyStore(openSecureStore())
   return keyStore
 }
 
@@ -190,7 +206,7 @@ function initDatabase(): void {
         setApprovals: (approvals) => void settingsForArms.set('mcp.approvals', approvals)
       },
       secureStore: openSecureStore(),
-      connector: captureSession ? createCaptureMcpConnector() : sdkConnector,
+      connector: dev && captureSession ? dev.createCaptureMcpConnector() : sdkConnector,
       // 캡처에서는 확인 창을 띄우지 않는다(진짜 프로그램은 어차피 실행하지 않는다).
       confirmRun: captureSession
         ? async () => true
@@ -198,7 +214,7 @@ function initDatabase(): void {
       newUlid: () => newId(Date.now())
     })
     mcpService.init()
-    calendarProvider = captureSession?.config.view === 'home' ? createCaptureCalendar() : createCalendarProvider(arms, googleCalendar)
+    calendarProvider = dev && captureSession?.config.view === 'home' ? dev.createCaptureCalendar() : createCalendarProvider(arms, googleCalendar)
     const coreTools = createCoreTools({ tasks: taskRepository, memos: memoRepository, routines: routineRepository, today: () => localDateString(now()) })
     commandSession = createCommandSession({
       repo: conversationRepository,
@@ -211,8 +227,8 @@ function initDatabase(): void {
           fetch: timedFetch
         })
         // 캡처의 "지시하기" 화면만 가짜 모델을 쓴다. 배포된 앱에서는 captureSession 이 항상 null 이다.
-        if (captureSession?.config.view !== 'command') return resolve
-        const fake = createCaptureAdapter()
+        if (!dev || captureSession?.config.view !== 'command') return resolve
+        const fake = dev.createCaptureAdapter()
         return (modelId: string) => (resolve(modelId), fake)
       })()
     })
@@ -243,14 +259,12 @@ function createWindow(): void {
     }
   })
 
-  if (captureSession) captureWhenLoaded(win, captureSession, app)
+  if (dev && captureSession) dev.captureWhenLoaded(win, captureSession, app)
 
   win.webContents.on('did-finish-load', () => {
     console.log('[octopus] window loaded')
   })
 
-  const devUrl = process.env['ELECTRON_RENDERER_URL']
-  const indexFilePath = join(__dirname, '../renderer/index.html')
   // 새 창과 앱 밖으로의 이동을 막는다. 바깥 주소는 main 이 검증해서 여는 IPC 로만 열린다.
   guardWindow(win.webContents, { devUrl, indexFilePath })
   if (devUrl) {
@@ -261,18 +275,19 @@ function createWindow(): void {
 }
 
 // 한 번에 하나만 실행: 두 번째 실행은 먼저 떠 있던 창을 앞으로 가져오고 끝난다(같은 DB 를 두 프로세스가 열지 않게). 개발용 캡처는 임시 userData 라 예외.
-const primaryInstance = acquireSingleInstance(app, () => BrowserWindow.getAllWindows()[0] ?? null, captureSession !== null)
+const primaryInstance = acquireSingleInstance(app, () => BrowserWindow.getAllWindows()[0] ?? null, isCaptureRun)
 
 if (primaryInstance) void app.whenReady().then(async () => {
+  await devToolsReady
   if (!captureSession) secretCipher = await createSafeStorageCipher(safeStorage)
   initDatabase()
-  if (captureSession && taskRepository && routineRepository && memoRepository && shortcutRepository) {
-    createSampleData(
+  if (dev && captureSession && taskRepository && routineRepository && memoRepository && shortcutRepository) {
+    dev.createSampleData(
       { tasks: taskRepository, routines: routineRepository, memos: memoRepository, shortcuts: shortcutRepository },
       localDateString(new Date()),
       app.getPath('documents')
     )
-    if (settingsRepository) seedCaptureSettings(settingsRepository, captureSession.config.view)
+    if (settingsRepository) dev.seedCaptureSettings(settingsRepository, captureSession.config.view)
   }
   ipcMain.handle(IPC.appVersion, () => app.getVersion())
   const logError = (channel: string, error: unknown): void => console.error(`[octopus] ${channel} failed`, error)
@@ -319,10 +334,10 @@ if (primaryInstance) void app.whenReady().then(async () => {
       logError
     })
   )
-  if (captureSession && armManager && CAPTURE_ARM_VIEWS.includes(captureSession.config.view)) {
+  if (dev && captureSession && armManager && dev.CAPTURE_ARM_VIEWS.includes(captureSession.config.view)) {
     // 캡처 모드에서만: 가짜 Arm 둘을 등록해 연결한다(하나는 정상, 하나는 오류 상태).
-    armManager.register(createExampleArm())
-    armManager.register(createBrokenExampleArm())
+    armManager.register(dev.createExampleArm())
+    armManager.register(dev.createBrokenExampleArm())
     await armManager.connect('example')
     await armManager.connect('example-two')
     // 가짜 MCP 서버 둘: 하나는 연결됨(도구 2개), 하나는 실행 실패(오류).
@@ -343,7 +358,7 @@ if (primaryInstance) void app.whenReady().then(async () => {
     settingsRepository.set('obsidian.config', { ...base, vaultPath: vault, mode: 'export', autoAcceptInitialized: true })
     await armManager.connect('obsidian')
   }
-  if (captureSession?.config.view === 'command' && commandSession) await seedCaptureCommand(commandSession, 'anthropic-opus')
+  if (dev && captureSession?.config.view === 'command' && commandSession) await dev.seedCaptureCommand(commandSession, 'anthropic-opus')
   createWindow()
   void updateChecker.start() // 패키지된 앱이 아니면 아무것도 하지 않는다. 실패는 조용히 로그만.
 
@@ -368,7 +383,7 @@ app.on('will-quit', () => {
   mcpService = null
   obsidianArm = null
   database?.close()
-  cleanupCapture(captureSession)
+  dev?.cleanupCapture(captureSession)
 })
 
 app.on('window-all-closed', () => {

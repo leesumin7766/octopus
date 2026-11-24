@@ -64,7 +64,8 @@ function run(command, args, env) {
 const baseEnv = cleanElectronEnv(process.env)
 
 if (!process.argv.includes('--no-build')) {
-  const code = await run(process.execPath, [electronViteBin(), 'build'], baseEnv)
+  // 캡처 도구를 넣은 빌드(OCTOPUS_DEV_TOOLS=1). 이 빌드는 배포용이 아니다.
+  const code = await run(process.execPath, [electronViteBin(), 'build'], { ...baseEnv, OCTOPUS_DEV_TOOLS: '1' })
   if (code !== 0) {
     console.error('capture: build failed')
     process.exit(code)
