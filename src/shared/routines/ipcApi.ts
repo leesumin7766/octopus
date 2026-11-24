@@ -1,4 +1,5 @@
 import type { IpcResult } from '../ipc'
+import type { MoveDirection } from '../shortcuts/types'
 import type { Routine, RoutineHistory, RoutineInput, RoutineListData, RoutinePatch } from './types'
 
 /** preload 가 window.octopus.routines 로 노출하는 API. 모든 호출은 예외 대신 결과 객체를 돌려준다. */
@@ -10,4 +11,6 @@ export interface RoutinesApi {
   remove(id: string): Promise<IpcResult<null>>
   /** 최근 days 일(기본 14)의 루틴별 날짜 → 완료 여부 */
   history(days?: number): Promise<IpcResult<RoutineHistory>>
+  /** 목록에서 한 칸 위('up') 또는 아래('down')로 옮긴다. */
+  move(id: string, direction: MoveDirection): Promise<IpcResult<null>>
 }

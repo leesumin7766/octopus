@@ -380,9 +380,58 @@ describe('routine repository', () => {
       expect(history.routines[0]).toMatchObject({ id: routine.id, title: '매일', active: true })
       expect(cell('2026-03-06')).toBe('none')
       expect(cell('2026-03-07')).toBe('done')
-      expect(cell('2026-03-08')).toBe('open')
+      expect(cell('2026-03-08')).toBe('missed') // 앱을 켠 날, 끝내지 않음
       expect(cell('2026-03-09')).toBe('done')
-      expect(cell(TODAY)).toBe('open')
+      expect(cell(TODAY)).toBe('pending')
+    })
+
+    it('a day with no task: missed when the app was open that day, closed when it was not', () => {
+      env.setNow(localNoon(2026, 3, 2))
+      env.routines.create({ title: '매일', days: EVERY_DAY }, '2026-03-02') // 2일: 앱을 켬
+      env.routines.ensureTodayTasks('2026-03-03') // 3일: 앱을 켬
+      // 4일: 앱을 켜지 않음
+      env.routines.ensureTodayTasks('2026-03-05') // 5일(오늘): 앱을 켬
+
+      const cells = env.routines.history('2026-03-05', 4).routines[0].cells
+      expect(cells).toEqual(['missed', 'missed', 'closed', 'pending'])
+    })
+
+    it('a day before the routine existed is none, not closed', () => {
+      env.setNow(localNoon(2026, 3, 10))
+      env.routines.create({ title: '매일', days: EVERY_DAY }, TODAY) // 오늘 처음 만듦
+
+      expect(env.routines.history(TODAY, 3).routines[0].cells).toEqual(['none', 'none', 'pending'])
+    })
+
+    it('an inactive or not-due day is none even when the app was not open', () => {
+      env.setNow(localNoon(2026, 3, 2))
+      env.routines.create({ title: '월요일만', days: [1] }, '2026-03-02') // 2026-03-02 는 월요일
+      env.routines.ensureTodayTasks('2026-03-05') // 목요일, 열림
+
+      // 월요일(3/2)에는 항목이 있었고(못 함), 화·수·목은 해당 없음
+      expect(env.routines.history('2026-03-05', 4).routines[0].cells).toEqual(['missed', 'none', 'none', 'none'])
+    })
+
+    it('move swaps a routine with its neighbour, the list and today use that order, and the ends do nothing', () => {
+      env.routines.create({ title: 'a', days: EVERY_DAY }, TODAY)
+      const b = env.routines.create({ title: 'b', days: EVERY_DAY }, TODAY)
+      const c = env.routines.create({ title: 'c', days: EVERY_DAY }, TODAY)
+
+      env.routines.move(c.id, 'up')
+      expect(env.routines.list().map((r) => r.title)).toEqual(['a', 'c', 'b'])
+      expect(env.routines.todayItems(TODAY).map((task) => task.title)).toEqual(['a', 'c', 'b'])
+      expect(env.routines.history(TODAY, 1).routines.map((r) => r.title)).toEqual(['a', 'c', 'b'])
+
+      env.routines.move(env.routines.list()[0].id, 'up') // 맨 위
+      env.routines.move(b.id, 'down') // 맨 아래
+      expect(env.routines.list().map((r) => r.title)).toEqual(['a', 'c', 'b'])
+
+      env.routines.move(b.id, 'up')
+      expect(env.routines.list().map((r) => r.title)).toEqual(['a', 'b', 'c'])
+    })
+
+    it('move refuses an unknown routine', () => {
+      expect(() => env.routines.move('01ARZ3NDEKTSV4RRFFQ69G5FAV', 'up')).toThrow(RoutineNotFoundError)
     })
 
     it('a canceled task counts as none', () => {

@@ -6,6 +6,7 @@ import { migration004 } from './004-memos'
 import { migration005 } from './005-shortcuts'
 import { migration006 } from './006-command'
 import { migration007 } from './007-inbox-candidates'
+import { migration008 } from './008-routine-open-days'
 
 // 새 마이그레이션은 파일을 하나 만들고 여기에 번호 순서로 추가한다.
-export const migrations: readonly Migration[] = [migration001, migration002, migration003, migration004, migration005, migration006, migration007]
+export const migrations: readonly Migration[] = [migration001, migration002, migration003, migration004, migration005, migration006, migration007, migration008]

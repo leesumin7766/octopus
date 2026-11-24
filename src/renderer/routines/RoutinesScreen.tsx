@@ -9,11 +9,12 @@ import { RoutineForm } from './RoutineForm'
 
 const t = ko.routines
 
-const CELL_SYMBOL = { done: '✓', missed: '✕', pending: '○', none: '·' } as const
+const CELL_SYMBOL = { done: '✓', missed: '✕', pending: '○', closed: '–', none: '·' } as const
 const CELL_STYLE = {
   done: 'bg-emerald-100 text-emerald-700',
   missed: 'bg-red-50 text-red-500',
   pending: 'bg-sky-50 text-sky-600',
+  closed: 'bg-slate-100 text-slate-400',
   none: 'text-slate-300'
 } as const
 
@@ -85,10 +86,7 @@ export function RoutinesScreen() {
   const routines = data?.routines ?? []
   const historyTitle = t.historyTitle(history ? history.dates.length : 14)
 
-  function cellKind(state: 'done' | 'open' | 'none', date: string): CellKind {
-    if (state === 'open') return date < today ? 'missed' : 'pending'
-    return state
-  }
+  const moveRoutine = (routine: Routine, direction: 'up' | 'down') => void mutate(() => api().routines.move(routine.id, direction))
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-slate-50 text-slate-900">
@@ -145,7 +143,7 @@ export function RoutinesScreen() {
                         {row.title}
                       </th>
                       {history.dates.map((date, index) => {
-                        const kind = cellKind(row.cells[index], date)
+                        const kind = row.cells[index]
                         return (
                           <td
                             key={date}
@@ -190,6 +188,24 @@ export function RoutinesScreen() {
                       <span className="text-xs text-slate-500">{formatDays(routine.days)}</span>
                       {!routine.active && <span className="rounded bg-slate-100 px-1.5 text-xs text-slate-500">{t.off}</span>}
                       <span className="ml-auto flex gap-1.5 text-xs">
+                        <button
+                          type="button"
+                          aria-label={`${t.moveUp}: ${routine.title}`}
+                          disabled={routines[0]?.id === routine.id}
+                          onClick={() => moveRoutine(routine, 'up')}
+                          className="rounded px-2 py-1 text-slate-700 hover:bg-slate-100 disabled:opacity-30"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`${t.moveDown}: ${routine.title}`}
+                          disabled={routines[routines.length - 1]?.id === routine.id}
+                          onClick={() => moveRoutine(routine, 'down')}
+                          className="rounded px-2 py-1 text-slate-700 hover:bg-slate-100 disabled:opacity-30"
+                        >
+                          ↓
+                        </button>
                         <button
                           type="button"
                           onClick={() => setEditingId(routine.id)}

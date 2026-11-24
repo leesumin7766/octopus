@@ -1,7 +1,7 @@
 import { IPC, type IpcResult } from '../../shared/ipc'
 import type { Routine, RoutineHistory, RoutineListData } from '../../shared/routines/types'
 import { localDateString } from '../../shared/tasks/dates'
-import { parseHistoryDays, parseRoutineInput, parseRoutinePatch } from '../../shared/validation/routineIpc'
+import { parseHistoryDays, parseMoveDirection, parseRoutineInput, parseRoutinePatch } from '../../shared/validation/routineIpc'
 import { parseId } from '../../shared/validation/taskIpc'
 import { RoutineNotFoundError, type RoutineRepository } from '../core/routines/routineRepository'
 import { dbUnavailable, invalidInput, runGuarded, type ErrorLogger, type IpcMainLike } from './result'
@@ -21,6 +21,7 @@ export interface RoutineHandlers {
   update(id: unknown, patch: unknown): IpcResult<Routine>
   remove(id: unknown): IpcResult<null>
   history(days: unknown): IpcResult<RoutineHistory>
+  move(id: unknown, direction: unknown): IpcResult<null>
 }
 
 export function createRoutineHandlers(deps: RoutineHandlerDeps): RoutineHandlers {
@@ -68,6 +69,17 @@ export function createRoutineHandlers(deps: RoutineHandlerDeps): RoutineHandlers
       const parsed = parseHistoryDays(days)
       if (!parsed.ok) return invalidInput(parsed.field)
       return withRepository(IPC.routinesHistory, (repo) => repo.history(today(), parsed.value))
+    },
+
+    move(id, direction) {
+      const parsedId = parseId(id)
+      if (!parsedId.ok) return invalidInput(parsedId.field)
+      const parsedDirection = parseMoveDirection(direction)
+      if (!parsedDirection.ok) return invalidInput(parsedDirection.field)
+      return withRepository(IPC.routinesMove, (repo) => {
+        repo.move(parsedId.value, parsedDirection.value)
+        return null
+      })
     }
   }
 }
@@ -79,4 +91,5 @@ export function registerRoutineHandlers(ipc: IpcMainLike, handlers: RoutineHandl
   ipc.handle(IPC.routinesUpdate, (_event, id, patch) => handlers.update(id, patch))
   ipc.handle(IPC.routinesRemove, (_event, id) => handlers.remove(id))
   ipc.handle(IPC.routinesHistory, (_event, days) => handlers.history(days))
+  ipc.handle(IPC.routinesMove, (_event, id, direction) => handlers.move(id, direction))
 }

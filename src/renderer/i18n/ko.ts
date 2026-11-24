@@ -220,8 +220,10 @@ export const ko = {
     empty: '아직 루틴이 없어요. 위에서 이름과 요일을 정해 추가해 보세요.',
     historyTitle: (days: number) => `최근 ${days}일 기록`,
     historyEmpty: '루틴을 추가하면 기록이 여기에 쌓여요.',
-    cell: { done: '완료', missed: '못 함', pending: '진행 중', none: '해당 없음' },
-    legend: '✓ 완료   ✕ 못 함   ○ 오늘 진행 중   · 해당 없음',
+    cell: { done: '완료', missed: '못 함', pending: '진행 중', closed: '앱을 안 켠 날', none: '해당 없음' },
+    legend: '✓ 완료   ✕ 못 함   ○ 오늘 진행 중   – 앱을 안 켠 날   · 해당 없음',
+    moveUp: '위로 옮기기',
+    moveDown: '아래로 옮기기',
     fieldErrors: {
       title: '이름을 입력해 주세요.',
       days: '요일을 하나 이상 골라 주세요.',

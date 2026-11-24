@@ -77,7 +77,8 @@ describe('createSampleData', () => {
     const history = routines.history('2026-03-10')
     const cells = history.routines.flatMap((row) => row.cells)
     expect(cells).toContain('done')
-    expect(cells).toContain('open')
+    expect(cells).toContain('missed') // 지난 날의 못 한 항목
+    expect(cells).toContain('pending') // 오늘 진행 중
     expect(cells).toContain('none')
     // 첫 루틴(매일)은 오늘 포함 최근 7일에 모두 항목이 있다
     expect(history.routines[0].cells.slice(-7).every((cell) => cell !== 'none')).toBe(true)

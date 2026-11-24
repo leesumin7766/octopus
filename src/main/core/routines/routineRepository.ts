@@ -8,8 +8,9 @@ import {
   type RoutineInput,
   type RoutinePatch
 } from '../../../shared/routines/types'
+import type { MoveDirection } from '../../../shared/shortcuts/types'
 import type { Task } from '../../../shared/tasks/types'
-import { addDays, weekdayOf } from '../../../shared/tasks/dates'
+import { addDays, localDateString, weekdayOf } from '../../../shared/tasks/dates'
 import { createUlidGenerator } from '../../../shared/tasks/ulid'
 import { isValidDateString } from '../../../shared/validation/task'
 import { normalizeDays, RoutineValidationError, validateRoutineFields } from '../../../shared/validation/routine'
@@ -40,8 +41,10 @@ export interface RoutineRepository {
   update(id: string, patch: RoutinePatch, today: string): Routine
   /** 루틴과 오늘 이후의 미완료 항목만 지운다. 지난 기록(할 일)은 남긴다. */
   remove(id: string, today: string): boolean
-  /** 오늘 해당하는 active 루틴마다 오늘 항목이 없을 때만 만든다(여러 번 불러도 하나). 만든 개수를 돌려준다. */
+  /** 오늘 해당하는 active 루틴마다 오늘 항목이 없을 때만 만든다(여러 번 불러도 하나). 만든 개수를 돌려준다. 오늘을 "앱을 켠 날"로 기록한다. */
   ensureTodayTasks(today: string): number
+  /** 루틴을 위(-1) 또는 아래(+1)로 한 칸 옮긴다. 맨 위·아래면 아무 일도 없다. */
+  move(id: string, direction: MoveDirection): void
   /** 오늘 날짜의 루틴 항목(완료한 것 포함, 취소한 것 제외) */
   todayItems(today: string): Task[]
   /** 오늘까지 최근 days 일(기본 14)의 루틴별 날짜 → 완료 여부 */
@@ -91,6 +94,14 @@ function isDueOn(routine: Pick<Routine, 'active' | 'days'>, date: string): boole
   return routine.active && routine.days.includes(weekdayOf(date))
 }
 
+/** 칸 계산에 쓰는 말이 아니라 저장된 상태 → 칸 종류. 기록이 없는 날의 판단은 history 가 한다. */
+function cellFor(status: string | undefined, date: string, today: string): RoutineCell | null {
+  if (status === 'done') return 'done'
+  if (status === 'open') return date < today ? 'missed' : 'pending'
+  if (status === 'canceled') return 'none'
+  return null
+}
+
 export function createRoutineRepository(db: DatabaseSync, deps: RoutineRepositoryDeps): RoutineRepository {
   const nextId = createUlidGenerator()
 
@@ -116,6 +127,7 @@ export function createRoutineRepository(db: DatabaseSync, deps: RoutineRepositor
     assertDate('today', today)
 
     return withTransaction(db, () => {
+      db.prepare('INSERT OR IGNORE INTO routine_open_days (date) VALUES (?)').run(today)
       const exists = db.prepare('SELECT 1 AS found FROM tasks WHERE routine_id = ? AND date = ?')
       let created = 0
       for (const routine of list()) {
@@ -204,12 +216,25 @@ export function createRoutineRepository(db: DatabaseSync, deps: RoutineRepositor
 
     ensureTodayTasks,
 
+    move(id, direction) {
+      withTransaction(db, () => {
+        const all = list()
+        const index = all.findIndex((routine) => routine.id === id)
+        if (index < 0) throw new RoutineNotFoundError(id)
+        const other = all[direction === 'up' ? index - 1 : index + 1]
+        if (!other) return
+        const update = db.prepare('UPDATE routines SET sort_order = ? WHERE id = ?')
+        update.run(other.order, id)
+        update.run(all[index].order, other.id)
+      })
+    },
+
     todayItems(today) {
       assertDate('today', today)
       return db
         .prepare(
           `${SELECT_TASKS} WHERE routine_id IS NOT NULL AND date = ? AND status != 'canceled'
-           ORDER BY sort_order, created_at, id`
+           ORDER BY (SELECT sort_order FROM routines WHERE routines.id = tasks.routine_id), created_at, id`
         )
         .all(today)
         .map(rowToTask)
@@ -231,19 +256,33 @@ export function createRoutineRepository(db: DatabaseSync, deps: RoutineRepositor
         )
         .all(start, today) as { routineId: string; date: string; status: string }[]
       const state = new Map(rows.map((row) => [`${row.routineId}|${row.date}`, row.status]))
+      const openDays = new Set(
+        (db.prepare('SELECT date FROM routine_open_days WHERE date >= ? AND date <= ?').all(start, today) as { date: string }[]).map(
+          (row) => row.date
+        )
+      )
 
       return {
         dates,
-        routines: list().map((routine) => ({
-          id: routine.id,
-          title: routine.title,
-          active: routine.active,
-          days: routine.days,
-          cells: dates.map((date): RoutineCell => {
-            const status = state.get(`${routine.id}|${date}`)
-            return status === 'done' ? 'done' : status === 'open' ? 'open' : 'none'
-          })
-        }))
+        routines: list().map((routine) => {
+          // 루틴이 만들어지기 전 날은 "해당 없음"이다(앱을 안 켠 날이 아니다).
+          const createdDay = localDateString(new Date(routine.createdAt))
+          return {
+            id: routine.id,
+            title: routine.title,
+            active: routine.active,
+            days: routine.days,
+            cells: dates.map((date): RoutineCell => {
+              const fromTask = cellFor(state.get(`${routine.id}|${date}`), date, today)
+              if (fromTask !== null) return fromTask
+              if (date > today || date < createdDay) return 'none'
+              if (!isDueOn(routine, date)) return 'none'
+              if (date === today) return 'pending'
+              // 해당하는 날인데 항목이 없다: 그날 앱을 켰다면 못 한 것, 아니면 앱을 안 켠 날.
+              return openDays.has(date) ? 'missed' : 'closed'
+            })
+          }
+        })
       }
     }
   }

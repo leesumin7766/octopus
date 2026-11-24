@@ -17,6 +17,7 @@ export const IPC = {
   routinesUpdate: 'routines:update',
   routinesRemove: 'routines:remove',
   routinesHistory: 'routines:history',
+  routinesMove: 'routines:move',
   memosList: 'memos:list',
   memosCreate: 'memos:create',
   memosUpdate: 'memos:update',

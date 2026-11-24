@@ -337,7 +337,8 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     create: vi.fn(async (input: unknown) => routineHandlers.create(input)),
     update: vi.fn(async (id: unknown, patch: unknown) => routineHandlers.update(id, patch)),
     remove: vi.fn(async (id: unknown) => routineHandlers.remove(id)),
-    history: vi.fn(async (days: unknown) => routineHandlers.history(days))
+    history: vi.fn(async (days: unknown) => routineHandlers.history(days)),
+    move: vi.fn(async (id: unknown, direction: unknown) => routineHandlers.move(id, direction))
   } as unknown as RoutineSpies
 
   const memos = {

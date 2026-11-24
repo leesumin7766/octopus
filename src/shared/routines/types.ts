@@ -21,8 +21,11 @@ export type RoutinePatch = Partial<Pick<Routine, 'title' | 'days' | 'active'>>
 
 export const ROUTINE_FIELD_KEYS = ['title', 'days', 'active'] as const
 
-/** 'done' 완료 / 'open' 그날 항목이 있었지만 끝내지 않음 / 'none' 항목 없음 */
-export type RoutineCell = 'done' | 'open' | 'none'
+/**
+ * 격자 한 칸: done 완료 · missed 앱은 켰는데 못 함 · pending 오늘 진행 중 ·
+ * closed 그날 앱을 켜지 않아 기록이 없음 · none 해당 없음
+ */
+export type RoutineCell = 'done' | 'missed' | 'pending' | 'closed' | 'none'
 
 export interface RoutineHistoryRow {
   id: string

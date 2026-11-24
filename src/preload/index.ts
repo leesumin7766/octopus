@@ -26,7 +26,8 @@ const api: OctopusApi = {
     create: (input) => ipcRenderer.invoke(IPC.routinesCreate, input),
     update: (id, patch) => ipcRenderer.invoke(IPC.routinesUpdate, id, patch),
     remove: (id) => ipcRenderer.invoke(IPC.routinesRemove, id),
-    history: (days) => ipcRenderer.invoke(IPC.routinesHistory, days)
+    history: (days) => ipcRenderer.invoke(IPC.routinesHistory, days),
+    move: (id, direction) => ipcRenderer.invoke(IPC.routinesMove, id, direction)
   },
   memos: {
     list: () => ipcRenderer.invoke(IPC.memosList),

@@ -77,7 +77,7 @@ describe('preload', () => {
   })
 
   it('exposes exactly the routine and memo functions', () => {
-    expect(Object.keys(api.routines).sort()).toEqual(['create', 'history', 'list', 'remove', 'update'])
+    expect(Object.keys(api.routines).sort()).toEqual(['create', 'history', 'list', 'move', 'remove', 'update'])
     expect(Object.keys(api.memos).sort()).toEqual(['create', 'list', 'remove', 'search', 'togglePin', 'toTask', 'update'].sort())
     for (const fn of [...Object.values(api.routines), ...Object.values(api.memos)]) expect(typeof fn).toBe('function')
   })
@@ -88,6 +88,7 @@ describe('preload', () => {
     ['routines', 'update', ['ID', { active: false }], IPC.routinesUpdate],
     ['routines', 'remove', ['ID'], IPC.routinesRemove],
     ['routines', 'history', [7], IPC.routinesHistory],
+    ['routines', 'move', ['ID', 'down'], IPC.routinesMove],
     ['memos', 'list', [], IPC.memosList],
     ['memos', 'create', ['본문'], IPC.memosCreate],
     ['memos', 'update', ['ID', '고친 본문'], IPC.memosUpdate],
