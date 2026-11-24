@@ -217,6 +217,129 @@ describe('command IPC handlers', () => {
       r.e.t.db.close()
     })
 
+    describe('a window that is closed', () => {
+      /** 닫을 수 있는 가짜 창(webContents): 'destroyed' 로 한 번 알려 준다. */
+      function closableWindow() {
+        const destroyedListeners: (() => void)[] = []
+        let destroyed = false
+        return {
+          send: vi.fn(),
+          isDestroyed: () => destroyed,
+          once: vi.fn((_event: string, listener: () => void) => void destroyedListeners.push(listener)),
+          close(): void {
+            destroyed = true
+            destroyedListeners.splice(0).forEach((listener) => listener())
+          }
+        }
+      }
+
+      /** 요청마다 글을 조금 흘리고, 멈추라는 신호나 release() 가 올 때까지 기다리는 가짜 모델 */
+      function waitingModel() {
+        let release!: () => void
+        const gate = new Promise<void>((resolve) => (release = resolve))
+        const started: string[] = []
+        const adapter = {
+          async chat(request: { signal?: AbortSignal; onText?: (t: string) => void }) {
+            started.push('request')
+            request.onText?.('쓰는 중')
+            await new Promise<void>((resolve) => {
+              void gate.then(resolve)
+              if (request.signal?.aborted) resolve()
+              else request.signal?.addEventListener('abort', () => resolve())
+            })
+            const aborted = request.signal?.aborted === true
+            return { content: [{ type: 'text' as const, text: '쓰는 중' }], stopReason: 'end_turn' as const, usage: { inputTokens: 0, outputTokens: 0 }, ...(aborted ? { aborted: true } : {}) }
+          }
+        }
+        return { adapter, release, started }
+      }
+
+      function wired(model: ReturnType<typeof waitingModel>) {
+        const e = createEnv([], [], undefined, model.adapter as never)
+        const channels = new Map<string, (event: unknown, ...args: unknown[]) => unknown>()
+        const handlers = createCommandHandlers({
+          getSession: () => e.session,
+          getRepository: () => e.conv,
+          getModels: () => DEFAULT_MODELS.map((m) => ({ ...m })),
+          keys: { get: () => undefined, set: () => undefined, delete: () => undefined },
+          logError: () => undefined
+        })
+        registerCommandHandlers({ handle: (channel, listener) => void channels.set(channel, listener) }, handlers)
+        const send = (window: unknown) => channels.get(IPC.commandSend)?.({ sender: window }, { conversationId: null, modelId: 'm', text: '지시' }) as Promise<{ ok: boolean; data: { status: string; items: { kind: string; text?: string }[] } }>
+        return { e, send }
+      }
+
+      it('closing a window stops the request that window sent, and only that one', async () => {
+        const model = waitingModel()
+        const { e, send } = wired(model)
+        const a = closableWindow()
+        const b = closableWindow()
+        const sentA = send(a)
+        const sentB = send(b)
+        await vi.waitFor(() => expect(model.started).toHaveLength(2))
+
+        a.close()
+        const resultA = await sentA
+
+        expect(resultA.data.items[resultA.data.items.length - 1]).toMatchObject({ kind: 'assistant', text: '쓰는 중\n\n(중지됨)' })
+        let bDone = false
+        void sentB.then(() => (bDone = true))
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        expect(bDone).toBe(false) // 다른 창의 요청은 계속 돈다
+
+        model.release()
+        expect((await sentB).data.status).toBe('done')
+        e.t.db.close()
+      })
+
+      it('watches each window only once, however many requests it sends', async () => {
+        const model = waitingModel()
+        const { e, send } = wired(model)
+        const win = closableWindow()
+        model.release() // 기다리지 않고 바로 끝나게
+
+        await send(win)
+        await send(win)
+        await send(win)
+
+        expect(win.once).toHaveBeenCalledTimes(1)
+        expect(win.once).toHaveBeenCalledWith('destroyed', expect.any(Function))
+        e.t.db.close()
+      })
+
+      it('no more events are pushed to a window that is gone', async () => {
+        const model = waitingModel()
+        const { e, send } = wired(model)
+        const win = closableWindow()
+        const sent = send(win)
+        await vi.waitFor(() => expect(win.send).toHaveBeenCalled())
+
+        win.close()
+        await sent
+        const afterClose = win.send.mock.calls.length
+        await new Promise((resolve) => setTimeout(resolve, 10))
+
+        expect(win.send.mock.calls.length).toBe(afterClose)
+        expect(win.send.mock.calls.every((c) => c[0] === IPC.commandEvent)).toBe(true)
+        e.t.db.close()
+      })
+
+      it('closing a window with nothing running is harmless, and a sender that cannot be watched still works', async () => {
+        const model = waitingModel()
+        const { e, send } = wired(model)
+        const idle = closableWindow()
+        const first = send(idle)
+        model.release()
+        await first
+
+        expect(() => idle.close()).not.toThrow()
+
+        // once 가 없는 보낸 쪽(예: 시험용 객체)도 요청은 된다.
+        expect((await send({ send: vi.fn(), isDestroyed: () => false })).ok).toBe(true)
+        e.t.db.close()
+      })
+    })
+
     it('cancel without a database says db_unavailable', async () => {
       const handlers = createCommandHandlers({ getSession: () => null, getRepository: () => null, getModels: () => [], keys: { get: () => undefined, set: () => undefined, delete: () => undefined }, logError: () => undefined })
       expect(await handlers.cancel(null)).toEqual({ ok: false, error: { code: 'db_unavailable' } })

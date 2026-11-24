@@ -23,9 +23,12 @@ export interface CommandHandlers {
   models(): IpcResult<ModelsInfo>
   setKey(provider: unknown, key: unknown): IpcResult<null>
   clearKey(provider: unknown): IpcResult<null>
-  send(input: unknown, emit?: EmitEvent): Promise<IpcResult<TurnState>>
-  decide(conversationId: unknown, decisions: unknown, emit?: EmitEvent): Promise<IpcResult<TurnState>>
+  /** emit 은 보낸 창으로 진행 이벤트를 밀어 주는 함수, owner 는 보낸 창(창이 닫히면 그 창의 요청만 멈추는 데 쓴다) */
+  send(input: unknown, emit?: EmitEvent, owner?: unknown): Promise<IpcResult<TurnState>>
+  decide(conversationId: unknown, decisions: unknown, emit?: EmitEvent, owner?: unknown): Promise<IpcResult<TurnState>>
   cancel(conversationId: unknown): Promise<IpcResult<null>>
+  /** 이 창이 보낸 진행 중인 요청을 모두 중지한다(창이 닫혔을 때). */
+  cancelOwner(owner: unknown): void
   pending(conversationId: unknown): IpcResult<PendingApproval[]>
   conversations(): IpcResult<ConversationSummary[]>
   transcript(conversationId: unknown): IpcResult<TranscriptItem[]>
@@ -79,19 +82,19 @@ export function createCommandHandlers(deps: CommandHandlerDeps): CommandHandlers
       })
     },
 
-    async send(input, emit) {
+    async send(input, emit, owner) {
       const parsed = parseSendInput(input, isUlid)
       if (!parsed.ok) return invalidInput(parsed.field)
       const session = deps.getSession()
       if (!session) return dbUnavailable()
       try {
-        return { ok: true, data: await session.send(parsed.value, emit) }
+        return { ok: true, data: await session.send(parsed.value, emit, owner) }
       } catch (error) {
         return toFailure(IPC.commandSend, error, deps.logError)
       }
     },
 
-    async decide(conversationId, decisions, emit) {
+    async decide(conversationId, decisions, emit, owner) {
       const id = parseId(conversationId)
       if (!id.ok) return invalidInput(id.field)
       const d = parseDecisions(decisions)
@@ -99,7 +102,7 @@ export function createCommandHandlers(deps: CommandHandlerDeps): CommandHandlers
       const session = deps.getSession()
       if (!session) return dbUnavailable()
       try {
-        return { ok: true, data: await session.decide(id.value, d.value, emit) }
+        return { ok: true, data: await session.decide(id.value, d.value, emit, owner) }
       } catch (error) {
         return toFailure(IPC.commandDecide, error, deps.logError)
       }
@@ -115,6 +118,14 @@ export function createCommandHandlers(deps: CommandHandlerDeps): CommandHandlers
         return { ok: true, data: null }
       } catch (error) {
         return toFailure(IPC.commandCancel, error, deps.logError)
+      }
+    },
+
+    cancelOwner(owner) {
+      try {
+        deps.getSession()?.cancelOwner(owner)
+      } catch (error) {
+        deps.logError(IPC.commandCancel, error)
       }
     },
 
@@ -167,12 +178,28 @@ export function senderEmitter(event: unknown): EmitEvent | undefined {
   }
 }
 
+/**
+ * 요청을 보낸 창(webContents)을 알아내고, 그 창이 닫히면(destroyed) 그 창이 보낸 진행 중인 요청을 모두 멈추도록 한 번만 걸어 둔다.
+ * 보낸 창을 알 수 없으면 undefined.
+ */
+function senderOwner(event: unknown, h: CommandHandlers, watched: WeakSet<object>): object | undefined {
+  const sender = (event as { sender?: unknown } | null)?.sender
+  if (typeof sender !== 'object' || sender === null) return undefined
+  const contents = sender as { once?: unknown }
+  if (!watched.has(sender) && typeof contents.once === 'function') {
+    watched.add(sender)
+    ;(contents.once as (event: string, listener: () => void) => void).call(sender, 'destroyed', () => h.cancelOwner(sender))
+  }
+  return sender
+}
+
 export function registerCommandHandlers(ipc: IpcMainLike, h: CommandHandlers): void {
+  const watched = new WeakSet<object>()
   ipc.handle(IPC.commandModels, () => h.models())
   ipc.handle(IPC.commandSetKey, (_e, provider, key) => h.setKey(provider, key))
   ipc.handle(IPC.commandClearKey, (_e, provider) => h.clearKey(provider))
-  ipc.handle(IPC.commandSend, (event, input) => h.send(input, senderEmitter(event)))
-  ipc.handle(IPC.commandDecide, (event, id, decisions) => h.decide(id, decisions, senderEmitter(event)))
+  ipc.handle(IPC.commandSend, (event, input) => h.send(input, senderEmitter(event), senderOwner(event, h, watched)))
+  ipc.handle(IPC.commandDecide, (event, id, decisions) => h.decide(id, decisions, senderEmitter(event), senderOwner(event, h, watched)))
   ipc.handle(IPC.commandCancel, (_e, id) => h.cancel(id))
   ipc.handle(IPC.commandPending, (_e, id) => h.pending(id))
   ipc.handle(IPC.commandConversations, () => h.conversations())

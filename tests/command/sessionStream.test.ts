@@ -274,6 +274,70 @@ describe('command session: cancel', () => {
   })
 })
 
+describe('command session: cancelOwner (the window that sent the request was closed)', () => {
+  it('stops only the running requests of that owner; another owner keeps running', async () => {
+    let releaseB!: () => void
+    const gateB = new Promise<void>((resolve) => (releaseB = resolve))
+    const adapter = streaming([{ pieces: ['A 가 쓰는 중'], waitForAbort: true }, { pieces: ['B 가 쓰는 중'], gate: gateB }])
+    const e = createEnv([], [], undefined, adapter)
+    const windowA = { name: 'A' }
+    const windowB = { name: 'B' }
+    const eventsA: CommandEvent[] = []
+    const eventsB: CommandEvent[] = []
+    const a = e.session.send(input, (ev) => eventsA.push(ev), windowA)
+    await vi.waitFor(() => expect(eventsA.length).toBeGreaterThan(0))
+    const b = e.session.send(input, (ev) => eventsB.push(ev), windowB)
+    await vi.waitFor(() => expect(eventsB.length).toBeGreaterThan(0))
+
+    e.session.cancelOwner(windowA)
+
+    const turnA = await a
+    expect(turnA.items[turnA.items.length - 1]).toMatchObject({ kind: 'assistant', text: 'A 가 쓰는 중\n\n(중지됨)' })
+    expect(eventsB.some((ev) => ev.kind === 'done')).toBe(false) // B 는 계속 돈다
+    releaseB()
+    const turnB = await b
+    expect(turnB.status).toBe('done')
+    expect(turnB.items[turnB.items.length - 1]).toMatchObject({ kind: 'assistant', text: 'B 가 쓰는 중' })
+    e.t.db.close()
+  })
+
+  it('does nothing for an owner without a running request, and does not touch a request that has no owner', async () => {
+    const adapter = streaming([{ pieces: ['주인 없는 요청'], waitForAbort: true }])
+    const e = createEnv([], [], undefined, adapter)
+    const events: CommandEvent[] = []
+    const turn = e.session.send(input, (ev) => events.push(ev)) // owner 없음
+    await vi.waitFor(() => expect(events.length).toBeGreaterThan(0))
+
+    e.session.cancelOwner({ name: 'nobody' })
+    e.session.cancelOwner(undefined) // 주인을 모르는 값은 주인 없는 요청과 짝이 되지 않는다
+    e.session.cancelOwner(null)
+
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(events.some((ev) => ev.kind === 'done')).toBe(false)
+    await e.session.cancel(null)
+    expect((await turn).status).toBe('done')
+    e.t.db.close()
+  })
+
+  it('also stops a decide that is running for that owner, and leaves the history valid for the next message', async () => {
+    const adapter = streaming([{ response: reply([use('w', 'add_task', { text: '내일 치과' })], 'tool_use') }, { pieces: ['추가하는 중'], waitForAbort: true }, { pieces: ['다시 답해요.'] }])
+    const e = createEnv([], [], undefined, adapter)
+    const owner = { name: 'window' }
+    const first = await e.session.send(input, undefined, owner)
+    const events: CommandEvent[] = []
+    const decided = e.session.decide(first.conversationId, [{ callId: 'w', approve: true }], (ev) => events.push(ev), owner)
+    await vi.waitFor(() => expect(events.some((ev) => ev.kind === 'text')).toBe(true))
+
+    e.session.cancelOwner(owner)
+    const turn = await decided
+
+    expect(turn.items[turn.items.length - 1]).toMatchObject({ text: '추가하는 중\n\n(중지됨)' })
+    expect((await e.session.send({ ...input, conversationId: first.conversationId, text: '다시' })).status).toBe('done')
+    expect(adapter.requests[2].messages.map((m) => m.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'user'])
+    e.t.db.close()
+  })
+})
+
 describe('command session: transcript after a stop', () => {
   it('the saved transcript shows the stopped answer with its marker', async () => {
     const e = createEnv([], [], undefined, streaming([{ pieces: ['반쯤'], waitForAbort: true }]))

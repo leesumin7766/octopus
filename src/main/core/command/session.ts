@@ -38,10 +38,15 @@ export interface Decision {
 }
 
 export interface CommandSession {
-  /** 새 대화(conversationId=null)를 시작하거나 이어서 말한다. emit 이 있으면 진행 이벤트를 보낸다. */
-  send(input: { conversationId: string | null; modelId: string; text: string }, emit?: EmitEvent): Promise<TurnState>
+  /**
+   * 새 대화(conversationId=null)를 시작하거나 이어서 말한다. emit 이 있으면 진행 이벤트를 보낸다.
+   * owner 는 요청을 보낸 창 같은 주인 표시로, cancelOwner 로 그 주인의 요청만 멈출 때 쓴다.
+   */
+  send(input: { conversationId: string | null; modelId: string; text: string }, emit?: EmitEvent, owner?: unknown): Promise<TurnState>
   /** 승인 대기 중인 쓰기 동작에 대한 결정. 빠진 항목은 거절로 본다. */
-  decide(conversationId: string, decisions: readonly Decision[], emit?: EmitEvent): Promise<TurnState>
+  decide(conversationId: string, decisions: readonly Decision[], emit?: EmitEvent, owner?: unknown): Promise<TurnState>
+  /** 이 주인(창)이 보낸, 진행 중인 요청을 모두 중지한다(창이 닫힐 때). 승인 대기는 건드리지 않는다. */
+  cancelOwner(owner: unknown): void
   /**
    * 진행 중인 요청을 중지한다(대화 id 가 null 이면 진행 중인 것을 모두). 승인 대기 중이면 거절과 같게 닫는다.
    * 중지된 턴의 결과는 그 요청을 부른 send/decide 가 돌려준다.
@@ -90,7 +95,7 @@ const textOf = (content: readonly ContentBlock[]): string =>
 export function createCommandSession(deps: SessionDeps): CommandSession {
   const maxSteps = deps.maxSteps ?? 8
   const waiting = new Map<string, Waiting>()
-  const active = new Map<string, AbortController>()
+  const active = new Map<string, { controller: AbortController; owner: unknown }>()
 
   const result = (use: ToolUse, text: string, isError: boolean): ToolResult => ({
     type: 'tool_result',
@@ -264,9 +269,10 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
   }
 
   /** 한 번의 요청을 돌린다: 중지용 컨트롤러를 두고, 끝나면 결과에 맞는 마지막 이벤트를 보낸다. */
-  async function runTurn(conversationId: string, emit: EmitEvent | undefined, work: (run: Run) => Promise<TurnState>): Promise<TurnState> {
+  async function runTurn(conversationId: string, emit: EmitEvent | undefined, owner: unknown, work: (run: Run) => Promise<TurnState>): Promise<TurnState> {
     const controller = new AbortController()
-    active.set(conversationId, controller)
+    const entry = { controller, owner }
+    active.set(conversationId, entry)
     const send = (body: EventBody): void => {
       try {
         emit?.({ ...body, conversationId } as CommandEvent)
@@ -282,12 +288,12 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
       else send({ kind: 'done', ...(run.canceled ? { canceled: true } : {}) })
       return state
     } finally {
-      if (active.get(conversationId) === controller) active.delete(conversationId)
+      if (active.get(conversationId) === entry) active.delete(conversationId)
     }
   }
 
-  async function decide(conversationId: string, decisions: readonly Decision[], emit?: EmitEvent): Promise<TurnState> {
-    return runTurn(conversationId, emit, async (run) => {
+  async function decide(conversationId: string, decisions: readonly Decision[], emit?: EmitEvent, owner?: unknown): Promise<TurnState> {
+    return runTurn(conversationId, emit, owner, async (run) => {
       const settled = await settle(conversationId, decisions)
       if (!settled) return { conversationId, status: 'done', items: [], pending: [] }
       return loop(conversationId, settled.w.modelId, settled.items, run)
@@ -295,7 +301,7 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
   }
 
   return {
-    async send({ conversationId, modelId, text }, emit) {
+    async send({ conversationId, modelId, text }, emit, owner) {
       let id = conversationId
       if (id === null) id = deps.repo.create({ title: text.trim().replace(/\s+/g, ' '), modelId }).id
       else {
@@ -307,24 +313,29 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
       const message: Message = { role: 'user', content: [{ type: 'text', text }] }
       deps.repo.append(id, message)
       const conversation = id
-      return runTurn(conversation, emit, (run) => loop(conversation, modelId, [{ kind: 'user', text }], run))
+      return runTurn(conversation, emit, owner, (run) => loop(conversation, modelId, [{ kind: 'user', text }], run))
     },
 
     decide,
 
     async cancel(conversationId) {
       if (conversationId === null) {
-        for (const controller of active.values()) controller.abort()
+        for (const entry of active.values()) entry.controller.abort()
         return
       }
-      const controller = active.get(conversationId)
-      if (controller) return controller.abort()
+      const entry = active.get(conversationId)
+      if (entry) return entry.controller.abort()
       // 승인 카드를 기다리는 중이었다면 거절과 같게 닫는다.
       const w = waiting.get(conversationId)
       if (w) {
         await settle(conversationId, [])
         w.emit({ kind: 'done', canceled: true })
       }
+    },
+
+    cancelOwner(owner) {
+      if (owner === undefined || owner === null) return // 주인을 모르는 요청은 이 길로 멈추지 않는다
+      for (const entry of active.values()) if (entry.owner === owner) entry.controller.abort()
     },
 
     pending(conversationId) {
