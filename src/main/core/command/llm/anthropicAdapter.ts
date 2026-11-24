@@ -1,10 +1,27 @@
 import type { ContentBlock, StopReason } from '../../../../shared/command/types'
 import { LlmError, statusToKind, type ChatRequest, type ChatResponse, type LlmAdapter } from './types'
 
+/** SDK 스트림 중 쓰는 부분만(client.messages.stream 이 돌려주는 것). 테스트에서는 가짜를 넣는다. */
+export interface AnthropicStreamLike {
+  /** 글 조각이 올 때마다(textDelta) 부른다. */
+  on(event: 'text', listener: (textDelta: string, snapshot: string) => void): unknown
+  /** 끝나면 SDK 가 이어 붙여 완성한 메시지. 멈추면(abort) 예외로 끝난다. */
+  finalMessage(): Promise<AnthropicResponse>
+  abort(): void
+}
+
 /** SDK 클라이언트 중 쓰는 부분만. 테스트에서는 가짜를 넣는다. */
 export interface AnthropicClientLike {
-  messages: { create(params: Record<string, unknown>): Promise<AnthropicResponse> }
-  beta: { messages: { create(params: Record<string, unknown>): Promise<AnthropicResponse> } }
+  messages: {
+    create(params: Record<string, unknown>): Promise<AnthropicResponse>
+    stream(params: Record<string, unknown>, options?: { signal?: AbortSignal }): AnthropicStreamLike
+  }
+  beta: {
+    messages: {
+      create(params: Record<string, unknown>): Promise<AnthropicResponse>
+      stream(params: Record<string, unknown>, options?: { signal?: AbortSignal }): AnthropicStreamLike
+    }
+  }
 }
 
 export interface AnthropicResponse {
@@ -17,12 +34,17 @@ export interface AnthropicAdapterOptions {
   client: AnthropicClientLike
   model: string
   effort?: 'low' | 'medium' | 'high'
+  /** 생략하면 스트리밍은 64000, 한 번에 받을 때는 16000 */
   maxTokens?: number
   /** 서버 쪽 대체 모델(fallback). 기본 켜짐. Haiku 5.5 에는 보내지 않는다. */
   fallbacks?: boolean
 }
 
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01'
+
+/** 스트리밍은 긴 출력을 허용하므로 기본 한도를 넉넉히(한 번에 받는 경로는 16000 을 넘기면 SDK 가 거절한다). */
+export const STREAMING_MAX_TOKENS = 64000
+export const PLAIN_MAX_TOKENS = 16000
 
 function supportsFallbacks(model: string): boolean {
   return !model.startsWith('claude-haiku-5-5')
@@ -61,7 +83,25 @@ function toWire(block: ContentBlock): Record<string, unknown> {
 function fromWire(block: Record<string, unknown> & { type: string }): ContentBlock {
   if (block.type === 'text') return { type: 'text', text: String(block.text ?? '') }
   if (block.type === 'tool_use') return { type: 'tool_use', id: String(block.id), name: String(block.name), input: block.input }
+  // fallback 블록처럼 모르는 블록은 고치지 않고 보관해 다음 요청에 그대로 돌려보낸다.
   return { type: 'opaque', provider: 'anthropic', raw: block }
+}
+
+/** 응답 한 개를 공통 모양으로 */
+function mapResponse(response: AnthropicResponse): ChatResponse {
+  return {
+    content: response.content.map(fromWire),
+    stopReason: mapStop(response.stop_reason),
+    usage: { inputTokens: response.usage?.input_tokens ?? 0, outputTokens: response.usage?.output_tokens ?? 0 }
+  }
+}
+
+/** 스트림 도중 연결이 끊길 때 던져지는, SDK 오류 모양이 아닌 예외(undici 의 'terminated' 등)인지 */
+function looksLikeDroppedConnection(error: unknown): boolean {
+  const e = error as { name?: string; message?: string; code?: string; cause?: { code?: string } } | null
+  const code = e?.code ?? e?.cause?.code
+  if (typeof code === 'string' && /^(ECONNRESET|ECONNABORTED|EPIPE|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|UND_ERR_)/.test(code)) return true
+  return e?.name === 'TypeError' && typeof e.message === 'string' && /terminated|fetch failed|network/i.test(e.message)
 }
 
 /** SDK 오류를 모양만 보고 분류한다(연결 오류를 상태 오류보다 먼저). 원문 메시지는 버린다. */
@@ -72,42 +112,74 @@ export function classifyAnthropicError(error: unknown): LlmError {
   if (name === 'APIConnectionError' || name === 'APIConnectionTimeoutError') return new LlmError('network', 'network error')
   if (name === 'APIUserAbortError') return new LlmError('unknown', 'aborted')
   if (typeof e?.status === 'number') return new LlmError(statusToKind(e.status), `api status ${e.status}`)
+  if (looksLikeDroppedConnection(error)) return new LlmError('network', 'network error')
   return new LlmError('unknown', 'unexpected error')
 }
 
 export function createAnthropicAdapter(options: AnthropicAdapterOptions): LlmAdapter {
   const useFallbacks = (options.fallbacks ?? true) && supportsFallbacks(options.model)
 
-  return {
-    async chat(request: ChatRequest): Promise<ChatResponse> {
-      const params: Record<string, unknown> = {
-        model: options.model,
-        max_tokens: options.maxTokens ?? 16000,
-        system: request.system,
-        messages: request.messages.map((m) => ({ role: m.role, content: m.content.map(toWire) })),
-        // 강제 호출(tool_choice any/tool)은 Opus/Sonnet 5.5 에서 400 이라 auto 만 쓴다(기본값이지만 명시).
-        tool_choice: { type: 'auto' }
-      }
-      if (options.effort) params.output_config = { effort: options.effort }
-      if (request.tools.length > 0) {
-        params.tools = request.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema, ...(t.strict === false ? {} : { strict: true }) }))
-      }
+  function buildParams(request: ChatRequest, defaultMaxTokens: number): Record<string, unknown> {
+    const params: Record<string, unknown> = {
+      model: options.model,
+      max_tokens: options.maxTokens ?? defaultMaxTokens,
+      system: request.system,
+      messages: request.messages.map((m) => ({ role: m.role, content: m.content.map(toWire) })),
+      // 강제 호출(tool_choice any/tool)은 Opus/Sonnet 5.5 에서 400 이라 auto 만 쓴다(기본값이지만 명시).
+      tool_choice: { type: 'auto' }
+    }
+    if (options.effort) params.output_config = { effort: options.effort }
+    if (request.tools.length > 0) {
+      // eager_input_streaming 은 켜지 않는다: 우리 도구 입력은 작아서 조각으로 받을 이득이 없고,
+      // strict: true 의 서버 쪽 입력 검증(스키마 보장)을 그대로 쓰려면 입력이 완성된 뒤에 받는 편이 맞다.
+      params.tools = request.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema, ...(t.strict === false ? {} : { strict: true }) }))
+    }
+    return params
+  }
 
-      try {
-        let response: AnthropicResponse
-        if (useFallbacks) {
-          response = await options.client.beta.messages.create({ ...params, betas: [FALLBACK_BETA], fallbacks: 'default' })
-        } else {
-          response = await options.client.messages.create(params)
-        }
-        return {
-          content: response.content.map(fromWire),
-          stopReason: mapStop(response.stop_reason),
-          usage: { inputTokens: response.usage?.input_tokens ?? 0, outputTokens: response.usage?.output_tokens ?? 0 }
-        }
-      } catch (error) {
-        throw classifyAnthropicError(error)
-      }
+  async function plain(request: ChatRequest): Promise<ChatResponse> {
+    const params = buildParams(request, PLAIN_MAX_TOKENS)
+    try {
+      const response = useFallbacks
+        ? await options.client.beta.messages.create({ ...params, betas: [FALLBACK_BETA], fallbacks: 'default' })
+        : await options.client.messages.create(params)
+      return mapResponse(response)
+    } catch (error) {
+      throw classifyAnthropicError(error)
+    }
+  }
+
+  async function streaming(request: ChatRequest, onText: (text: string) => void): Promise<ChatResponse> {
+    const { signal } = request
+    const aborted = (partial: string): ChatResponse => ({
+      content: partial === '' ? [] : [{ type: 'text', text: partial }],
+      stopReason: 'other',
+      usage: { inputTokens: 0, outputTokens: 0 },
+      aborted: true
+    })
+    if (signal?.aborted) return aborted('')
+
+    const params = buildParams(request, STREAMING_MAX_TOKENS)
+    // 멈췄을 때만 쓰는, 그때까지 받은 글. 완성된 메시지는 항상 SDK 의 finalMessage() 가 준다.
+    let partial = ''
+    try {
+      const stream = useFallbacks
+        ? options.client.beta.messages.stream({ ...params, betas: [FALLBACK_BETA], fallbacks: 'default' }, { signal })
+        : options.client.messages.stream(params, { signal })
+      stream.on('text', (delta) => {
+        partial += delta
+        onText(delta)
+      })
+      return mapResponse(await stream.finalMessage())
+    } catch (error) {
+      if (signal?.aborted || (error as { name?: string } | null)?.name === 'APIUserAbortError') return aborted(partial)
+      throw classifyAnthropicError(error)
+    }
+  }
+
+  return {
+    chat(request: ChatRequest): Promise<ChatResponse> {
+      return request.onText ? streaming(request, request.onText) : plain(request)
     }
   }
 }

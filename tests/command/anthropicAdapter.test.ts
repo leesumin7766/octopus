@@ -16,7 +16,7 @@ function fakeClient(response: AnthropicResponse | Error = ok) {
   const call = (p: Record<string, unknown>) => (response instanceof Error ? Promise.reject(response) : Promise.resolve(response))
   const plain = vi.fn(call)
   const beta = vi.fn(call)
-  return { client: { messages: { create: plain }, beta: { messages: { create: beta } } } as AnthropicClientLike, plain, beta }
+  return { client: { messages: { create: plain }, beta: { messages: { create: beta } } } as unknown as AnthropicClientLike, plain, beta }
 }
 
 const request = {

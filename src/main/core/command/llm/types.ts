@@ -14,12 +14,22 @@ export interface ChatRequest {
   messages: Message[]
   tools: LlmTool[]
   signal?: AbortSignal
+  /**
+   * 있으면 스트리밍으로 받으며 글 조각이 올 때마다 부른다. 없으면 한 번에 받는다.
+   * 결과(ChatResponse)는 어느 쪽이든 같은 모양이다.
+   */
+  onText?: (text: string) => void
 }
 
 export interface ChatResponse {
   content: ContentBlock[]
   stopReason: StopReason
   usage: Usage
+  /**
+   * signal 로 중간에 멈췄다. content 에는 그때까지 받은 글(text)만 있고, 끝나지 않은 도구 호출은 없다.
+   * 멈춘 것은 오류가 아니라서 예외를 던지지 않는다.
+   */
+  aborted?: boolean
 }
 
 /** 제공자와 상관없는 공통 인터페이스. 어댑터는 주입받은 클라이언트/fetch 로만 통신한다. */
