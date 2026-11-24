@@ -30,7 +30,7 @@ import { ResizeSeparator } from './ResizeSeparator'
 import { useNarrowWindow } from '../layout/useNarrowWindow'
 
 /** 좁은 창에서 오늘 할 일 카드가 보여야 하는 최소 높이(px): 할 일 다섯 개 정도 */
-const NARROW_TODO_MIN_PX = 340
+const NARROW_TODO_MIN_PX = 440
 
 const t = ko.home
 
