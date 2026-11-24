@@ -3,7 +3,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createArmContext } from '../../src/main/arms/sdk/context'
-import { createObsidianArm, DEFAULT_DEBOUNCE_MS, MESSAGES, obsidianOpenUri, vaultNameOf, type ObsidianArm } from '../../src/main/arms/obsidian/arm'
+import {
+  createObsidianArm,
+  DEFAULT_DEBOUNCE_MS,
+  DEFAULT_WATCH_DEBOUNCE_MS,
+  MESSAGES,
+  obsidianOpenUri,
+  vaultNameOf,
+  type ObsidianArm
+} from '../../src/main/arms/obsidian/arm'
 import { dailyLinkLine, dailyNotePath, hasDailyLink, UNSUPPORTED_FORMAT } from '../../src/main/arms/obsidian/dailyNote'
 import { addIgnoreLine, checkVaultGit, ignoredByGitignore, IGNORE_LINE } from '../../src/main/arms/obsidian/gitCheck'
 import { FILE_COMMENT, WRITING_HEADING, WRITING_NOTE } from '../../src/main/arms/obsidian/render'
@@ -668,6 +676,43 @@ describe('Obsidian arm: "적어 넣기" (both mode)', () => {
     e.watchers.trigger('할 일.md') // 비운 뒤 우리 쓰기에 대한 알림
     await settle(120)
     expect(e.candidates).toHaveLength(1) // 두 번 읽지 않는다
+  })
+
+  it('a line still being typed (no line break after it at the end of the file) is neither read nor removed', async () => {
+    const e = setup({ mode: 'both' })
+    await e.connect()
+    writeFileSync(e.file(), `${e.read()}- [ ] 아직 쓰는 중`)
+
+    await e.arm.exportNow()
+
+    expect(e.candidates).toEqual([])
+    expect((e.read() as string).endsWith('- [ ] 아직 쓰는 중')).toBe(true) // 줄바꿈을 더하지 않고 그대로 둔다
+
+    writeFileSync(e.file(), `${e.read()}\n`) // 줄바꿈이 생기면 완성된 줄이다
+    await e.arm.exportNow()
+
+    expect(e.candidates.map((c) => c.title)).toEqual(['아직 쓰는 중'])
+    expect(e.read()).not.toContain('아직 쓰는 중')
+  })
+
+  it('a change is read only after 10 seconds without another change', async () => {
+    const e = setup({ mode: 'both', watchDebounceMs: DEFAULT_WATCH_DEBOUNCE_MS })
+    await e.connect()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      writeFileSync(e.file(), `${e.read()}- [ ] 천천히 적는 중\n`)
+      e.watchers.trigger('할 일.md')
+      await vi.advanceTimersByTimeAsync(9000)
+      writeFileSync(e.file(), `${e.read()}- [ ] 두 번째\n`)
+      e.watchers.trigger('할 일.md') // 또 바뀌었으니 다시 10초를 센다
+      await vi.advanceTimersByTimeAsync(9000)
+      expect(e.candidates).toEqual([])
+
+      await vi.advanceTimersByTimeAsync(1500)
+      await vi.waitFor(() => expect(e.candidates.map((c) => c.title)).toEqual(['천천히 적는 중', '두 번째'])) // 파일 읽기는 실제 입출력이라 기다린다
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('other files in the folder and other edits (no new line) do nothing', async () => {

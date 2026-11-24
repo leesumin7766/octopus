@@ -20,6 +20,17 @@ export function findWritingSection(content: string): WritingSection | null {
   return { headingIndex, lines: next < 0 ? rest : rest.slice(0, next) }
 }
 
+/**
+ * 구역의 마지막 줄이 파일 끝에 줄바꿈 없이 적혀 있으면(옵시디언에서 아직 적는 중일 수 있다) 그 줄을 따로 뗀다.
+ * 구역이 파일 끝까지 이어질 때만 해당한다(뒤에 ## 제목이 있으면 그 줄은 이미 끝난 줄이다).
+ */
+export function heldLastLine(content: string, section: WritingSection): { complete: string[]; last: string | null } {
+  const fileLines = content.split(/\r?\n/)
+  const endsAtFileEnd = section.headingIndex + section.lines.length === fileLines.length - 1
+  if (content.endsWith('\n') || !endsAtFileEnd || section.lines.length === 0) return { complete: section.lines, last: null }
+  return { complete: section.lines.slice(0, -1), last: section.lines[section.lines.length - 1] }
+}
+
 const ITEM = /^\s*[-*+]\s+\[ \]\s*(.*)$/
 
 export interface Captured {
