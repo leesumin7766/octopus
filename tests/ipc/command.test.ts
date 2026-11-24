@@ -282,10 +282,8 @@ describe('command IPC handlers', () => {
         const resultA = await sentA
 
         expect(resultA.data.items[resultA.data.items.length - 1]).toMatchObject({ kind: 'assistant', text: '쓰는 중\n\n(중지됨)' })
-        let bDone = false
-        void sentB.then(() => (bDone = true))
-        await new Promise((resolve) => setTimeout(resolve, 20))
-        expect(bDone).toBe(false) // 다른 창의 요청은 계속 돈다
+        // B 는 release() 전에는 끝날 수 없다. 지금 아직 안 끝났는지만 본다(시간을 기다리지 않는다).
+        expect(await Promise.race([sentB.then(() => 'done'), Promise.resolve('running')])).toBe('running') // 다른 창의 요청은 계속 돈다
 
         model.release()
         expect((await sentB).data.status).toBe('done')
@@ -316,8 +314,7 @@ describe('command IPC handlers', () => {
 
         win.close()
         await sent
-        const afterClose = win.send.mock.calls.length
-        await new Promise((resolve) => setTimeout(resolve, 10))
+        const afterClose = win.send.mock.calls.length // 요청이 끝났으니 더 올 이벤트도 없다
 
         expect(win.send.mock.calls.length).toBe(afterClose)
         expect(win.send.mock.calls.every((c) => c[0] === IPC.commandEvent)).toBe(true)

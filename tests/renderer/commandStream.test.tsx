@@ -262,11 +262,14 @@ describe('command dialog: streaming and stop', () => {
   it('works through a real session too: the screen shows the stream that the session sends as events', async () => {
     b = installBackend('home')
     b.keys.anthropic = 'sk-test-KEY'
+    // 조각을 흘린 뒤 시험이 열어 주기 전까지 끝내지 않는다(실제 시간을 기다리지 않는다).
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => (finish = resolve))
     const streamed: LlmAdapter = {
       async chat(request) {
         request.onText?.('세션이 ')
         request.onText?.('보낸 글')
-        await new Promise((resolve) => setTimeout(resolve, 30))
+        await gate
         return reply([text('세션이 보낸 글')])
       }
     }
@@ -280,7 +283,8 @@ describe('command dialog: streaming and stop', () => {
 
     await user.type(input(), '안녕{Enter}')
 
-    expect((await within(dialog()).findByTestId('streaming-bubble')).textContent).toContain('세션이')
+    expect((await within(dialog()).findByTestId('streaming-bubble')).textContent).toBe('세션이 보낸 글') // 아직 끝나지 않은 흐르는 중의 글
+    finish()
     expect(await within(log()).findByText('세션이 보낸 글')).toBeTruthy()
     await waitFor(() => expect(within(dialog()).queryByTestId('streaming-bubble')).toBeNull())
   })

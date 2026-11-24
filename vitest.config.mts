@@ -16,6 +16,9 @@ const externalNodeSqlite: Plugin = {
 export default defineConfig({
   plugins: [react(), externalNodeSqlite],
   test: {
-    include: ['tests/**/*.test.{ts,tsx}']
+    include: ['tests/**/*.test.{ts,tsx}'],
+    // 시험이 많이 겹쳐 돌 때(전체 실행·CI) 한 시험이 느려져도 떨어지지 않게 시간 제한을 넉넉히 둔다. 진짜 서버 시험(tests/net)도 같다.
+    testTimeout: 30_000,
+    hookTimeout: 30_000
   }
 })

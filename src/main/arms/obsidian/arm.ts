@@ -53,6 +53,11 @@ export interface ObsidianArmDeps {
   debounceMs?: number
   /** 파일이 바뀐 뒤 "적어 넣기"를 읽기까지의 대기(ms). 쓰는 도중에 읽지 않도록 길게 둔다. */
   watchDebounceMs?: number
+  /**
+   * 시간 뒤에 저절로 하는 일(디바운스 내보내기·자정 내보내기·파일 감시 확인)이 하나 끝날 때마다 부른다.
+   * 시험이 실제 시간을 재지 않고 그 일이 끝나기를 직접 기다리게 하려는 알림이다(앱에서는 쓰지 않는다).
+   */
+   onSettled?: (kind: 'export' | 'watch') => void
 }
 
 export interface ObsidianArm extends Arm {
@@ -265,13 +270,22 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
 
   const exportQueued = (): Promise<ExportResult> => enqueue(runExport)
 
+  /** 알림은 표시용이라 받는 쪽이 실패해도 일에는 영향이 없다. */
+  function settled(kind: 'export' | 'watch'): void {
+    try {
+      deps.onSettled?.(kind)
+    } catch {
+      // 무시
+    }
+  }
+
   // ---- 일정·감시 ----
 
   function scheduleExport(): void {
     if (exportTimer) clearTimeout(exportTimer)
     exportTimer = setTimeout(() => {
       exportTimer = null
-      void exportQueued()
+      void exportQueued().finally(() => settled('export'))
     }, debounceMs)
   }
 
@@ -281,7 +295,7 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
     const next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 0, 0, 2, 0)
     midnightTimer = setTimeout(() => {
       midnightTimer = null
-      void exportQueued().then(() => scheduleMidnight())
+      void exportQueued().then(() => scheduleMidnight()).finally(() => settled('export'))
     }, Math.max(1000, next.getTime() - n.getTime()))
   }
 
@@ -314,7 +328,7 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
         if (watchTimer) clearTimeout(watchTimer)
         watchTimer = setTimeout(() => {
           watchTimer = null
-          void checkWriting()
+          void checkWriting().finally(() => settled('watch'))
         }, watchDebounceMs)
       })
     } catch {

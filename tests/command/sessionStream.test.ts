@@ -312,7 +312,8 @@ describe('command session: cancelOwner (the window that sent the request was clo
     e.session.cancelOwner(undefined) // 주인을 모르는 값은 주인 없는 요청과 짝이 되지 않는다
     e.session.cancelOwner(null)
 
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    // 중지가 왔다면 세션은 마이크로태스크 안에서 끝낸다(타이머·파일 입출력이 없다). 그만큼 흘려보내도 안 끝났으면 멈추지 않은 것이다.
+    for (let i = 0; i < 50; i++) await Promise.resolve()
     expect(events.some((ev) => ev.kind === 'done')).toBe(false)
     await e.session.cancel(null)
     expect((await turn).status).toBe('done')

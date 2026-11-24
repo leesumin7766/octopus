@@ -100,9 +100,12 @@ describe('ArmManager: connect', () => {
     process.on('unhandledRejection', unhandled)
     try {
       const e = createManagerEnv({ connectTimeoutMs: 10 })
-      e.manager.register(fakeArm({ connect: () => new Promise((_, reject) => setTimeout(() => reject(new Error('late')), 40)) }))
-      await e.manager.connect('test-arm')
-      await new Promise((r) => setTimeout(r, 80))
+      let rejectLate: (error: Error) => void = () => {}
+      e.manager.register(fakeArm({ connect: () => new Promise((_, reject) => (rejectLate = reject)) }))
+      await e.manager.connect('test-arm') // 제한 시간(10ms)이 지나 끝난다
+      rejectLate(new Error('late')) // 그 뒤에 늦게 거절된다(시험이 때를 정한다)
+      await new Promise((r) => setImmediate(r)) // unhandledRejection 은 마이크로태스크가 비면 곧바로 알려진다
+      await new Promise((r) => setImmediate(r))
       expect(unhandled).not.toHaveBeenCalled()
     } finally {
       process.off('unhandledRejection', unhandled)
