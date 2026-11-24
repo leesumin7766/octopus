@@ -35,6 +35,26 @@ interface PieMenuProps {
   /** 개발용 캡처에서 열린 채로 시작하기 위한 값 */
   initialOpen?: boolean
   initialHover?: number | null
+  /**
+   * 좁은 창: 원 버튼을 창 오른쪽 아래에 띄우고, 메뉴가 열릴 때 창 밖으로 잘리지 않게 옮긴다.
+   * 버튼 자체는 BUTTON_EDGE 만큼 떨어진 자리에 있다.
+   */
+  floating?: boolean
+}
+
+/** 떠 있는 원 버튼의 가장자리 여백과 크기 절반(px). 원 버튼 지름은 68px. */
+const FLOAT_EDGE = 16
+const FLOAT_HALF = 34
+/** 메뉴가 창 가장자리에서 떨어져 있어야 할 최소 여백(px) */
+const MENU_MARGIN = 8
+
+/** 떠 있는 원 버튼 기준으로 메뉴가 창 안에 들어오도록 옮길 거리(x, y px). 들어오면 0. */
+export function floatingShift(windowWidth: number, windowHeight: number): { x: number; y: number } {
+  const anchorX = windowWidth - FLOAT_EDGE - FLOAT_HALF
+  const anchorY = windowHeight - FLOAT_EDGE - FLOAT_HALF
+  const half = CENTER + MENU_MARGIN
+  const clamp = (value: number, max: number): number => Math.min(Math.max(value, half), Math.max(half, max - half))
+  return { x: clamp(anchorX, windowWidth) - anchorX, y: clamp(anchorY, windowHeight) - anchorY }
 }
 
 /**
@@ -44,7 +64,7 @@ interface PieMenuProps {
  * - 키보드: 원에 포커스 후 Enter/Space 로 열고, Tab·화살표로 칸을 옮기고, Enter 로 실행, Esc 로 닫고 원으로 돌아온다.
  * 마우스·터치는 포인터 캡처로 똑같이 동작한다.
  */
-export function PieMenu({ slots, onRun, initialOpen = false, initialHover = null }: PieMenuProps) {
+export function PieMenu({ slots, onRun, initialOpen = false, initialHover = null, floating = false }: PieMenuProps) {
   const [open, setOpen] = useState(initialOpen)
   const [hover, setHover] = useState<number | null>(initialHover)
   const [focusRequest, setFocusRequest] = useState<number | null>(null)
@@ -153,6 +173,8 @@ export function PieMenu({ slots, onRun, initialOpen = false, initialHover = null
   const hovered = hover !== null ? slots[hover] : null
   const reason = hovered && !hovered.enabled ? hovered.reason : null
 
+  const shift = floating ? floatingShift(window.innerWidth, window.innerHeight) : { x: 0, y: 0 }
+
   return (
     <>
       {open && (
@@ -164,7 +186,10 @@ export function PieMenu({ slots, onRun, initialOpen = false, initialHover = null
         />
       )}
 
-      <div className="pointer-events-none relative z-50" style={{ gridRow: 2, gridColumn: 2 }}>
+      <div
+        className={floating ? 'pointer-events-none fixed z-50' : 'pointer-events-none relative z-50'}
+        style={floating ? { right: FLOAT_EDGE + FLOAT_HALF, bottom: FLOAT_EDGE + FLOAT_HALF } : { gridRow: 2, gridColumn: 2 }}
+      >
         {open && (
           <div
             role="menu"
@@ -172,7 +197,11 @@ export function PieMenu({ slots, onRun, initialOpen = false, initialHover = null
             onKeyDown={handleMenuKeyDown}
             onPointerMove={(event) => setHover(slotAt(event.clientX, event.clientY, event.currentTarget))}
             onPointerLeave={() => setHover(null)}
-            style={{ width: SIZE, height: SIZE }}
+            style={{
+              width: SIZE,
+              height: SIZE,
+              ...(floating ? { transform: `translate(${shift.x}px, ${shift.y}px)` } : {})
+            }}
             className="pointer-events-auto absolute left-1/2 top-1/2 -ml-40 -mt-40 select-none animate-[pie-pop_140ms_ease-out]"
           >
             <svg aria-hidden="true" width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="absolute inset-0">

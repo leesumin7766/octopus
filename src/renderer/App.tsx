@@ -22,7 +22,7 @@ function initialScreen(initial: InitialView | null): Screen {
   if (initial === 'routines' || initial === 'memos' || initial === 'settings') return initial
   if (initial === 'arms' || initial === 'arms-mcp') return 'arms'
   if (initial === 'obsidian') return 'obsidian'
-  if (initial === 'home-pie' || initial === 'command' || initial === 'command-nokey') return 'home'
+  if (initial === 'home-pie' || initial === 'home-narrow' || initial === 'command' || initial === 'command-nokey') return 'home'
   return 'tasks'
 }
 

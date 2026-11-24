@@ -246,7 +246,8 @@ function initDatabase(): void {
 
 function createWindow(): void {
   const win = new BrowserWindow({
-    width: 900,
+    // 좁은 창 캡처(home-narrow)만 700px 로 연다. 그 밖에는 900px.
+    width: captureSession?.config.view === 'home-narrow' ? 700 : 900,
     height: 700,
     title: 'Octopus',
     webPreferences: {

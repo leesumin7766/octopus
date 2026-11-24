@@ -17,6 +17,7 @@ const SHOTS = [
   ['home', 'home'],
   ['home-arrange', 'home-layout'],
   ['home-pie', 'home-pie'],
+  ['home-narrow', 'home-narrow'],
   ['settings', 'settings'],
   ['command', 'command'],
   ['command-nokey', 'command-nokey'],

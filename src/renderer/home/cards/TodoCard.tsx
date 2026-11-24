@@ -134,9 +134,6 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
         </ul>
       )}
 
-      <button type="button" onClick={onOpenTasks} className="self-start py-1 text-[13px] text-accent hover:underline">
-        {t.viewAll}
-      </button>
     </div>
   )
 }
