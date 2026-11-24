@@ -27,6 +27,10 @@ import { ShortcutsCard } from './cards/ShortcutsCard'
 import { TodoCard } from './cards/TodoCard'
 import { MemoQuickDialog, TaskQuickDialog } from './QuickDialogs'
 import { ResizeSeparator } from './ResizeSeparator'
+import { useNarrowWindow } from '../layout/useNarrowWindow'
+
+/** 좁은 창에서 오늘 할 일 카드가 보여야 하는 최소 높이(px): 할 일 다섯 개 정도 */
+const NARROW_TODO_MIN_PX = 340
 
 const t = ko.home
 
@@ -43,20 +47,6 @@ const PLACEMENT = [
   { gridRow: 3, gridColumn: 1 },
   { gridRow: 3, gridColumn: 3 }
 ] as const
-
-/** 이 폭(px) 이하의 창에서는 카드를 한 열로 쌓는다. 저장된 배치와 비율은 그대로 두고, 넓은 창에서 다시 쓴다. */
-const NARROW_MAX_PX = 760
-
-/** 창이 좁은지(창 크기가 바뀔 때마다 다시 본다) */
-function useNarrowWindow(): boolean {
-  const [narrow, setNarrow] = useState(() => window.innerWidth <= NARROW_MAX_PX)
-  useEffect(() => {
-    const onResize = (): void => setNarrow(window.innerWidth <= NARROW_MAX_PX)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-  return narrow
-}
 
 interface HomeScreenProps {
   /** 화면 배치 모드(왼쪽 메뉴의 "화면 배치" 버튼으로 켠다) */
@@ -269,7 +259,7 @@ export function HomeScreen({
 
   // 좁은 창: 한 열로 쌓고(읽는 순서대로 위에서 아래), 목록은 격자 전체가 스크롤한다.
   const gridStyle: CSSProperties | undefined = narrow
-    ? { gridTemplateColumns: '1fr', gridTemplateRows: 'repeat(4, minmax(230px, auto))', rowGap: `${GAP_PX}px` }
+    ? { gridTemplateColumns: '1fr', gridTemplateRows: 'repeat(4, auto)', rowGap: `${GAP_PX}px` }
     : layout
       ? {
           gridTemplateColumns: `${layout.col}fr ${GAP_PX}px ${100 - layout.col}fr`,
@@ -310,7 +300,7 @@ export function HomeScreen({
               position={position}
               arranging={arranging}
               onMove={(id: CardId, direction: Direction) => change(moveCard(layout, id, direction))}
-              style={narrow ? { gridColumn: 1, gridRow: position + 1 } : PLACEMENT[position]}
+              style={narrow ? { gridColumn: 1, gridRow: position + 1, minHeight: card === 'todo' ? NARROW_TODO_MIN_PX : undefined } : PLACEMENT[position]}
               footer={renderFooter(card)}
             >
               {renderCard(card)}

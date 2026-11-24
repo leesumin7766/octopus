@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/App'
 import { ko } from '../../src/renderer/i18n/ko'
@@ -44,6 +44,16 @@ describe('home screen in a narrow window', () => {
     const viewAll = Array.from(todo.querySelectorAll('button')).find((el) => el.textContent === t.todo.viewAll)
     expect(viewAll).toBeTruthy()
     expect(viewAll?.closest('.overflow-auto')).toBeNull()
+  })
+
+  it('the side menu folds to icons in a narrow window, and opens back up when the window is wide again', async () => {
+    b = installBackend('home')
+    render(<App />)
+
+    expect(await screen.findByRole('button', { name: ko.nav.expand })).toBeTruthy()
+    setWindowWidth(1024)
+    fireEvent(window, new Event('resize'))
+    expect(await screen.findByRole('button', { name: ko.nav.collapse })).toBeTruthy()
   })
 
   it('a wide window keeps the separators', async () => {

@@ -13,6 +13,7 @@ import { RoutinesScreen } from './routines/RoutinesScreen'
 import { SettingsScreen } from './settings/SettingsScreen'
 import { useSetting } from './settings/useSetting'
 import { TasksScreen } from './tasks/TasksScreen'
+import { useNarrowWindow } from './layout/useNarrowWindow'
 
 type InitialView = NonNullable<typeof window.octopus.initialView>
 
@@ -31,6 +32,8 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() => initialScreen(initial))
   const [arranging, setArranging] = useState(initial === 'home-arrange')
   const nav = useSetting('nav.collapsed')
+  const narrow = useNarrowWindow()
+  const [narrowExpanded, setNarrowExpanded] = useState(false)
   // 첫 실행 안내: 'checking'(아직 모름) → 'show' | 'hide'
   const [welcome, setWelcome] = useState<'checking' | 'show' | 'hide'>(typeof initial === 'string' && initial.startsWith('welcome-') ? 'show' : 'checking')
   const models = useModelStatus()
@@ -102,10 +105,12 @@ export function App() {
     return <Welcome onDone={finishWelcome} initialStep={step} initialChosen={initial === 'welcome-1' || initial === 'welcome-2' ? ['obsidian'] : []} />
   }
 
-  const collapsed = nav.value
+  // 좁은 창에서는 메뉴를 접힌 모양으로 보인다. 사용자가 저장해 둔 선택은 바꾸지 않고, ☰ 는 이 창 안에서만 펼쳤다 접는다.
+  const collapsed = narrow ? !narrowExpanded : nav.value
   function toggleCollapsed(): void {
-    nav.setLocal(!collapsed)
-    nav.persist(!collapsed)
+    if (narrow) return setNarrowExpanded((on) => !on)
+    nav.setLocal(!nav.value)
+    nav.persist(!nav.value)
   }
 
   return (
