@@ -3,6 +3,7 @@ import type { IpcResult } from '../../shared/ipc'
 import type { Memo } from '../../shared/memos/types'
 import type { RepeatRule, Task, TaskBucket, TaskFields, TaskPriority } from '../../shared/tasks/types'
 import { weekdayOf } from '../../shared/tasks/dates'
+import { withAnchor } from '../../shared/tasks/repeat'
 import { ko } from '../i18n/ko'
 import { fieldErrorsFrom, type FieldErrors } from './errors'
 import { formatRepeat, splitTags, todayString } from './format'
@@ -62,6 +63,24 @@ function buildRule(
   const day = Number(monthDay)
   if (!Number.isInteger(day) || day < 1 || day > 31) return { rule: null, error: { field: 'monthDay', message: R.errors.monthDay } }
   return { rule: { freq: 'monthly', interval: every, byMonthDay: day } }
+}
+
+/** 같은 모양(종류·간격·요일·매월의 날)의 반복인지. 기준일·매년의 월일은 비교하지 않는다. */
+function sameRepeatShape(a: RepeatRule, b: RepeatRule): boolean {
+  if (a.freq !== b.freq || a.interval !== b.interval) return false
+  if (a.freq === 'weekly') {
+    const days = (rule: RepeatRule): string => [...new Set(rule.byWeekday ?? [])].sort((x, y) => x - y).join()
+    return days(a) === days(b)
+  }
+  if (a.freq === 'monthly') return (a.byMonthDay ?? 0) === (b.byMonthDay ?? 0)
+  return true
+}
+
+/** 편집기가 만든 규칙에 기준일을 채운다. 저장돼 있던 반복과 모양이 같으면 저장돼 있던 것(기준일 포함)을 그대로 쓴다. */
+function finalizeRule(rule: RepeatRule | null, existing: RepeatRule | null, date: string): RepeatRule | null {
+  if (rule === null) return null
+  if (existing !== null && sameRepeatShape(existing, rule)) return existing
+  return withAnchor(rule, date)
 }
 
 function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactNode }) {
@@ -137,9 +156,11 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
     }
 
     // 반복을 켰는데 날짜가 없으면 오늘로 채운다.
-    const repeatRule = fromRoutine ? task.repeat : built.rule
-    const effectiveDate = repeatRule !== null && date === '' ? todayString() : date
-    if (repeatRule !== null && date === '') setDate(effectiveDate)
+    const wantsRepeat = fromRoutine ? task.repeat !== null : built.rule !== null
+    const effectiveDate = wantsRepeat && date === '' ? todayString() : date
+    if (wantsRepeat && date === '') setDate(effectiveDate)
+    // 새로 만들거나 바꾼 반복은 이 날짜를 기준일로 삼는다(매년이면 그 월·일도 규칙에 넣는다). 그대로 둔 반복은 기준일도 그대로.
+    const repeatRule = fromRoutine ? task.repeat : finalizeRule(built.rule, task.repeat, effectiveDate)
     const effectiveBucket: TaskBucket = repeatRule !== null ? 'scheduled' : bucket
 
     setSaving(true)

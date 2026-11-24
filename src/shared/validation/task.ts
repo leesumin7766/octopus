@@ -54,6 +54,14 @@ export function repeatRuleProblem(value: unknown): string | null {
   }
   const monthDay = rule['byMonthDay']
   if (monthDay !== undefined && !isIntInRange(monthDay, 1, 31)) return 'byMonthDay must be an integer 1-31'
+  const month = rule['byMonth']
+  if (month !== undefined) {
+    if (!isIntInRange(month, 1, 12)) return 'byMonth must be an integer 1-12'
+    if (rule['freq'] !== 'yearly') return 'byMonth is only for yearly'
+    if (monthDay === undefined) return 'byMonth needs byMonthDay'
+  }
+  const anchor = rule['anchor']
+  if (anchor !== undefined && !isValidDateString(anchor)) return 'anchor must be an existing date in YYYY-MM-DD'
   return null
 }
 

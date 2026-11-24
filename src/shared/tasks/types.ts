@@ -10,7 +10,15 @@ export interface RepeatRule {
   interval: number
   /** 0=일 .. 6=토 */
   byWeekday?: number[]
+  /** 매월·매년의 날(1~31). 그 달에 없는 날은 그 달의 마지막 날로 밀린다. */
   byMonthDay?: number
+  /** 매년의 달(1~12). byMonthDay 와 함께 있으면 매년 그 월·일(2/29 는 평년에 2/28, 윤년에 다시 2/29). yearly 에만 쓴다. */
+  byMonth?: number
+  /**
+   * 반복을 시작한 기준일 YYYY-MM-DD. interval 이 1 보다 큰 반복(격주 등)의 주기를 이 날짜에서부터 센다.
+   * 그래서 늦게 끝내거나 날짜를 옮겨도 주기가 어긋나지 않는다. 없는 옛 데이터는 예전처럼 직전 회차에서 센다.
+   */
+  anchor?: string
 }
 
 export interface Task {

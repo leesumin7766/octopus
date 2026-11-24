@@ -192,7 +192,7 @@ describe('parseQuickInput', () => {
         time: null,
         project: null,
         priority: 0,
-        repeat: { freq: 'daily', interval: 1 },
+        repeat: { freq: 'daily', interval: 1, anchor: '2026-11-22' }, // 새 반복의 기준일은 그 할 일의 날짜
         bucket: 'scheduled'
       })
     })
@@ -253,7 +253,7 @@ describe('parseQuickInput', () => {
         date: '2026-11-23',
         repeat: { freq: 'monthly', interval: 1, byMonthDay: 23 }
       })
-      expect(parse('1/31 매월 청구서').repeat).toEqual({ freq: 'monthly', interval: 1, byMonthDay: 31 })
+      expect(parse('1/31 매월 청구서').repeat).toEqual({ freq: 'monthly', interval: 1, byMonthDay: 31, anchor: '2027-01-31' })
     })
 
     it('매월 with an invalid day: the day stays in the title', () => {
@@ -269,6 +269,14 @@ describe('parseQuickInput', () => {
         date: '2026-11-22',
         repeat: { freq: 'yearly', interval: 1 }
       })
+    })
+
+    it('매년 fills the month and day from the date, and every new repeat gets the date as its anchor', () => {
+      expect(parse('매년 생일').repeat).toEqual({ freq: 'yearly', interval: 1, byMonth: 11, byMonthDay: 22, anchor: '2026-11-22' })
+      expect(parse('12/25 매년 기념일').repeat).toEqual({ freq: 'yearly', interval: 1, byMonth: 12, byMonthDay: 25, anchor: '2026-12-25' })
+      expect(parse('매일 운동').repeat?.anchor).toBe(parse('매일 운동').date)
+      expect(parse('매주 월 12/7 회의').repeat).toMatchObject({ freq: 'weekly', byWeekday: [1], anchor: '2026-12-07' })
+      expect(parse('운동').repeat).toBeNull() // 반복이 없으면 기준일도 없다
     })
 
     it('an explicit date wins over the first occurrence', () => {
@@ -315,7 +323,7 @@ describe('parseQuickInput', () => {
         time: '09:00',
         project: '팀',
         priority: 0,
-        repeat: { freq: 'weekly', interval: 1, byWeekday: [1] },
+        repeat: { freq: 'weekly', interval: 1, byWeekday: [1], anchor: '2026-11-23' },
         bucket: 'scheduled'
       })
     })

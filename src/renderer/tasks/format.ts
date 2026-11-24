@@ -41,8 +41,10 @@ export function formatRepeat(rule: RepeatRule): string {
       if (every !== 1) return r.everyMonths(every)
       return rule.byMonthDay ? r.monthlyDay(rule.byMonthDay) : r.monthly
 
-    case 'yearly':
-      return every === 1 ? r.yearly : r.everyYears(every)
+    case 'yearly': {
+      const head = every === 1 ? r.yearly : r.everyYears(every)
+      return rule.byMonth !== undefined && rule.byMonthDay !== undefined ? `${head} ${rule.byMonth}/${rule.byMonthDay}` : head
+    }
   }
 }
 

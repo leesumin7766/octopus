@@ -128,8 +128,8 @@ describe('tasks screen: list grouping, cancel/undo and repeat editing', () => {
       fireEvent.change(within(panel()).getByLabelText(t.detail.repeat), { target: { value: 'daily' } })
       await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
 
-      await waitFor(() => expect(b.tasks.update).toHaveBeenCalledWith(task.id, expect.objectContaining({ repeat: { freq: 'daily', interval: 1 } })))
-      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'daily', interval: 1 }))
+      await waitFor(() => expect(b.tasks.update).toHaveBeenCalledWith(task.id, expect.objectContaining({ repeat: { freq: 'daily', interval: 1, anchor: '2026-03-10' } })))
+      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'daily', interval: 1, anchor: '2026-03-10' }))
     })
 
     it('an interval ("2주마다") is saved with the weekdays picked', async () => {
@@ -145,7 +145,7 @@ describe('tasks screen: list grouping, cancel/undo and repeat editing', () => {
       expect(within(panel()).getByText(R.preview('2주마다 화 목'))).toBeTruthy()
       await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
 
-      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'weekly', interval: 2, byWeekday: [2, 4] }))
+      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'weekly', interval: 2, byWeekday: [2, 4], anchor: '2026-03-10' }))
     })
 
     it('a date is filled in with today when a repeat is turned on, and the task becomes scheduled', async () => {
@@ -171,7 +171,7 @@ describe('tasks screen: list grouping, cancel/undo and repeat editing', () => {
       fireEvent.change(within(panel()).getByLabelText(R.monthDayLabel), { target: { value: '31' } })
       await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
 
-      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'monthly', interval: 1, byMonthDay: 31 }))
+      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'monthly', interval: 1, byMonthDay: 31, anchor: '2026-03-10' }))
     })
 
     it('yearly and 평일 round-trip: saved, then shown again as chosen', async () => {
@@ -186,7 +186,35 @@ describe('tasks screen: list grouping, cancel/undo and repeat editing', () => {
       fireEvent.change(within(panel()).getByLabelText(t.detail.repeat), { target: { value: 'yearly' } })
       await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
 
-      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'yearly', interval: 1 }))
+      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'yearly', interval: 1, byMonth: 3, byMonthDay: 10, anchor: '2026-03-10' }))
+    })
+
+    it('a repeat left as it was keeps its anchor (even after the task date moved); a changed repeat starts over from the task date', async () => {
+      const user = userEvent.setup()
+      const task = b.t.repo.create({ title: '격주 유지', date: '2026-03-10', repeat: { freq: 'weekly', interval: 2, byWeekday: [2], anchor: '2026-03-03' } })
+      renderScreen()
+      await openPanel(user, '격주 유지')
+      await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
+      await waitFor(() => expect(b.tasks.update).toHaveBeenCalledTimes(1))
+      expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'weekly', interval: 2, byWeekday: [2], anchor: '2026-03-03' }) // 기준일은 그대로
+
+      await openPanel(user, '격주 유지')
+      fireEvent.change(within(panel()).getByLabelText(R.interval), { target: { value: '3' } })
+      await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
+
+      await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'weekly', interval: 3, byWeekday: [2], anchor: '2026-03-10' }))
+    })
+
+    it('an old repeat without an anchor is saved back unchanged (no anchor appears by itself)', async () => {
+      const user = userEvent.setup()
+      const task = b.t.repo.create({ title: '옛 반복', date: '2026-03-10', repeat: { freq: 'daily', interval: 1 } })
+      renderScreen()
+      await openPanel(user, '옛 반복')
+
+      await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
+
+      await waitFor(() => expect(b.tasks.update).toHaveBeenCalledTimes(1))
+      expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'daily', interval: 1 })
     })
 
     it('choosing 없음 removes the repeat and unlocks the bucket', async () => {
