@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react'
 import type { Task } from '../../shared/tasks/types'
+import { Checkbox } from '../ui/Checkbox'
 import { ko } from '../i18n/ko'
 import { formatDate, formatRepeat, isPastDate } from './format'
 
@@ -20,12 +22,11 @@ interface TaskRowProps {
   active: boolean
   onToggle: () => void
   onOpen: () => void
-  /** 지난 할 일 구역에서만 넘긴다. 여러 개를 골라 한꺼번에 옮기는 용도. */
-  selected?: boolean
-  onSelect?: (selected: boolean) => void
+  /** 행 오른쪽 끝의 작은 버튼들(예: 지난 할 일의 [오늘로] [나중에]) */
+  trailing?: ReactNode
 }
 
-export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen, selected, onSelect }: TaskRowProps) {
+export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen, trailing }: TaskRowProps) {
   const deadlinePast = task.status === 'open' && task.deadline !== null && isPastDate(task.deadline, today)
 
   return (
@@ -34,22 +35,7 @@ export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen
         fading ? 'opacity-40' : 'opacity-100'
       } ${active ? 'bg-indigo-50' : 'hover:bg-slate-100'}`}
     >
-      {onSelect && (
-        <input
-          type="checkbox"
-          aria-label={`${t.select}: ${task.title}`}
-          checked={selected ?? false}
-          onChange={(event) => onSelect(event.target.checked)}
-          className="size-4 shrink-0 accent-indigo-600"
-        />
-      )}
-      <input
-        type="checkbox"
-        aria-label={`${t.complete}: ${task.title}`}
-        checked={checked}
-        onChange={onToggle}
-        className="size-5 shrink-0 rounded-full accent-emerald-600"
-      />
+      <Checkbox checked={checked} onChange={onToggle} aria-label={`${t.complete}: ${task.title}`} />
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
         <span className={`block truncate ${checked ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
           {task.title}
@@ -76,6 +62,7 @@ export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen
           )}
         </span>
       </button>
+      {trailing}
     </li>
   )
 }

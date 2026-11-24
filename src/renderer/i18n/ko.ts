@@ -2,7 +2,7 @@
 export const ko = {
   appTitle: 'Octopus',
   dbOpenFailed:
-    '저장소(데이터베이스)를 열지 못했어요. 앱을 완전히 종료한 뒤 다시 실행해 보세요. 계속되면 사용자 데이터 폴더의 octopus.db 파일을 백업해 두세요.',
+    '할 일과 메모를 저장하는 곳을 열지 못했어요. 앱을 완전히 종료한 뒤 다시 실행해 보세요. 계속되면 앱 데이터 폴더의 octopus.db 파일을 백업해 두세요.',
 
   nav: {
     label: '메뉴',
@@ -28,17 +28,15 @@ export const ko = {
     // 원형 메뉴 칸에 쓰는 짧은 이름
     labels: {
       'nav:home': '홈',
-      'nav:tasks': '할 일',
+      'nav:tasks': '할 일 보기',
       'nav:routines': '체크리스트',
       'nav:memos': '메모 보기',
       'nav:settings': '설정',
       'task:quickAdd': '할 일 추가',
-      'memo:quickAdd': '메모',
+      'memo:quickAdd': '메모 쓰기',
       command: '지시하기',
       'arm:google-calendar': '캘린더',
-      'arm:mail': '메일',
       'arm:obsidian': '옵시디언',
-      wiki: '위키',
       arms: 'Arms'
     },
     // 설정 화면의 목록에 쓰는 설명이 있는 이름
@@ -52,18 +50,14 @@ export const ko = {
       'memo:quickAdd': '메모 바로 쓰기',
       command: '지시하기',
       'arm:google-calendar': '캘린더 (Arm 연결 필요)',
-      'arm:mail': '메일 (Arm 연결 필요)',
       'arm:obsidian': '옵시디언 (Arm 연결 필요)',
-      wiki: '위키',
       arms: 'Arms 관리'
     },
     // 지금 쓸 수 없는 칸에 가리키면 보이는 이유
     reasons: {
       command: '설정의 "모델 연결"에서 키나 서버 주소를 넣으면 쓸 수 있어요.',
       'arm:google-calendar': '캘린더 Arm 을 연결하면 쓸 수 있어요.',
-      'arm:mail': '메일 Arm 을 연결하면 쓸 수 있어요.',
       'arm:obsidian': '옵시디언 Arm 을 연결하면 쓸 수 있어요.',
-      wiki: '위키는 곧 준비돼요.',
       arms: 'Arms 화면은 곧 준비돼요.'
     },
     deletedShortcut: '지워진 바로가기',
@@ -148,7 +142,7 @@ export const ko = {
       allDay: '종일',
       now: '진행 중',
       reconnect: '다시 연결',
-      notConfigured: '이 빌드에는 Google 연결이 아직 설정되지 않았어요.',
+      notConfigured: 'Google 캘린더 연결은 아직 준비 중이에요.',
       notConfiguredHelp: 'Arms 화면에서 확인할 수 있어요.',
       openArms: 'Arms 화면 열기',
       eventLabel: (title: string) => `일정 열기: ${title}`,
@@ -302,7 +296,6 @@ export const ko = {
     // 같은 화면의 "오늘" 보기 영역과 이름이 겹치지 않게 다르게 쓴다.
     todaySection: '오늘 할 일',
     complete: '완료',
-    select: '선택',
 
     priority: {
       0: '없음',
@@ -328,13 +321,15 @@ export const ko = {
 
     overdue: {
       title: '지난 할 일',
-      selectAll: '전체 선택',
-      selectedCount: (n: number) => `${n}개 선택`,
+      allToToday: '전부 오늘로',
+      allToSomeday: '전부 나중에',
+      keptRepeating: (n: number) => `반복 할 일 ${n}개는 그대로 뒀어요.`,
       toToday: '오늘로',
       toSomeday: '나중에',
-      reschedule: '날짜 지정',
+      reschedule: '날짜…',
       dateLabel: '옮길 날짜',
-      repeatBlocksSomeday: "반복하는 할 일은 '나중에'로 보낼 수 없어요. 선택에서 빼 주세요."
+      repeatBlocksSomeday: '반복하는 할 일은 나중에로 보낼 수 없어요.',
+      routineBlocksSomeday: '루틴 항목은 체크리스트에서 관리해요. 나중에로 보낼 수 없어요.'
     },
 
     empty: {
@@ -529,7 +524,7 @@ export const ko = {
       envNames: (names: string[]) => `환경 변수: ${names.join(', ')}`,
       errors: {
         name: '이름을 적어 주세요(40자까지).',
-        url: '주소는 https:// 로 시작해야 해요. http:// 는 이 PC(localhost)만 쓸 수 있어요.',
+        url: '주소는 https:// 로 시작해야 해요. http:// 는 이 PC 안에서 도는 서버 주소만 쓸 수 있어요.',
         command: '실행할 명령을 적어 주세요.',
         args: '인자가 너무 길거나 너무 많아요.',
         env: '환경 변수 이름은 영문·숫자·밑줄로 적고(숫자로 시작 불가), 같은 이름을 두 번 쓸 수 없어요.'
@@ -538,6 +533,7 @@ export const ko = {
     advanced: {
       summary: '고급',
       title: '내 OAuth 클라이언트 쓰기',
+      googleFallbackHint: '고급에서 직접 만든 OAuth 클라이언트로 연결할 수 있어요.',
       help: '기본 방법이 아니에요. Google Cloud 에서 직접 만든 데스크톱 클라이언트를 쓰려는 경우에만 쓰세요. 입력한 값은 이 PC 에 암호화해 저장하고 화면에는 다시 보여 주지 않아요. 연결을 끊으면 함께 지워져요.',
       clientId: '클라이언트 ID',
       clientSecret: '클라이언트 시크릿 (선택)',
@@ -559,13 +555,13 @@ export const ko = {
       both: { title: '내보내기 + 적어 넣기', desc: '파일 맨 아래 "적어 넣기" 칸에 "- [ ] 할 일" 을 적으면 Octopus 수신함으로 가져가요.' }
     },
     vaultTitle: '내보낼 곳',
-    vault: 'vault',
+    vault: '볼트',
     changeVault: '바꾸기',
-    notVault: '옵시디언 vault 가 아닌 것 같아요(.obsidian 폴더가 없어요). 그래도 쓸 수는 있어요.',
-    fileLabel: '파일 하나 (vault 기준 경로, .md)',
+    notVault: '옵시디언 볼트가 아닌 것 같아요(.obsidian 폴더가 없어요). 그래도 쓸 수는 있어요.',
+    fileLabel: '파일 하나 (볼트 안 경로, .md)',
     saveFile: '저장',
     fileSaved: '저장했어요.',
-    fileError: '경로가 올바르지 않아요. vault 안의 상대 경로(예: Octopus/할 일.md)로 .md 파일을 적어 주세요. ..·절대 경로·드라이브 문자는 쓸 수 없어요.',
+    fileError: '경로가 올바르지 않아요. 볼트 안의 경로(예: Octopus/할 일.md)로 .md 파일을 적어 주세요. 볼트 밖을 가리키는 경로(../ 나 C:\\ 로 시작하는 전체 경로)는 쓸 수 없어요.',
     daily: '오늘 일일노트 맨 끝에 이 파일 링크 한 줄 넣기',
     dailyHelp: '기본은 꺼짐. 켜도 오늘 일일노트가 이미 있을 때만, 하루에 한 번만 넣고 새 노트는 만들지 않아요.',
     lastExport: (time: string) => `마지막으로 내보낸 시각 ${time}`,
@@ -573,9 +569,9 @@ export const ko = {
     exportNow: '지금 내보내기',
     exporting: '내보내는 중…',
     syncTitle: '동기화 점검',
-    gitNone: 'git 저장소가 아니에요. 점검할 것이 없어요.',
-    gitOk: 'vault 가 git 저장소예요. 옵시디언의 작업 영역 파일은 이미 제외되어 있어요.',
-    gitMissing: 'vault 가 git 저장소인데, 옵시디언이 계속 바꾸는 작업 영역 파일이 제외되어 있지 않아요(충돌이 자주 생겨요).',
+    gitNone: '볼트를 버전 관리(git)하지 않아요. 점검할 것이 없어요.',
+    gitOk: '볼트를 버전 관리(git)하고 있어요. 옵시디언의 작업 영역 파일은 이미 제외되어 있어요.',
+    gitMissing: '볼트를 버전 관리(git)하는데, 옵시디언이 계속 바꾸는 작업 영역 파일이 제외되어 있지 않아요(충돌이 자주 생겨요).',
     gitAdd: (line: string) => `제외 목록에 추가: ${line}`,
     gitHelp: '누르면 추가할 줄을 보여 주고 확인을 받아요. 자동으로 고치지 않아요.',
     previewTitle: '옵시디언에 보이는 모습',

@@ -124,7 +124,7 @@ describe('memos screen', () => {
       expect(items.map((item) => item.querySelector('p')?.textContent)).toEqual(['가장 오래된 메모', '가장 최근 메모', '중간 메모'])
       expect(within(items[0]).getByText(t.pinned, { selector: 'span' })).toBeTruthy()
       expect(within(items[1]).queryByText(t.pinned, { selector: 'span' })).toBeNull()
-      expect(within(items[1]).getByText(t.updated('3/3 9:00'))).toBeTruthy()
+      expect(within(items[1]).getByText(t.updated('3/3 (화) 09:00'))).toBeTruthy()
       expect(newest.id).toBeTruthy()
     })
 

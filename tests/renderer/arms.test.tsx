@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ArmError } from '../../src/main/arms/sdk/types'
 import { App } from '../../src/renderer/App'
 import { ko } from '../../src/renderer/i18n/ko'
+import { formatDate, todayString } from '../../src/renderer/tasks/format'
 import { fakeArm } from '../arms/helpers'
 import { installBackend, type Backend } from './backend'
 
@@ -214,7 +215,9 @@ describe('Inbox: incoming candidates', () => {
     expect(within(s).getAllByRole('listitem')).toHaveLength(2)
     expect(within(s).getByText('견적서 회신')).toBeTruthy()
     expect(within(s).getAllByText(new RegExp(ct.from('예시 Arm')))).toHaveLength(2)
-    expect(within(s).getByText(new RegExp(ct.due('2026-03-12')))).toBeTruthy()
+    // 마감은 ISO 날짜가 아니라 사람이 읽는 표기로 보인다(오늘과 같은 해면 연도 없음)
+    expect(s.textContent).toContain(ct.due(formatDate('2026-03-12', todayString())))
+    expect(s.textContent).not.toContain('2026-03-12')
     expect(within(s).getByRole('button', { name: ct.openLabel('견적서 회신') })).toBeTruthy()
     expect(within(s).queryByRole('button', { name: ct.openLabel('자료 확인') })).toBeNull() // 링크 없는 후보
     // 할 일 목록보다 위에 있다.

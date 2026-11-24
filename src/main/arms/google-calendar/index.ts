@@ -30,7 +30,7 @@ export const MANIFEST: ArmManifest = {
 }
 
 export const MESSAGES = {
-  notConfigured: '이 빌드에는 Google 연결이 아직 설정되지 않았어요.',
+  notConfigured: 'Google 캘린더 연결은 아직 준비 중이에요.',
   relogin: '다시 로그인이 필요해요. [다시 연결]을 눌러 주세요.',
   expired: '로그인이 만료됐어요. [다시 연결]을 눌러 주세요.',
   denied: '로그인을 취소했어요. 다시 연결하려면 [연결]을 눌러 주세요.',

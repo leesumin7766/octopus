@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   formatDate,
   formatRepeat,
+  formatTimestamp,
   isPastDate,
   msUntilNextMidnight,
   splitTags
@@ -23,6 +24,27 @@ describe('formatDate', () => {
 
   it('adds the year when it is not this year', () => {
     expect(formatDate('2027-01-05', today)).toBe('2027/1/5 (화)')
+  })
+
+  it('year-end boundary: next day across the new year is still "내일", later dates show the new year', () => {
+    expect(formatDate('2027-01-01', '2026-12-31')).toBe('내일')
+    expect(formatDate('2027-01-05', '2026-12-31')).toBe('2027/1/5 (화)')
+    expect(formatDate('2026-12-31', '2026-12-31')).toBe('오늘')
+  })
+
+  it('a past date in the previous year shows that year', () => {
+    expect(formatDate('2026-12-30', '2027-01-02')).toBe('2026/12/30 (수)')
+  })
+
+  it('same year, two-digit month and day are not padded', () => {
+    expect(formatDate('2026-11-27', '2026-11-24')).toBe('11/27 (금)')
+  })
+})
+
+describe('formatTimestamp', () => {
+  it('uses the same day rule, then the time as HH:mm', () => {
+    expect(formatTimestamp(new Date(2026, 2, 10, 15, 0).toISOString(), '2026-03-10')).toBe('오늘 15:00')
+    expect(formatTimestamp(new Date(2026, 2, 3, 9, 5).toISOString(), '2026-03-10')).toBe('3/3 (화) 09:05')
   })
 })
 

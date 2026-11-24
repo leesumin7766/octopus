@@ -25,26 +25,29 @@ describe('actions', () => {
       'memo:quickAdd',
       'command',
       'arm:google-calendar',
-      'arm:mail',
       'arm:obsidian',
-      'wiki',
       'arms'
     ])
   })
 
-  it('the default eight slots are 지시하기 · 할 일 추가 · 캘린더 · 메일 · 메모 · 위키 · 옵시디언 · Arms, clockwise from 12', () => {
+  it('the default eight slots are 지시하기 · 할 일 추가 · 캘린더 · 할 일 보기 · 메모 쓰기 · 체크리스트 · 옵시디언 · Arms, clockwise from 12', () => {
     expect(PIE_SLOT_COUNT).toBe(8)
     expect([...DEFAULT_PIE_SLOTS]).toEqual([
       'command',
       'task:quickAdd',
       'arm:google-calendar',
-      'arm:mail',
+      'nav:tasks',
       'memo:quickAdd',
-      'wiki',
+      'nav:routines',
       'arm:obsidian',
       'arms'
     ])
     expect(DEFAULT_PIE_SLOTS.every(isActionId)).toBe(true)
+  })
+
+  it('no longer accepts the removed mail and wiki actions', () => {
+    expect(isActionId('arm:mail')).toBe(false)
+    expect(isActionId('wiki')).toBe(false)
   })
 
   it('isActionId accepts fixed actions and shortcut:<ULID>, nothing else', () => {
@@ -87,6 +90,15 @@ describe('pie slots', () => {
     expect(normalizePieSlots(custom)).toEqual(custom)
     expect(normalizePieSlots(eight('nav:nowhere'))).toEqual([...DEFAULT_PIE_SLOTS])
     expect(normalizePieSlots(undefined)).toEqual([...DEFAULT_PIE_SLOTS])
+  })
+
+  it('migrates a removed action (mail, wiki) to the default of that same slot only', () => {
+    const saved = ['nav:settings', 'nav:home', 'arm:mail', 'nav:memos', 'task:quickAdd', 'memo:quickAdd', 'wiki', 'nav:tasks']
+    expect(normalizePieSlots(saved)).toEqual(['nav:settings', 'nav:home', 'arm:google-calendar', 'nav:memos', 'task:quickAdd', 'memo:quickAdd', 'arm:obsidian', 'nav:tasks'])
+  })
+
+  it('a removed action does not rescue a slot list with some other unknown value', () => {
+    expect(normalizePieSlots(eight('arm:mail', 'nav:nowhere'))).toEqual([...DEFAULT_PIE_SLOTS])
   })
 
   it('normalizePieSlots returns a fresh array each time', () => {

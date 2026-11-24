@@ -3,7 +3,8 @@ import type { IpcError, IpcResult } from '../../shared/ipc'
 import type { Routine, RoutineHistory, RoutineInput, RoutineListData } from '../../shared/routines/types'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
-import { formatDays, todayString } from '../tasks/format'
+import { formatDate, formatDays, todayString } from '../tasks/format'
+import { Checkbox } from '../ui/Checkbox'
 import { RoutineForm } from './RoutineForm'
 
 const t = ko.routines
@@ -106,13 +107,7 @@ export function RoutinesScreen() {
                 const done = task.status === 'done'
                 return (
                   <li key={task.id} className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
-                    <input
-                      type="checkbox"
-                      aria-label={`${ko.tasks.complete}: ${task.title}`}
-                      checked={done}
-                      onChange={() => void toggleToday(task.id, done)}
-                      className="size-5 shrink-0 accent-emerald-600"
-                    />
+                    <Checkbox checked={done} onChange={() => void toggleToday(task.id, done)} aria-label={`${ko.tasks.complete}: ${task.title}`} />
                     <span className={done ? 'text-slate-400 line-through' : 'text-slate-900'}>{task.title}</span>
                   </li>
                 )
@@ -135,7 +130,7 @@ export function RoutinesScreen() {
                       <th
                         key={date}
                         scope="col"
-                        title={date}
+                        title={formatDate(date, today)}
                         className={`w-7 text-center font-normal ${date === today ? 'text-indigo-600' : 'text-slate-500'}`}
                       >
                         {Number(date.slice(8))}
@@ -154,8 +149,8 @@ export function RoutinesScreen() {
                         return (
                           <td
                             key={date}
-                            aria-label={`${row.title} ${date}: ${t.cell[kind]}`}
-                            title={`${date} ${t.cell[kind]}`}
+                            aria-label={`${row.title} ${formatDate(date, today)}: ${t.cell[kind]}`}
+                            title={`${formatDate(date, today)} ${t.cell[kind]}`}
                             className={`h-7 w-7 text-center ${CELL_STYLE[kind]}`}
                           >
                             {CELL_SYMBOL[kind]}

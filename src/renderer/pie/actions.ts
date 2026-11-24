@@ -17,9 +17,7 @@ const FIXED_ICONS: Record<FixedAction, IconName> = {
   'memo:quickAdd': 'memo',
   command: 'command',
   'arm:google-calendar': 'calendar',
-  'arm:mail': 'mail',
   'arm:obsidian': 'obsidian',
-  wiki: 'wiki',
   arms: 'arms'
 }
 

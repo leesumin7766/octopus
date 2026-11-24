@@ -283,7 +283,7 @@ describe('app shell (left menu)', () => {
       const overdue = await screen.findByRole('region', { name: ko.tasks.overdue.title })
       expect(within(overdue).getByText('밀린 일반 할 일')).toBeTruthy()
       expect(within(overdue).queryByText('어제 못 한 루틴')).toBeNull()
-      expect(within(overdue).getAllByRole('checkbox', { name: new RegExp(`^${ko.tasks.select}`) })).toHaveLength(1)
+      expect(within(overdue).getAllByRole('checkbox', { name: new RegExp(`^${ko.tasks.complete}`) })).toHaveLength(1)
     })
 
     it('with only a past routine item, there is no "지난 할 일" section at all', async () => {

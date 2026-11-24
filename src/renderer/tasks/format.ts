@@ -72,11 +72,12 @@ export function formatDays(days: readonly number[]): string {
   return sorted.map((d) => ko.routines.weekdayNames[d]).join(' ')
 }
 
-/** ISO 시각을 로컬 "3/10 14:05" 로 */
-export function formatTimestamp(iso: string): string {
+/** ISO 시각을 로컬 "오늘 14:05" · "11/27 (목) 09:30" 로(날짜는 formatDate 와 같은 규칙) */
+export function formatTimestamp(iso: string, today: string = todayString()): string {
   const d = new Date(iso)
+  const hours = String(d.getHours()).padStart(2, '0')
   const minutes = String(d.getMinutes()).padStart(2, '0')
-  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${minutes}`
+  return `${formatDate(localDateString(d), today)} ${hours}:${minutes}`
 }
 
 /** "a, b, ,a" → ["a", "b"] */

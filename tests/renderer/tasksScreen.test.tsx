@@ -238,71 +238,69 @@ describe('tasks screen', () => {
       expect(within(screen.getByRole('region', { name: t.todaySection })).getByText('오늘 일')).toBeTruthy()
     })
 
-    it('"오늘로" sends the selected ids', async () => {
+    const row = (title: string): HTMLElement => within(section()).getByText(title).closest('li') as HTMLElement
+
+    it('the row "오늘로" button sends that one task', async () => {
       const user = userEvent.setup()
-      const { a, c } = seedOverdue()
+      const { a } = seedOverdue()
       renderScreen()
       await screen.findByRole('region', { name: t.overdue.title })
 
-      await user.click(within(section()).getByRole('checkbox', { name: `${t.select}: 밀린 A` }))
-      await user.click(within(section()).getByRole('checkbox', { name: `${t.select}: 밀린 B` }))
-      await user.click(within(section()).getByRole('button', { name: t.overdue.toToday }))
+      await user.click(within(row('밀린 A')).getByRole('button', { name: t.overdue.toToday }))
 
-      await waitFor(() => expect(b.tasks.moveToToday).toHaveBeenCalledWith([a.id, c.id]))
-      await waitFor(() => expect(screen.queryByRole('region', { name: t.overdue.title })).not.toBeNull())
+      await waitFor(() => expect(b.tasks.moveToToday).toHaveBeenCalledWith([a.id]))
       await waitFor(() => expect(within(section()).queryByText('밀린 A')).toBeNull())
       expect(within(screen.getByRole('region', { name: t.todaySection })).getByText('밀린 A')).toBeTruthy()
     })
 
-    it('"전체 선택" selects all, and "날짜 지정" sends the chosen date', async () => {
+    it('"전부 오늘로" sends every overdue id', async () => {
       const user = userEvent.setup()
       const { a, c, repeating } = seedOverdue()
       renderScreen()
       await screen.findByRole('region', { name: t.overdue.title })
 
-      const reschedule = within(section()).getByRole('button', { name: t.overdue.reschedule }) as HTMLButtonElement
-      expect(reschedule.disabled).toBe(true)
+      await user.click(within(section()).getByRole('button', { name: t.overdue.allToToday }))
 
-      await user.click(within(section()).getByRole('checkbox', { name: t.overdue.selectAll }))
-      fireEvent.change(within(section()).getByLabelText(t.overdue.dateLabel), { target: { value: '2026-03-20' } })
-      await user.click(reschedule)
-
-      await waitFor(() => expect(b.tasks.reschedule).toHaveBeenCalledWith([a.id, c.id, repeating.id], '2026-03-20'))
+      await waitFor(() => expect(b.tasks.moveToToday).toHaveBeenCalledWith(expect.arrayContaining([a.id, c.id, repeating.id])))
       await waitFor(() => expect(screen.queryByRole('region', { name: t.overdue.title })).toBeNull())
     })
 
-    it('disables "나중에" with a reason when a repeating task is selected', async () => {
+    it('a row "날짜…" opens a date box, and the chosen date reschedules that task', async () => {
       const user = userEvent.setup()
       const { a } = seedOverdue()
       renderScreen()
       await screen.findByRole('region', { name: t.overdue.title })
-      const someday = within(section()).getByRole('button', { name: t.overdue.toSomeday }) as HTMLButtonElement
 
-      await user.click(within(section()).getByRole('checkbox', { name: `${t.select}: 밀린 A` }))
-      expect(someday.disabled).toBe(false)
-      expect(within(section()).queryByText(t.overdue.repeatBlocksSomeday)).toBeNull()
+      expect(within(section()).queryByLabelText(`${t.overdue.dateLabel}: 밀린 A`)).toBeNull()
+      await user.click(within(row('밀린 A')).getByRole('button', { name: `${t.overdue.reschedule}: 밀린 A` }))
+      fireEvent.change(within(section()).getByLabelText(`${t.overdue.dateLabel}: 밀린 A`), { target: { value: '2026-03-20' } })
 
-      await user.click(within(section()).getByRole('checkbox', { name: `${t.select}: 밀린 반복` }))
-      expect(someday.disabled).toBe(true)
-      expect(within(section()).getByText(t.overdue.repeatBlocksSomeday)).toBeTruthy()
-
-      await user.click(within(section()).getByRole('checkbox', { name: `${t.select}: 밀린 반복` }))
-      expect(someday.disabled).toBe(false)
-      await user.click(someday)
-
-      await waitFor(() => expect(b.tasks.moveToSomeday).toHaveBeenCalledWith([a.id]))
-      await goTo(user, 'someday')
-      expect(await screen.findByText('밀린 A')).toBeTruthy()
+      await waitFor(() => expect(b.tasks.reschedule).toHaveBeenCalledWith([a.id], '2026-03-20'))
     })
 
-    it('buttons are disabled until something is selected', async () => {
+    it('a repeating row\'s "나중에" is disabled with the reason', async () => {
       seedOverdue()
       renderScreen()
       await screen.findByRole('region', { name: t.overdue.title })
 
-      for (const name of [t.overdue.toToday, t.overdue.toSomeday]) {
-        expect((within(section()).getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(true)
-      }
+      const blocked = within(row('밀린 반복')).getByRole('button', { name: t.overdue.toSomeday }) as HTMLButtonElement
+      expect(blocked.disabled).toBe(true)
+      expect(blocked.title).toBe(t.overdue.repeatBlocksSomeday)
+      expect((within(row('밀린 A')).getByRole('button', { name: t.overdue.toSomeday }) as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    it('"전부 나중에" skips repeating tasks and says so', async () => {
+      const user = userEvent.setup()
+      const { a, c } = seedOverdue()
+      renderScreen()
+      await screen.findByRole('region', { name: t.overdue.title })
+
+      await user.click(within(section()).getByRole('button', { name: t.overdue.allToSomeday }))
+
+      await waitFor(() => expect(b.tasks.moveToSomeday).toHaveBeenCalledWith(expect.arrayContaining([a.id, c.id])))
+      expect(b.tasks.moveToSomeday.mock.calls[0][0]).toHaveLength(2)
+      expect(await within(section()).findByText(t.overdue.keptRepeating(1))).toBeTruthy()
+      expect(within(section()).getByText('밀린 반복')).toBeTruthy()
     })
 
     it('is not shown when nothing is overdue', async () => {
