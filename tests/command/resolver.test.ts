@@ -22,7 +22,7 @@ function memoryKeys(initial: Partial<Record<LlmProvider, string>> = {}): KeyStor
 const base = (keys: KeyStore) => ({
   keys,
   models: () => models,
-  createAnthropicClient: vi.fn((): AnthropicClientLike => ({ messages: { create: vi.fn(), stream: vi.fn() }, beta: { messages: { create: vi.fn(), stream: vi.fn() } } })),
+  createAnthropicClient: vi.fn((): AnthropicClientLike => ({ messages: { create: vi.fn(), stream: vi.fn() }, beta: { messages: { create: vi.fn(), stream: vi.fn() } } }) as unknown as AnthropicClientLike),
   fetch: vi.fn()
 })
 

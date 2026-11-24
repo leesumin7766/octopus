@@ -3,29 +3,37 @@ import {
   createAnthropicAdapter,
   FALLBACK_BETA,
   STREAMING_MAX_TOKENS,
-  type AnthropicClientLike,
-  type AnthropicResponse,
-  type AnthropicStreamLike
+  type AnthropicClientLike
 } from '../../src/main/core/command/llm/anthropicAdapter'
 import { LlmError } from '../../src/main/core/command/llm/types'
 
 // 진짜 SDK·네트워크는 쓰지 않는다. SDK 의 MessageStream 중 어댑터가 쓰는 부분(on('text'), finalMessage, abort)만 흉내 낸다.
+// 가짜 클라이언트를 어댑터에 넘길 때만 형을 변환한다(어댑터 쪽은 실제 SDK 형으로 검사된다).
+
+/** 시험용 응답: 실제 SDK 응답의 필요한 부분만 */
+type LooseResponse = { content: Record<string, unknown>[]; stop_reason: string | null; usage?: { input_tokens?: number; output_tokens?: number } }
+
+interface FakeStream {
+  on(event: string, listener: (textDelta: string, snapshot: string) => void): unknown
+  finalMessage(): Promise<LooseResponse>
+  abort(): void
+}
 
 interface FakeStreamOptions {
   /** on('text') 로 흘려보낼 조각 */
   pieces?: string[]
   /** finalMessage() 가 돌려줄 완성 메시지 */
-  final?: AnthropicResponse
+  final?: LooseResponse
   /** 조각을 흘려보낸 뒤 finalMessage() 가 던질 예외 */
   error?: Error
   /** 조각을 흘려보낸 뒤 signal 이 멈출 때까지 기다린다(그리고 APIUserAbortError 로 끝난다). */
   waitForAbort?: boolean
 }
 
-function fakeStream(options: FakeStreamOptions, signal?: AbortSignal): AnthropicStreamLike {
+function fakeStream(options: FakeStreamOptions, signal?: AbortSignal): FakeStream {
   let listener: ((delta: string, snapshot: string) => void) | undefined
   let started = false
-  const run = async (): Promise<AnthropicResponse> => {
+  const run = async (): Promise<LooseResponse> => {
     if (started) throw new Error('finalMessage called twice')
     started = true
     let snapshot = ''
@@ -119,7 +127,7 @@ describe('anthropic adapter: streaming', () => {
   })
 
   it('without onText it still takes the plain (non-streaming) path with 16000 tokens', async () => {
-    const create = vi.fn(async () => ({ content: [{ type: 'text', text: 'x' }], stop_reason: 'end_turn' }) as AnthropicResponse)
+    const create = vi.fn(async () => ({ content: [{ type: 'text', text: 'x' }], stop_reason: 'end_turn' }) as LooseResponse)
     const stream = vi.fn()
     const client = { messages: { create, stream }, beta: { messages: { create, stream } } } as unknown as AnthropicClientLike
 

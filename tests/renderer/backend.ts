@@ -1,5 +1,6 @@
 import { vi, type Mock } from 'vitest'
 import { createAdapterResolver, type KeyStore } from '../../src/main/core/command/adapterResolver'
+import type { AnthropicClientLike } from '../../src/main/core/command/llm/anthropicAdapter'
 import { createConversationRepository } from '../../src/main/core/command/conversationRepository'
 import type { LlmAdapter } from '../../src/main/core/command/llm/types'
 import { createCommandSession } from '../../src/main/core/command/session'
@@ -165,7 +166,8 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
       const refuseStream = (): never => {
         throw new Error('tests must not call the API')
       }
-      return { messages: { create: refuse, stream: refuseStream }, beta: { messages: { create: refuse, stream: refuseStream } } }
+      // 가짜 클라이언트를 어댑터 형으로 넘기는 곳(시험 쪽에서만 형을 변환한다).
+      return { messages: { create: refuse, stream: refuseStream }, beta: { messages: { create: refuse, stream: refuseStream } } } as unknown as AnthropicClientLike
     },
     fetch: () => {
       throw new Error('tests must not call the network')
