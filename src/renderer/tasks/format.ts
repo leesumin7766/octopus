@@ -72,6 +72,22 @@ export function formatDays(days: readonly number[]): string {
   return sorted.map((d) => ko.routines.weekdayNames[d]).join(' ')
 }
 
+/**
+ * 날짜 머리글: 가까운 날은 "내일 · 11/25 (수)", 그 밖은 formatDate 와 같다("11/27 (금)", 다른 해면 "2027/1/5 (화)").
+ */
+export function dayHeading(date: string, today: string): string {
+  const label = formatDate(date, today)
+  if (label.includes('/')) return label
+  const { month, day } = parseDate(date)
+  return `${label} · ${month}/${day} (${t.weekdays[weekdayOf(date)]})`
+}
+
+/** ISO 시각의 로컬 시·분 "15:20" */
+export function formatClock(iso: string): string {
+  const d = new Date(iso)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 /** ISO 시각을 로컬 "오늘 14:05" · "11/27 (목) 09:30" 로(날짜는 formatDate 와 같은 규칙) */
 export function formatTimestamp(iso: string, today: string = todayString()): string {
   const d = new Date(iso)

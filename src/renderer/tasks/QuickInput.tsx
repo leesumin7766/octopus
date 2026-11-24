@@ -9,7 +9,7 @@ const t = ko.tasks
 
 interface QuickInputProps {
   inputRef: RefObject<HTMLInputElement | null>
-  /** Enter 를 누르면 호출. true 를 돌려주면 입력창을 비운다. */
+  /** Enter 를 누르거나 추가를 누르면 호출. true 를 돌려주면 입력창을 비운다. */
   onSubmit: (text: string) => Promise<boolean>
   debounceMs: number
 }
@@ -24,6 +24,7 @@ function chipsOf(preview: QuickParseResult): { label: string; value: string }[] 
   return chips
 }
 
+/** 빠른 입력 카드: 입력줄과 추가 버튼, 아래에 "알아들은 것" 칩. */
 export function QuickInput({ inputRef, onSubmit, debounceMs }: QuickInputProps) {
   const [text, setText] = useState('')
   const [preview, setPreview] = useState<QuickParseResult | null>(null)
@@ -69,27 +70,42 @@ export function QuickInput({ inputRef, onSubmit, debounceMs }: QuickInputProps) 
   const chips = preview ? chipsOf(preview) : []
 
   return (
-    <div>
-      <input
-        ref={inputRef}
-        type="text"
-        value={text}
-        maxLength={MAX_TEXT_LENGTH}
-        aria-label={t.quickInputLabel}
-        placeholder={t.quickInputPlaceholder}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={handleKeyDown}
-        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-      />
-      {chips.length > 0 && (
-        <ul aria-label={t.previewLabel} className="mt-2 flex flex-wrap gap-1.5">
-          {chips.map((chip) => (
-            <li key={chip.label} className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs text-indigo-700">
-              <span className="text-indigo-400">{chip.label}</span> {chip.value}
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="flex flex-col gap-2 rounded-xl border border-[#E4E3DE] bg-white px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={text}
+          maxLength={MAX_TEXT_LENGTH}
+          aria-label={t.quickInputLabel}
+          placeholder={t.quickInputPlaceholder}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={handleKeyDown}
+          className="min-w-0 flex-1 bg-transparent px-1 py-2 text-[15px] text-ink outline-none placeholder:text-[#8A8984]"
+        />
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={text.trim() === '' || submitting}
+          className="min-h-11 shrink-0 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-40"
+        >
+          {t.quickAddButton}
+        </button>
+      </div>
+      <div className="flex min-h-6 flex-wrap items-center gap-1.5">
+        <span className="text-xs text-[#5E5D58]">{t.parsedLabel}</span>
+        {chips.length > 0 ? (
+          <ul aria-label={t.previewLabel} className="flex flex-wrap gap-1.5">
+            {chips.map((chip) => (
+              <li key={chip.label} className="rounded-full bg-[#E9EBFA] px-2.5 py-0.5 text-xs text-[#22309A]">
+                <span className="text-[#5E6BC0]">{chip.label}</span> {chip.value}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-xs text-[#5E5D58]">{t.parseHint}</span>
+        )}
+      </div>
     </div>
   )
 }

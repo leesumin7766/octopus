@@ -60,7 +60,7 @@ describe('sample tasks', () => {
     expect(t.repo.listView('upcoming', today)).toHaveLength(2)
     expect(t.repo.listView('inbox', today)).toHaveLength(1)
     expect(t.repo.listView('someday', today)).toHaveLength(0)
-    expect(t.repo.listView('done', today)).toHaveLength(0)
+    expect(t.repo.listView('done', today)).toHaveLength(2) // 완료 보기 표본: 오늘 끝낸 것 두 개
   })
 
   it('shows off the row details: a past deadline, a time, a project, a priority and a repeat', () => {

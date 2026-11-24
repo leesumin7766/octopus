@@ -142,7 +142,7 @@ describe('tasks screen', () => {
       expect(row.textContent).toContain('↻ 매주 월')
       const deadline = within(row).getByText(/마감/)
       expect(deadline.textContent).toContain('어제')
-      expect(deadline.className).toContain('text-red-600')
+      expect(deadline.className).toContain('text-red-700')
     })
 
     it('a deadline that is not past is not highlighted', async () => {
@@ -150,7 +150,7 @@ describe('tasks screen', () => {
       renderScreen()
 
       const row = (await screen.findByText('여유')).closest('li') as HTMLElement
-      expect(within(row).getByText(/마감/).className).not.toContain('text-red-600')
+      expect(within(row).getByText(/마감/).className).not.toContain('text-red-700')
     })
 
     it('shows counts next to each view', async () => {
@@ -351,7 +351,8 @@ describe('tasks screen', () => {
           deadline: '2026-03-12',
           priority: 3,
           project: '업무',
-          tags: ['x', 'y']
+          tags: ['x', 'y'],
+          repeat: null
         })
       )
       await waitFor(() => expect(screen.queryByRole('complementary', { name: t.detail.title })).toBeNull())
@@ -412,7 +413,8 @@ describe('tasks screen', () => {
 
       expect((within(panel()).getByLabelText(t.detail.bucket) as HTMLSelectElement).disabled).toBe(true)
       expect(within(panel()).getByText(t.detail.repeatLocksBucket)).toBeTruthy()
-      expect(panel().textContent).toContain('↻ 매주 월')
+      expect((within(panel()).getByLabelText(t.detail.repeat) as HTMLSelectElement).value).toBe('weekly')
+      expect(within(panel()).getByRole('button', { name: '월', pressed: true })).toBeTruthy()
     })
 
     it('Esc closes the panel without saving', async () => {
@@ -428,13 +430,13 @@ describe('tasks screen', () => {
       expect(b.tasks.update).not.toHaveBeenCalled()
     })
 
-    it('"취소" closes it too', async () => {
+    it('"닫기" closes it too', async () => {
       const user = userEvent.setup()
-      b.t.repo.create({ title: '취소할 일', date: '2026-03-10' })
+      b.t.repo.create({ title: '닫을 일', date: '2026-03-10' })
       renderScreen()
-      await openPanel(user, '취소할 일')
+      await openPanel(user, '닫을 일')
 
-      await user.click(within(panel()).getByRole('button', { name: t.detail.cancel }))
+      await user.click(within(panel()).getByRole('button', { name: t.detail.close }))
 
       expect(screen.queryByRole('complementary', { name: t.detail.title })).toBeNull()
     })

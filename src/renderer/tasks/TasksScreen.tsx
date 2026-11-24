@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { IpcError, IpcResult } from '../../shared/ipc'
 import type { Memo } from '../../shared/memos/types'
 import type { TasksApi } from '../../shared/tasks/ipcApi'
+import { localDateString } from '../../shared/tasks/dates'
 import type { Task, TaskFields, TaskView, TodayView } from '../../shared/tasks/types'
 import { ErrorBanner } from '../ErrorBanner'
 import { safeInvoke } from '../safeInvoke'
 import { ko } from '../i18n/ko'
 import { CandidatesSection } from './CandidatesSection'
 import { DetailPanel } from './DetailPanel'
-import { msUntilNextMidnight, todayString } from './format'
+import { dayHeading, formatClock, formatHomeDate, msUntilNextMidnight, todayString } from './format'
 import { OverdueSection } from './OverdueSection'
 import { QuickInput } from './QuickInput'
 import { Sidebar } from './Sidebar'
@@ -16,12 +17,20 @@ import { TaskRow } from './TaskRow'
 
 const t = ko.tasks
 
+/** 되돌리기 알림이 떠 있는 시간(ms) */
+const UNDO_MS = 6000
+
 interface Lists {
   inbox: Task[]
   today: TodayView
   upcoming: Task[]
   someday: Task[]
   done: Task[]
+}
+
+interface Undo {
+  message: string
+  restore: () => Promise<IpcResult<Task>>
 }
 
 async function loadLists(api: TasksApi): Promise<IpcResult<Lists>> {
@@ -59,7 +68,21 @@ function findTask(lists: Lists | null, id: string | null): Task | null {
   return all.find((task) => task.id === id) ?? null
 }
 
+/** 같은 키가 이어지는 항목끼리 묶는다(정렬된 목록이라 이어지는 것만 묶으면 된다). */
+function groupBy(tasks: Task[], keyOf: (task: Task) => string): { key: string; items: Task[] }[] {
+  const groups: { key: string; items: Task[] }[] = []
+  for (const task of tasks) {
+    const key = keyOf(task)
+    const last = groups[groups.length - 1]
+    if (last && last.key === key) last.items.push(task)
+    else groups.push({ key, items: [task] })
+  }
+  return groups
+}
+
 const api = (): TasksApi => window.octopus.tasks
+
+const GROUP_HEADING = 'mb-1 mt-2 text-[13px] font-semibold text-[#4A4945]'
 
 interface TasksScreenProps {
   /** 처음 보여 줄 보기(기본 오늘) */
@@ -68,9 +91,11 @@ interface TasksScreenProps {
   fadeMs?: number
   /** 입력을 멈춘 뒤 미리보기를 요청하기까지의 대기 시간 */
   previewDebounceMs?: number
+  /** 개발용 캡처: 처음 목록이 열리면 반복 할 일(없으면 첫 할 일)의 상세 패널을 연다. */
+  openFirst?: boolean
 }
 
-export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250 }: TasksScreenProps) {
+export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250, openFirst = false }: TasksScreenProps) {
   const [view, setView] = useState<TaskView>(initialView ?? 'today')
   const [lists, setLists] = useState<Lists | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
@@ -78,11 +103,14 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
   const [pending, setPending] = useState<ReadonlyMap<string, boolean>>(new Map())
   const [dayTick, setDayTick] = useState(0)
   const [linkedMemo, setLinkedMemo] = useState<Memo | null>(null)
+  const [undo, setUndo] = useState<Undo | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const loadSeq = useRef(0)
   const mounted = useRef(true)
   const timers = useRef(new Set<number>())
+  const undoTimer = useRef<number | undefined>(undefined)
+  const autoOpened = useRef(false)
 
   const refresh = useCallback(async (): Promise<void> => {
     const seq = ++loadSeq.current
@@ -99,6 +127,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     return () => {
       mounted.current = false
       pendingTimers.forEach((timer) => window.clearTimeout(timer))
+      window.clearTimeout(undoTimer.current)
     }
   }, [refresh])
 
@@ -116,6 +145,15 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
       cancelled = true
     }
   }, [selectedId])
+
+  // 개발용 캡처: 처음 목록이 오면 상세 패널을 한 번 연다.
+  useEffect(() => {
+    if (!openFirst || autoOpened.current || !lists) return
+    autoOpened.current = true
+    const candidates = [...lists.today.overdue, ...lists.today.today]
+    const pick = candidates.find((task) => task.repeat !== null) ?? candidates[0]
+    if (pick) setSelectedId(pick.id)
+  }, [openFirst, lists])
 
   // 창이 다시 포커스될 때 목록을 새로고침한다.
   useEffect(() => {
@@ -154,10 +192,29 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     if (failure.code === 'not_found') void refresh()
   }
 
+  /** 되돌리기 알림을 띄운다. 몇 초 뒤 저절로 사라진다. */
+  function showUndo(next: Undo): void {
+    setUndo(next)
+    window.clearTimeout(undoTimer.current)
+    undoTimer.current = window.setTimeout(() => setUndo(null), UNDO_MS)
+  }
+
+  async function runUndo(): Promise<void> {
+    if (!undo) return
+    const { restore } = undo
+    setUndo(null)
+    window.clearTimeout(undoTimer.current)
+    const result = await restore()
+    if (!result.ok) return fail(result.error)
+    setError(null)
+    await refresh()
+  }
+
   async function toggle(task: Task): Promise<void> {
     const nextChecked = !(pending.get(task.id) ?? task.status === 'done')
     const result = await api().setStatus(task.id, nextChecked ? 'done' : 'open')
     if (!result.ok) return fail(result.error)
+    if (nextChecked) showUndo({ message: t.undo.done(task.title), restore: () => api().setStatus(task.id, 'open') })
 
     // 잠깐 흐려진 채로 보여 준 뒤 목록을 새로고침해 사라지게 한다.
     setPending((previous) => new Map(previous).set(task.id, nextChecked))
@@ -171,6 +228,16 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
       void refresh()
     }, fadeMs)
     timers.current.add(timer)
+  }
+
+  /** 취소: 목록에서만 사라지고 지워지지는 않는다. 되돌리면 다시 연다. */
+  async function cancelTask(task: Task): Promise<void> {
+    const result = await api().setStatus(task.id, 'canceled')
+    if (!result.ok) return fail(result.error)
+    setError(null)
+    setSelectedId(null)
+    showUndo({ message: t.undo.canceled(task.title), restore: () => api().setStatus(task.id, 'open') })
+    await refresh()
   }
 
   async function quickAdd(text: string): Promise<boolean> {
@@ -220,9 +287,9 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
   const selectedTask = findTask(lists, selectedId)
   const counts = lists ? countsOf(lists) : null
 
-  function renderRows(tasks: Task[]) {
+  function renderRows(tasks: Task[], doneLabelOf?: (task: Task) => string | undefined) {
     return (
-      <ul aria-label={t.listLabel}>
+      <ul aria-label={t.listLabel} className="flex flex-col gap-2">
         {tasks.map((task) => (
           <TaskRow
             key={task.id}
@@ -233,10 +300,26 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
             active={task.id === selectedId}
             onToggle={() => void toggle(task)}
             onOpen={() => setSelectedId(task.id)}
+            doneLabel={doneLabelOf?.(task)}
           />
         ))}
       </ul>
     )
+  }
+
+  /** 날짜별로 묶어 머리글을 붙인다(예정·완료). */
+  function renderGrouped(tasks: Task[], keyOf: (task: Task) => string, doneLabelOf?: (task: Task) => string | undefined) {
+    return groupBy(tasks, keyOf).map((group) => {
+      const heading = group.key === '' ? t.views[view] : dayHeading(group.key, today)
+      return (
+        <section key={group.key} aria-label={heading}>
+          <h2 className={GROUP_HEADING}>
+            {heading} <span className="font-normal text-[#5E5D58]">{group.items.length}</span>
+          </h2>
+          {renderRows(group.items, doneLabelOf)}
+        </section>
+      )
+    })
   }
 
   function renderContent() {
@@ -262,7 +345,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
           )}
           {dueToday.length > 0 && (
             <section aria-label={t.todaySection}>
-              <h2 className="mb-1 text-sm font-semibold text-slate-600">{t.todaySection}</h2>
+              <h2 className={GROUP_HEADING}>{t.todaySection}</h2>
               {renderRows(dueToday)}
             </section>
           )}
@@ -270,27 +353,55 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
       )
     }
 
+    if (view === 'upcoming') {
+      if (lists.upcoming.length === 0) return <p className="text-sm text-slate-500">{t.empty.upcoming}</p>
+      return renderGrouped(lists.upcoming, (task) => task.date ?? '')
+    }
+
+    if (view === 'done') {
+      if (lists.done.length === 0) return <p className="text-sm text-slate-500">{t.empty.done}</p>
+      const doneDay = (task: Task): string => (task.doneAt ? localDateString(new Date(task.doneAt)) : '')
+      const doneLabel = (task: Task): string | undefined => (task.doneAt ? t.doneAt(formatClock(task.doneAt)) : undefined)
+      return renderGrouped(lists.done, doneDay, doneLabel)
+    }
+
     const tasks = lists[view]
     if (tasks.length === 0) return <p className="text-sm text-slate-500">{t.empty[view]}</p>
     return renderRows(tasks)
   }
 
+  const subtitle = view === 'today' ? formatHomeDate(new Date()) : t.subtitles[view]
+  const hint = view === 'today' ? null : (t.hints[view] ?? null)
+
   return (
-    <div className="flex h-full bg-slate-50 text-slate-900">
+    <div className="relative flex h-full bg-[#F6F6F3] text-ink">
       <Sidebar view={view} counts={counts} onSelect={setView} />
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-slate-200 bg-white px-5 py-3">
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        <header className="px-8 pb-2 pt-6">
           <QuickInput inputRef={inputRef} onSubmit={quickAdd} debounceMs={previewDebounceMs} />
         </header>
 
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
 
-        <section aria-label={t.views[view]} className="flex-1 overflow-y-auto px-5 py-4">
-          <h1 className="mb-3 text-lg font-semibold">{t.views[view]}</h1>
+        <section aria-label={t.views[view]} className="flex-1 overflow-y-auto px-8 pb-8 pt-2">
+          <div className="mb-1 flex flex-wrap items-baseline gap-3">
+            <h1 className="text-[28px] font-bold leading-tight">{t.views[view]}</h1>
+            <span className="text-sm text-[#5E5D58]">{subtitle}</span>
+          </div>
+          {hint && <p className="mb-3 text-xs text-[#5E5D58]">{hint}</p>}
           {view === 'inbox' && <CandidatesSection onChanged={() => void refresh()} />}
           {renderContent()}
         </section>
+
+        {undo && (
+          <div role="status" className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-[10px] bg-[#1f1f1d] px-4 py-3 text-sm text-[#f6f6f3]">
+            <span>{undo.message}</span>
+            <button type="button" onClick={() => void runUndo()} className="font-semibold text-[#c9cdf7] hover:underline">
+              {t.undo.button}
+            </button>
+          </div>
+        )}
       </main>
 
       {selectedTask && (
@@ -300,6 +411,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
           linkedMemo={linkedMemo}
           onSave={(patch) => saveDetail(selectedTask.id, patch)}
           onRemove={() => removeTask(selectedTask.id)}
+          onCancel={() => cancelTask(selectedTask)}
           onClose={() => setSelectedId(null)}
         />
       )}

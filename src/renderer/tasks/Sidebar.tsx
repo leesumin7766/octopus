@@ -12,22 +12,23 @@ interface SidebarProps {
   onSelect: (view: TaskView) => void
 }
 
+/** 보기 목록(수신함·오늘·예정·나중에·완료). 목업처럼 옅은 바탕 위에 고른 보기만 흰 바탕으로 올라온다. */
 export function Sidebar({ view, counts, onSelect }: SidebarProps) {
   return (
-    <nav aria-label={t.viewsNavLabel} className="w-40 shrink-0 border-r border-slate-200 bg-white px-2 py-4">
-      <ul className="space-y-1">
+    <nav aria-label={t.viewsNavLabel} className="w-44 shrink-0 bg-[#EDECE7] px-3 py-5">
+      <ul className="flex flex-col gap-0.5">
         {VIEW_ORDER.map((name) => (
           <li key={name}>
             <button
               type="button"
               aria-current={name === view ? 'page' : undefined}
               onClick={() => onSelect(name)}
-              className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm ${
-                name === view ? 'bg-indigo-50 font-semibold text-indigo-700' : 'text-slate-700 hover:bg-slate-100'
+              className={`flex min-h-10 w-full items-center justify-between rounded-lg px-3 text-left text-sm ${
+                name === view ? 'bg-white font-semibold text-accent' : 'text-ink hover:bg-black/5'
               }`}
             >
               <span>{t.views[name]}</span>
-              <span className="text-xs text-slate-400">{counts ? counts[name] : ''}</span>
+              <span className="text-xs text-[#5E5D58]">{counts ? counts[name] : ''}</span>
             </button>
           </li>
         ))}

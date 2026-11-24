@@ -52,7 +52,8 @@ export function App() {
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [])
-  const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial as TaskView) : undefined
+  // 할 일 화면의 처음 보기. 상세 패널 캡처(task-detail)는 오늘 보기에서 연다.
+  const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial === 'task-detail' ? 'today' : (initial as TaskView)) : undefined
 
   function navigate(next: Screen): void {
     setScreen(next)
@@ -136,7 +137,7 @@ export function App() {
             pieDemo={initial === 'home-pie' ? { hover: 1 } : undefined}
           />
         )}
-        {screen === 'tasks' && <TasksScreen initialView={taskView} />}
+        {screen === 'tasks' && <TasksScreen initialView={taskView} openFirst={initial === 'task-detail'} />}
         {screen === 'routines' && <RoutinesScreen />}
         {screen === 'memos' && <MemosScreen />}
         {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} onOpenSettings={(name) => name === 'obsidian' && navigate('obsidian')} />}

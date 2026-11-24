@@ -41,6 +41,29 @@ describe('formatDate', () => {
   })
 })
 
+describe('dayHeading and formatClock', () => {
+  it('near days show the word, then the date', async () => {
+    const { dayHeading } = await import('../../src/renderer/tasks/format')
+    const today = '2026-11-24'
+    expect(dayHeading('2026-11-24', today)).toBe('오늘 · 11/24 (화)')
+    expect(dayHeading('2026-11-25', today)).toBe('내일 · 11/25 (수)')
+    expect(dayHeading('2026-11-23', today)).toBe('어제 · 11/23 (월)')
+  })
+
+  it('other days show the date only; across the year end the year is shown when it is not this year', async () => {
+    const { dayHeading } = await import('../../src/renderer/tasks/format')
+    expect(dayHeading('2026-11-27', '2026-11-24')).toBe('11/27 (금)')
+    expect(dayHeading('2026-12-31', '2026-12-30')).toBe('내일 · 12/31 (목)')
+    expect(dayHeading('2027-01-05', '2026-12-31')).toBe('2027/1/5 (화)')
+  })
+
+  it('formatClock is the local HH:mm', async () => {
+    const { formatClock } = await import('../../src/renderer/tasks/format')
+    expect(formatClock(new Date(2026, 10, 24, 9, 5).toISOString())).toBe('09:05')
+    expect(formatClock(new Date(2026, 10, 24, 15, 20).toISOString())).toBe('15:20')
+  })
+})
+
 describe('formatTimestamp', () => {
   it('uses the same day rule, then the time as HH:mm', () => {
     expect(formatTimestamp(new Date(2026, 2, 10, 15, 0).toISOString(), '2026-03-10')).toBe('오늘 15:00')

@@ -283,6 +283,23 @@ export const ko = {
     },
 
     quickInputLabel: '빠른 입력',
+    quickAddButton: '추가',
+    parsedLabel: '알아들은 것',
+    parseHint: '날짜(오늘·내일) · 시간(3시) · #프로젝트 · !높음 · 매주/매월 을 알아듣습니다',
+    subtitles: { inbox: '정리 전 할 일', upcoming: '앞으로의 할 일', someday: '날짜 없는 할 일', done: '끝낸 할 일' } as Record<string, string>,
+    hints: {
+      inbox: '날짜를 정하지 않은 것. 연결된 도구에서 들어온 것도 여기로 와요.',
+      upcoming: '날짜가 정해진 것. 그날이 되면 저절로 오늘에 나타나요.',
+      someday: '언젠가 할 것. 날짜를 붙이면 예정으로 가요.',
+      done: '끝낸 날짜별로 모아 두었어요.'
+    } as Record<string, string>,
+    doneAt: (time: string) => `${time} 완료`,
+    undo: {
+      done: (title: string) => `"${title}" 을(를) 끝냈어요.`,
+      canceled: (title: string) => `"${title}" 을(를) 취소했어요.`,
+      button: '되돌리기',
+      dismiss: '닫기'
+    },
     quickInputPlaceholder: '할 일을 입력하고 Enter 를 누르세요. 예: 내일 오후 3시 보고서 #업무 !높음',
     previewLabel: '인식한 내용',
     chip: {
@@ -364,7 +381,23 @@ export const ko = {
       close: '닫기',
       linkedMemo: '연결된 메모',
       routineLocksDate: '루틴 항목은 날짜와 보관함을 바꿀 수 없어요. 체크리스트 화면에서 루틴 설정을 바꿔 주세요.',
-      routineManage: '루틴 항목은 체크리스트에서 관리해요.'
+      routineManage: '루틴 항목은 체크리스트에서 관리해요.',
+      cancelTask: '취소',
+      cancelHelp: '취소한 할 일은 목록에서 사라지지만 지워지지 않아요.',
+      repeatEdit: {
+        kinds: { none: '없음', daily: '매일', weekdays: '평일', weekly: '매주', monthly: '매월', yearly: '매년' } as Record<string, string>,
+        interval: '간격',
+        every: { daily: '일마다', weekly: '주마다', monthly: '개월마다', yearly: '년마다' } as Record<string, string>,
+        weekdaysLabel: '요일',
+        monthDayLabel: '날짜(일)',
+        preview: (text: string) => `미리보기: ${text}`,
+        errors: {
+          interval: '간격은 1부터 99 사이의 숫자로 적어 주세요.',
+          weekdays: '요일을 하나 이상 골라 주세요.',
+          monthDay: '날짜는 1일부터 31일 사이로 골라 주세요.'
+        },
+        routineLocked: '루틴 항목은 반복을 바꿀 수 없어요. 체크리스트에서 설정해 주세요.'
+      }
     },
 
     fieldErrors: {
