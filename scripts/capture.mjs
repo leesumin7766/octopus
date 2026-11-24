@@ -24,6 +24,7 @@ const SHOTS = [
   ['settings', 'settings'],
   ['command', 'command'],
   ['command-nokey', 'command-nokey'],
+  ['command-streaming', 'command-streaming'],
   ['arms', 'arms'],
   ['arms-mcp', 'arms-mcp'],
   ['inbox', 'inbox'],

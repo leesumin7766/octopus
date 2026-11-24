@@ -7,7 +7,7 @@ import { createCoreTools } from '../../src/main/core/command/tools/coreTools'
 import { createToolRegistry } from '../../src/main/core/command/tools/registry'
 import { createCommandHandlers } from '../../src/main/ipc/command'
 import type { CommandApi } from '../../src/shared/command/ipcApi'
-import type { LlmProvider } from '../../src/shared/command/types'
+import type { CommandEvent, LlmProvider } from '../../src/shared/command/types'
 import { createUlidGenerator } from '../../src/shared/tasks/ulid'
 import { scripted } from '../command/helpers'
 import { createArmManager, type ArmManager } from '../../src/main/arms/sdk/manager'
@@ -110,6 +110,10 @@ export interface Backend {
   keys: Partial<Record<LlmProvider, string>>
   /** 가짜 모델의 다음 응답들을 정한다. 진짜 API 는 부르지 않는다. */
   setLlm(steps: Parameters<typeof scripted>[0]): ReturnType<typeof scripted>
+  /** 스트리밍 등 직접 만든 가짜 모델을 쓴다. */
+  setAdapter(adapter: LlmAdapter): void
+  /** 진행 이벤트를 화면으로 직접 보낸다. */
+  emitCommandEvent(event: CommandEvent): void
 }
 
 /**
@@ -146,7 +150,10 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
 
   const keys: Partial<Record<LlmProvider, string>> = {}
   const keyStore: KeyStore = { get: (p) => keys[p], set: (p, k) => void (keys[p] = k), delete: (p) => void delete keys[p] }
-  let llm: ReturnType<typeof scripted> = scripted([])
+  let llm: LlmAdapter = scripted([])
+  // 지시하기 진행 이벤트를 받는 쪽(화면). 진짜 앱에서는 main 이 보낸 창으로 밀어 주는 것을 흉내 낸다.
+  const commandListeners = new Set<(event: CommandEvent) => void>()
+  const emitCommandEvent = (event: CommandEvent): void => commandListeners.forEach((listener) => listener(event))
   const resolve = createAdapterResolver({
     keys: keyStore,
     models: () => settingsRepo.get('command.models'),
@@ -155,7 +162,10 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
       const refuse = async (): Promise<never> => {
         throw new Error('tests must not call the API')
       }
-      return { messages: { create: refuse }, beta: { messages: { create: refuse } } }
+      const refuseStream = (): never => {
+        throw new Error('tests must not call the API')
+      }
+      return { messages: { create: refuse, stream: refuseStream }, beta: { messages: { create: refuse, stream: refuseStream } } }
     },
     fetch: () => {
       throw new Error('tests must not call the network')
@@ -183,8 +193,13 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     models: vi.fn(async () => commandHandlers.models()),
     setKey: vi.fn(async (provider: unknown, key: unknown) => commandHandlers.setKey(provider, key)),
     clearKey: vi.fn(async (provider: unknown) => commandHandlers.clearKey(provider)),
-    send: vi.fn(async (input: unknown) => commandHandlers.send(input)),
-    decide: vi.fn(async (id: unknown, decisions: unknown) => commandHandlers.decide(id, decisions)),
+    send: vi.fn(async (input: unknown) => commandHandlers.send(input, emitCommandEvent)),
+    decide: vi.fn(async (id: unknown, decisions: unknown) => commandHandlers.decide(id, decisions, emitCommandEvent)),
+    cancel: vi.fn(async (id: unknown) => commandHandlers.cancel(id)),
+    onEvent: vi.fn((listener: (event: CommandEvent) => void) => {
+      commandListeners.add(listener)
+      return () => void commandListeners.delete(listener)
+    }),
     pending: vi.fn(async (id: unknown) => commandHandlers.pending(id)),
     conversations: vi.fn(async () => commandHandlers.conversations()),
     transcript: vi.fn(async (id: unknown) => commandHandlers.transcript(id)),
@@ -384,5 +399,5 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, update, updateState, obsidian, obsidianArm, vault, obsidianConfirm, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => (llm = scripted(steps)) }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, update, updateState, obsidian, obsidianArm, vault, obsidianConfirm, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => { const adapter = scripted(steps); llm = adapter; return adapter }, setAdapter: (adapter) => void (llm = adapter), emitCommandEvent }
 }

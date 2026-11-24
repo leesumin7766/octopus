@@ -3,5 +3,5 @@
 export { cleanupCapture, captureWhenLoaded, prepareCapture } from './capture'
 export type { CaptureSession } from './capture'
 export { CAPTURE_ARM_VIEWS, createBrokenExampleArm, createCaptureCalendar, createCaptureMcpConnector, createExampleArm, createMemorySecureStore } from './captureArms'
-export { createCaptureAdapter, createCaptureKeyStore, seedCaptureCommand } from './captureLlm'
+export { createCaptureAdapter, createCaptureKeyStore, createCaptureStreamingAdapter, seedCaptureCommand } from './captureLlm'
 export { createSampleData, seedCaptureSettings } from './captureSupport'

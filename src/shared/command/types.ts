@@ -86,6 +86,19 @@ export interface TurnState {
   error?: CommandErrorKind
 }
 
+/**
+ * 지시하기가 진행되는 동안 main 이 창에 밀어 주는 진행 이벤트(표시용). 최종 결과는 send/decide 의 반환값이다.
+ * - text 글 조각 · replace 이미 흘려보낸 글을 안내로 바꿈 · tool 읽기 도구 실행 중 · approval 승인 카드 대기
+ * - done 끝남(canceled 면 사용자가 중지함) · error 오류로 끝남
+ */
+export type CommandEvent =
+  | { conversationId: string; kind: 'text'; text: string }
+  | { conversationId: string; kind: 'replace'; reason: 'refusal' }
+  | { conversationId: string; kind: 'tool'; name: string }
+  | { conversationId: string; kind: 'approval' }
+  | { conversationId: string; kind: 'done'; canceled?: boolean }
+  | { conversationId: string; kind: 'error'; error: CommandErrorKind }
+
 export type CommandErrorKind =
   | 'no_key'
   | 'auth'

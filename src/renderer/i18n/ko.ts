@@ -446,7 +446,17 @@ export const ko = {
     inputLabel: '지시 내용',
     placeholder: '무엇을 시킬까요?  (Enter 보내기 · Shift+Enter 줄바꿈)',
     send: '보내기',
+    stop: '중지',
     thinking: '생각 중…',
+    refusalReplaced: '응답을 이어 갈 수 없어요.',
+    runningLines: {
+      list_tasks: '할 일 목록을 보는 중…',
+      search_tasks: '할 일을 찾는 중…',
+      list_memos: '메모 목록을 보는 중…',
+      search_memos: '메모를 찾는 중…',
+      list_routines_today: '오늘 체크리스트를 보는 중…'
+    } as Record<string, string>,
+    runningFallback: (name: string) => `${name} 도구로 읽는 중…`,
     empty: '할 일을 찾거나 추가하고, 메모를 정리하도록 시켜 보세요.',
     conversationLabel: '대화',
     you: '나',

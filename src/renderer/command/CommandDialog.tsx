@@ -6,7 +6,7 @@ import { ko } from '../i18n/ko'
 import { useSetting } from '../settings/useSetting'
 import { errorMessage } from '../tasks/errors'
 import { ApprovalCard } from './ApprovalCard'
-import { errorText, toolLine } from './commandText'
+import { errorText, runningLine, toolLine } from './commandText'
 import { useModelStatus } from './useModelStatus'
 
 const t = ko.command
@@ -17,7 +17,12 @@ interface CommandDialogProps {
   onOpenSettings: () => void
   /** 개발용 캡처: 가장 최근 대화를 바로 열어 둔다. */
   openLatest?: boolean
+  /** 개발용 캡처: 열리면 이 말을 바로 보낸다(스트리밍 중간 화면용). */
+  autoSend?: string
 }
+
+/** 글이 쌓이는 동안 맨 아래를 따라가다가, 사용자가 이 거리(px)보다 더 위로 올리면 멈춘다. */
+const STICK_PX = 24
 
 /** 사용할 모델: 고른 것이 목록에 있으면 그것, 아니면 쓸 수 있는 첫 모델, 아니면 첫 모델 */
 function chooseModel(models: ModelEntry[], hasKey: Record<string, boolean>, selected: string): ModelEntry | undefined {
@@ -29,7 +34,7 @@ function chooseModel(models: ModelEntry[], hasKey: Record<string, boolean>, sele
  * 지시하기 창(Ctrl+K). 위는 대화, 아래는 입력. 쓰기 동작은 승인 카드에서 [실행]을 눌러야 실행된다.
  * 모델의 글은 HTML 이 아니라 글자로만 그린다.
  */
-export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: CommandDialogProps) {
+export function CommandDialog({ onClose, onOpenSettings, openLatest = false, autoSend }: CommandDialogProps) {
   const status = useModelStatus()
   const selected = useSetting('command.model')
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -42,10 +47,23 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
   const [text, setText] = useState('')
   const [chats, setChats] = useState<ConversationSummary[]>([])
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  // 스트리밍 중인 답: 첫 조각 전에는 null("생각 중…"), 조각이 오면 이어 붙인다.
+  const [streaming, setStreaming] = useState<string | null>(null)
+  // 거절(refusal)로 끝나서 흘려보낸 글을 안내로 바꾼 상태
+  const [replaced, setReplaced] = useState(false)
+  // 읽기 도구를 실행하는 중이면 그 이름
+  const [toolName, setToolName] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const logRef = useRef<HTMLDivElement>(null)
   const mounted = useRef(true)
   const opener = useRef<Element | null>(document.activeElement)
+  const busyRef = useRef(false)
+  const conversationRef = useRef<string | null>(null)
+  const stickRef = useRef(true)
+  const afterTool = useRef(false)
+  const autoSent = useRef(false)
+  busyRef.current = busy
+  conversationRef.current = conversationId
 
   const model = chooseModel(status.models, status.hasKey, typeof selected.value === 'string' ? selected.value : '')
   const noKey = status.loaded && !status.connected
@@ -56,8 +74,37 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
     return () => {
       mounted.current = false
       previous?.focus?.()
+      // 창을 닫으면 진행 중인 요청도 멈춘다.
+      if (busyRef.current) void window.octopus.command.cancel(conversationRef.current)
     }
   }, [])
+
+  // main 이 밀어 주는 진행 이벤트(이 창에만 온다). 보내는 동안의 표시용이다.
+  useEffect(() => {
+    return window.octopus.command.onEvent((event) => {
+      if (!mounted.current || !busyRef.current) return
+      if (event.kind === 'text') {
+        const gap = afterTool.current
+        afterTool.current = false
+        setReplaced(false)
+        setToolName(null)
+        setStreaming((current) => (current === null ? event.text : `${current}${gap ? '\n\n' : ''}${event.text}`))
+      } else if (event.kind === 'replace') {
+        setStreaming(null)
+        setReplaced(true)
+      } else if (event.kind === 'tool') {
+        afterTool.current = true
+        setToolName(event.name)
+      }
+    })
+  }, [])
+
+  function clearStream(): void {
+    setStreaming(null)
+    setReplaced(false)
+    setToolName(null)
+    afterTool.current = false
+  }
 
   // Esc 로 닫는다(입력 중이어도).
   useEffect(() => {
@@ -74,11 +121,11 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
     inputRef.current?.focus()
   }, [status.loaded])
 
-  // 새 글이 생기면 맨 아래로.
+  // 새 글이 생기면 맨 아래로. 사용자가 위로 올려 읽는 중이면 따라가지 않는다.
   useEffect(() => {
     const log = logRef.current
-    if (log) log.scrollTop = log.scrollHeight
-  }, [items, pending, busy, errorKind])
+    if (log && stickRef.current) log.scrollTop = log.scrollHeight
+  }, [items, pending, busy, errorKind, streaming, replaced, toolName])
 
   const loadChats = useCallback(async (): Promise<ConversationSummary[]> => {
     const result = await window.octopus.command.conversations()
@@ -126,11 +173,15 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
     void loadChats()
   }
 
-  async function send(): Promise<void> {
-    const body = text.trim()
+  async function send(override?: string): Promise<void> {
+    const body = (override ?? text).trim()
     if (busy || body === '' || !model) return
+    // 첫 이벤트가 다시 그리기보다 먼저 올 수 있어서, 보내는 중이라는 표시는 바로 켠다.
+    busyRef.current = true
     setBusy(true)
-    setText('')
+    if (override === undefined) setText('')
+    clearStream()
+    stickRef.current = true
     setErrorKind(null)
     setIpcError(null)
     // 승인 카드가 떠 있는 채로 보내면 그 카드는 거절 처리된다.
@@ -140,6 +191,7 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
     const result = await window.octopus.command.send({ conversationId, modelId: model.id, text: body })
     if (!mounted.current) return
     setBusy(false)
+    clearStream()
     if (result.ok) apply(result.data, true)
     else setIpcError(result.error)
     inputRef.current?.focus()
@@ -147,14 +199,31 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
 
   async function submitDecisions(next: Record<string, boolean>): Promise<void> {
     if (conversationId === null) return
+    busyRef.current = true
     setBusy(true)
+    clearStream()
+    stickRef.current = true
     const decisions = pending.map((p) => ({ callId: p.callId, approve: next[p.callId] === true }))
     const result = await window.octopus.command.decide(conversationId, decisions)
     if (!mounted.current) return
     setBusy(false)
+    clearStream()
     if (result.ok) apply(result.data, false)
     else setIpcError(result.error)
   }
+
+  /** 진행 중인 요청을 멈춘다. 멈춘 턴의 결과(받은 글 + "(중지됨)")는 send/decide 가 돌려준다. */
+  async function stop(): Promise<void> {
+    await window.octopus.command.cancel(conversationRef.current)
+  }
+
+  // 개발용 캡처: 모델이 정해지면 정해 둔 말을 한 번 보낸다.
+  useEffect(() => {
+    if (!autoSend || autoSent.current || !model || !status.loaded || noKey) return
+    autoSent.current = true
+    void send(autoSend)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSend, model, status.loaded, noKey])
 
   function choose(callId: string, approve: boolean): void {
     const next = { ...choices, [callId]: approve }
@@ -272,7 +341,17 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
               </button>
             </div>
           ) : (
-            <div ref={logRef} role="log" aria-label={t.conversationLabel} aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
+            <div
+              ref={logRef}
+              role="log"
+              aria-label={t.conversationLabel}
+              aria-live="polite"
+              onScroll={(event) => {
+                const el = event.currentTarget
+                stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= STICK_PX
+              }}
+              className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3"
+            >
               {items.length === 0 && pending.length === 0 && !busy && <p className="m-auto max-w-xs text-center text-sm text-[#6b6a65]">{t.empty}</p>}
               {items.map((item, index) =>
                 item.kind === 'tool' ? (
@@ -290,7 +369,21 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
                 <ApprovalCard key={approval.callId} approval={approval} choice={choices[approval.callId]} disabled={busy} onChoose={choose} />
               ))}
               {pending.length > 0 && <p className="text-xs text-[#6b6a65]">{t.approvalHint}</p>}
-              {busy && (
+              {busy && (streaming !== null || replaced) && (
+                // 흘러오는 글. 글자로만 그린다(HTML 로 해석하지 않는다).
+                <div className="flex flex-col items-start">
+                  <span className="mb-0.5 text-[11px] text-[#6b6a65]">{t.assistant}</span>
+                  <p data-testid="streaming-bubble" className="max-w-[85%] whitespace-pre-wrap break-words rounded-xl bg-page px-3 py-2 text-sm text-ink">
+                    {replaced ? t.refusalReplaced : streaming}
+                  </p>
+                </div>
+              )}
+              {busy && toolName !== null && (
+                <p role="status" className="text-xs text-[#6b6a65]">
+                  {runningLine(toolName)}
+                </p>
+              )}
+              {busy && streaming === null && !replaced && toolName === null && (
                 <p role="status" className="text-sm text-[#6b6a65]">
                   {t.thinking}
                 </p>
@@ -326,14 +419,24 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false }: C
               className="w-full resize-none rounded-lg border border-[#dad9d4] bg-white px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:bg-page"
             />
             <div className="mt-1.5 flex justify-end">
-              <button
-                type="button"
-                onClick={() => void send()}
-                disabled={busy || noKey || text.trim() === ''}
-                className="min-h-9 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-40"
-              >
-                {t.send}
-              </button>
+              {busy ? (
+                <button
+                  type="button"
+                  onClick={() => void stop()}
+                  className="min-h-9 rounded-lg border border-[#c9c7f0] bg-white px-4 text-sm font-semibold text-accent-strong hover:bg-accent-soft"
+                >
+                  {t.stop}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void send()}
+                  disabled={noKey || text.trim() === ''}
+                  className="min-h-9 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-40"
+                >
+                  {t.send}
+                </button>
+              )}
             </div>
           </div>
         </div>

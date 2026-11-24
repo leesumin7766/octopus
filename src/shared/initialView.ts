@@ -5,9 +5,9 @@ import { parseView } from './validation/taskIpc'
  * 앱이 처음 보여 줄 화면: 할 일의 보기 5종, 체크리스트, 메모, 홈, 배치 모드가 켜진 홈.
  * 개발용 캡처에서만 쓴다(평소에는 null 이고 홈으로 시작한다).
  */
-export type InitialView = TaskView | 'routines' | 'memos' | 'home' | 'home-arrange' | 'home-pie' | 'home-narrow' | 'task-detail' | 'settings' | 'command' | 'command-nokey' | 'arms' | 'arms-mcp' | 'obsidian' | 'welcome-1' | 'welcome-2' | 'welcome-3'
+export type InitialView = TaskView | 'routines' | 'memos' | 'home' | 'home-arrange' | 'home-pie' | 'home-narrow' | 'task-detail' | 'settings' | 'command' | 'command-nokey' | 'command-streaming' | 'arms' | 'arms-mcp' | 'obsidian' | 'welcome-1' | 'welcome-2' | 'welcome-3'
 
-const EXTRA_VIEWS: readonly unknown[] = ['routines', 'memos', 'home', 'home-arrange', 'home-pie', 'home-narrow', 'task-detail', 'settings', 'command', 'command-nokey', 'arms', 'arms-mcp', 'obsidian', 'welcome-1', 'welcome-2', 'welcome-3']
+const EXTRA_VIEWS: readonly unknown[] = ['routines', 'memos', 'home', 'home-arrange', 'home-pie', 'home-narrow', 'task-detail', 'settings', 'command', 'command-nokey', 'command-streaming', 'arms', 'arms-mcp', 'obsidian', 'welcome-1', 'welcome-2', 'welcome-3']
 
 /** main 이 개발용 캡처 때 창에 넘기는 인자 이름. 평소에는 쓰지 않는다. */
 export const INITIAL_VIEW_ARG = '--octopus-initial-view='

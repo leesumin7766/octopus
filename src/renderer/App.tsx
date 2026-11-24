@@ -23,7 +23,7 @@ function initialScreen(initial: InitialView | null): Screen {
   if (initial === 'routines' || initial === 'memos' || initial === 'settings') return initial
   if (initial === 'arms' || initial === 'arms-mcp') return 'arms'
   if (initial === 'obsidian') return 'obsidian'
-  if (initial === 'home-pie' || initial === 'home-narrow' || initial === 'command' || initial === 'command-nokey') return 'home'
+  if (initial === 'home-pie' || initial === 'home-narrow' || initial === 'command' || initial === 'command-nokey' || initial === 'command-streaming') return 'home'
   return 'tasks'
 }
 
@@ -37,7 +37,7 @@ export function App() {
   // 첫 실행 안내: 'checking'(아직 모름) → 'show' | 'hide'
   const [welcome, setWelcome] = useState<'checking' | 'show' | 'hide'>(typeof initial === 'string' && initial.startsWith('welcome-') ? 'show' : 'checking')
   const models = useModelStatus()
-  const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey')
+  const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey' || initial === 'command-streaming')
   // 지시하기가 데이터를 바꾸면 뒤의 화면이 새로 읽도록 key 를 바꿔 다시 그린다.
   const [dataVersion, setDataVersion] = useState(0)
   useDataChanged(() => setDataVersion((v) => v + 1))
@@ -147,6 +147,7 @@ export function App() {
       {commandOpen && (
         <CommandDialog
           openLatest={initial === 'command'}
+          autoSend={initial === 'command-streaming' ? '오늘 할 일을 정리해 줘' : undefined}
           onClose={() => setCommandOpen(false)}
           onOpenSettings={() => {
             setCommandOpen(false)

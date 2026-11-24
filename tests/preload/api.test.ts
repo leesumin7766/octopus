@@ -4,12 +4,14 @@ import { IPC } from '../../src/shared/ipc'
 // electron 은 진짜로 불러오지 않고, preload 가 무엇을 노출하고 어떻게 호출하는지만 본다.
 const mocks = vi.hoisted(() => ({
   exposeInMainWorld: vi.fn(),
-  invoke: vi.fn(async () => ({ ok: true, data: null }))
+  invoke: vi.fn(async () => ({ ok: true, data: null })),
+  on: vi.fn(),
+  removeListener: vi.fn()
 }))
 
 vi.mock('electron', () => ({
   contextBridge: { exposeInMainWorld: mocks.exposeInMainWorld },
-  ipcRenderer: { invoke: mocks.invoke }
+  ipcRenderer: { invoke: mocks.invoke, on: mocks.on, removeListener: mocks.removeListener }
 }))
 
 type Fns = Record<string, (...args: unknown[]) => Promise<unknown>>
@@ -59,8 +61,66 @@ describe('preload', () => {
 
   it('exposes exactly the command functions; there is no way to read an API key', () => {
     expect(Object.keys(api.command).sort()).toEqual(
-      ['clearKey', 'conversations', 'decide', 'models', 'pending', 'removeConversation', 'send', 'setKey', 'transcript'].sort()
+      ['cancel', 'clearKey', 'conversations', 'decide', 'models', 'onEvent', 'pending', 'removeConversation', 'send', 'setKey', 'transcript'].sort()
     )
+  })
+
+  describe('command progress events', () => {
+    type Handler = (event: unknown, value: unknown) => void
+    const onEvent = (): ((listener: (event: unknown) => void) => () => void) => api.command.onEvent as never
+
+    it('subscribes to the one event channel only, and the returned function unsubscribes that same handler', () => {
+      mocks.on.mockClear()
+      mocks.removeListener.mockClear()
+
+      const stop = onEvent()(() => undefined)
+
+      expect(mocks.on).toHaveBeenCalledTimes(1)
+      expect(mocks.on.mock.calls[0][0]).toBe(IPC.commandEvent)
+      stop()
+      expect(mocks.removeListener).toHaveBeenCalledWith(IPC.commandEvent, mocks.on.mock.calls[0][1])
+    })
+
+    it('hands the listener only values of the right shape (and never the electron event)', () => {
+      mocks.on.mockClear()
+      const seen: unknown[] = []
+      onEvent()((event) => seen.push(event))
+      const handler = mocks.on.mock.calls[0][1] as Handler
+
+      handler({ sender: 'electron-internals' }, { conversationId: 'c', kind: 'text', text: '안녕' })
+      handler({}, { conversationId: 'c', kind: 'done', canceled: true })
+      handler({}, { conversationId: 'c', kind: 'replace', reason: 'refusal' })
+      handler({}, { conversationId: 'c', kind: 'tool', name: 'list_tasks' })
+      handler({}, { conversationId: 'c', kind: 'error', error: 'network' })
+      // 모양이 틀린 것은 버린다.
+      for (const bad of [null, 'text', 5, {}, { kind: 'text', text: 'x' }, { conversationId: 'c', kind: 'text' }, { conversationId: 'c', kind: 'text', text: 5 }, { conversationId: 'c', kind: 'replace', reason: 'other' }, { conversationId: 'c', kind: 'error', error: 'weird' }, { conversationId: 'c', kind: 'launch', cmd: 'x' }]) handler({}, bad)
+
+      expect(seen).toEqual([
+        { conversationId: 'c', kind: 'text', text: '안녕' },
+        { conversationId: 'c', kind: 'done', canceled: true },
+        { conversationId: 'c', kind: 'replace', reason: 'refusal' },
+        { conversationId: 'c', kind: 'tool', name: 'list_tasks' },
+        { conversationId: 'c', kind: 'error', error: 'network' }
+      ])
+    })
+
+    it('an event delivered with extra fields only passes the known ones', () => {
+      mocks.on.mockClear()
+      const seen: unknown[] = []
+      onEvent()((event) => seen.push(event))
+      const handler = mocks.on.mock.calls[0][1] as Handler
+
+      handler({}, { conversationId: 'c', kind: 'text', text: 'x', secret: 'leak' })
+
+      expect(seen).toEqual([{ conversationId: 'c', kind: 'text', text: 'x' }])
+      expect(JSON.stringify(seen)).not.toContain('leak')
+
+      // 바탕 객체가 다른 값(프로토타입을 바꾼 것)은 받지 않는다.
+      const odd = Object.create({ polluted: true }) as Record<string, unknown>
+      Object.assign(odd, { conversationId: 'c', kind: 'text', text: 'y' })
+      handler({}, odd)
+      expect(seen).toHaveLength(1)
+    })
   })
 
   it('exposes exactly the arms and candidate functions; nothing takes an address or a path', () => {
@@ -114,6 +174,8 @@ describe('preload', () => {
     ['command', 'conversations', [], IPC.commandConversations],
     ['command', 'transcript', ['ID'], IPC.commandTranscript],
     ['command', 'removeConversation', ['ID'], IPC.commandRemoveConversation],
+    ['command', 'cancel', ['ID'], IPC.commandCancel],
+    ['command', 'cancel', [null], IPC.commandCancel],
     ['arms', 'list', [], IPC.armsList],
     ['arms', 'connect', ['example'], IPC.armsConnect],
     ['arms', 'disconnect', ['example'], IPC.armsDisconnect],

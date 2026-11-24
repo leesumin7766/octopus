@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { KeyStore } from '../../src/main/core/command/adapterResolver'
-import { createCommandHandlers, registerCommandHandlers } from '../../src/main/ipc/command'
+import { createCommandHandlers, registerCommandHandlers, senderEmitter } from '../../src/main/ipc/command'
 import type { IpcMainLike } from '../../src/main/ipc/result'
 import { SecureStoreError } from '../../src/main/platform/secureStore'
 import { DEFAULT_MODELS, type LlmProvider } from '../../src/shared/command/types'
@@ -123,8 +123,103 @@ describe('command IPC handlers', () => {
     const handle = vi.fn()
     registerCommandHandlers({ handle } as IpcMainLike, handlers)
     expect(handle.mock.calls.map((c) => c[0]).sort()).toEqual(
-      [IPC.commandModels, IPC.commandSetKey, IPC.commandClearKey, IPC.commandSend, IPC.commandDecide, IPC.commandPending, IPC.commandConversations, IPC.commandTranscript, IPC.commandRemoveConversation].sort()
+      [IPC.commandModels, IPC.commandSetKey, IPC.commandClearKey, IPC.commandSend, IPC.commandDecide, IPC.commandPending, IPC.commandConversations, IPC.commandTranscript, IPC.commandRemoveConversation, IPC.commandCancel].sort()
     )
+    // 진행 이벤트 채널은 invoke 로 받는 채널이 아니다(main → renderer 로 밀어 주는 쪽).
+    expect(handle.mock.calls.some((c) => c[0] === IPC.commandEvent)).toBe(false)
     e.t.db.close()
+  })
+
+  describe('progress events and cancel', () => {
+    /** 가짜 창(webContents). send 로 받은 것을 모은다. */
+    const fakeWindow = (destroyed = false) => ({ send: vi.fn(), isDestroyed: () => destroyed })
+
+    function registered() {
+      const s = setup()
+      const channels = new Map<string, (event: unknown, ...args: unknown[]) => unknown>()
+      registerCommandHandlers({ handle: (channel, listener) => void channels.set(channel, listener) }, s.handlers)
+      return { ...s, call: (channel: string, event: unknown, ...args: unknown[]) => channels.get(channel)?.(event, ...args) }
+    }
+
+    it('senderEmitter pushes events on the command:event channel to that window only', () => {
+      const a = fakeWindow()
+      const b = fakeWindow()
+      const emit = senderEmitter({ sender: a })
+
+      emit?.({ conversationId: ID, kind: 'text', text: '안녕' })
+
+      expect(a.send).toHaveBeenCalledWith(IPC.commandEvent, { conversationId: ID, kind: 'text', text: '안녕' })
+      expect(b.send).not.toHaveBeenCalled()
+    })
+
+    it('senderEmitter does nothing for a closed window, and is undefined when the sender is unknown', () => {
+      const closed = fakeWindow(true)
+      senderEmitter({ sender: closed })?.({ conversationId: ID, kind: 'done' })
+      expect(closed.send).not.toHaveBeenCalled()
+
+      expect(senderEmitter(undefined)).toBeUndefined()
+      expect(senderEmitter({})).toBeUndefined()
+      expect(senderEmitter({ sender: {} })).toBeUndefined()
+    })
+
+    it('command:send streams its events to the window that sent it, not to another window', async () => {
+      const r = registered()
+      const mine = fakeWindow()
+      const other = fakeWindow()
+
+      const sent = await r.call(IPC.commandSend, { sender: mine }, { conversationId: null, modelId: 'm', text: '내일 치과 추가해' })
+
+      expect(sent).toMatchObject({ ok: true, data: { status: 'awaiting_approval' } }) // 최종 결과는 반환값으로 그대로
+      expect(mine.send.mock.calls.map((c) => (c[1] as { kind: string }).kind)).toEqual(['approval'])
+      expect(mine.send.mock.calls.every((c) => c[0] === IPC.commandEvent)).toBe(true)
+      expect(other.send).not.toHaveBeenCalled()
+      r.e.t.db.close()
+    })
+
+    it('command:decide streams to its own window too', async () => {
+      const r = registered()
+      const first = (await r.call(IPC.commandSend, { sender: fakeWindow() }, { conversationId: null, modelId: 'm', text: '추가' })) as { data: { conversationId: string } }
+      const mine = fakeWindow()
+
+      await r.call(IPC.commandDecide, { sender: mine }, first.data.conversationId, [{ callId: 'w', approve: true }])
+
+      expect(mine.send.mock.calls.map((c) => (c[1] as { kind: string }).kind)).toContain('done')
+      r.e.t.db.close()
+    })
+
+    it('a send from an event without a window still returns its result (events are optional)', async () => {
+      const r = registered()
+      const sent = await r.call(IPC.commandSend, undefined, { conversationId: null, modelId: 'm', text: '추가' })
+      expect(sent).toMatchObject({ ok: true })
+      r.e.t.db.close()
+    })
+
+    it('cancel validates its target: a conversation id or null, nothing else', async () => {
+      const { handlers, e } = setup()
+      for (const bad of [undefined, 'nope', 5, {}, [], '']) {
+        expect(await handlers.cancel(bad)).toEqual({ ok: false, error: { code: 'invalid_input', fields: ['conversationId'] } })
+      }
+      expect(await handlers.cancel(null)).toEqual({ ok: true, data: null })
+      expect(await handlers.cancel(ID)).toEqual({ ok: true, data: null })
+      e.t.db.close()
+    })
+
+    it('cancel closes an approval that is waiting (like a rejection) and says so on the window', async () => {
+      const r = registered()
+      const mine = fakeWindow()
+      const sent = (await r.call(IPC.commandSend, { sender: mine }, { conversationId: null, modelId: 'm', text: '추가' })) as { data: { conversationId: string } }
+
+      const result = await r.call(IPC.commandCancel, { sender: fakeWindow() }, sent.data.conversationId)
+
+      expect(result).toEqual({ ok: true, data: null })
+      expect(r.handlers.pending(sent.data.conversationId)).toEqual({ ok: true, data: [] })
+      expect(mine.send.mock.calls.map((c) => c[1])).toContainEqual({ conversationId: sent.data.conversationId, kind: 'done', canceled: true })
+      r.e.t.db.close()
+    })
+
+    it('cancel without a database says db_unavailable', async () => {
+      const handlers = createCommandHandlers({ getSession: () => null, getRepository: () => null, getModels: () => [], keys: { get: () => undefined, set: () => undefined, delete: () => undefined }, logError: () => undefined })
+      expect(await handlers.cancel(null)).toEqual({ ok: false, error: { code: 'db_unavailable' } })
+    })
   })
 })

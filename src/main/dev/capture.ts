@@ -13,6 +13,7 @@ export interface CaptureSession {
 }
 
 const SETTLE_MS = 1500
+const STREAMING_SETTLE_MS = 4000
 const GIVE_UP_MS = 30_000
 
 /** app ready 전에 불러야 한다. 캡처 모드가 아니면 null. */
@@ -34,6 +35,8 @@ export function captureWhenLoaded(win: BrowserWindow, session: CaptureSession, a
     app.exit(1)
   }, GIVE_UP_MS)
 
+  // 스트리밍 중간 화면은 자동으로 보낸 말의 첫 조각들이 쌓일 시간이 더 필요하다.
+  const settleMs = session.config.view === 'command-streaming' ? STREAMING_SETTLE_MS : SETTLE_MS
   win.webContents.once('did-finish-load', () => {
     setTimeout(() => {
       void win.webContents
@@ -50,7 +53,7 @@ export function captureWhenLoaded(win: BrowserWindow, session: CaptureSession, a
           console.error('[octopus] capture failed', error)
           app.exit(1)
         })
-    }, SETTLE_MS)
+    }, settleMs)
   })
 }
 

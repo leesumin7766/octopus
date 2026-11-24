@@ -227,6 +227,10 @@ function initDatabase(): void {
           fetch: timedFetch
         })
         // 캡처의 "지시하기" 화면만 가짜 모델을 쓴다. 배포된 앱에서는 captureSession 이 항상 null 이다.
+        if (dev && captureSession?.config.view === 'command-streaming') {
+          const streaming = dev.createCaptureStreamingAdapter()
+          return (modelId: string) => (resolve(modelId), streaming)
+        }
         if (!dev || captureSession?.config.view !== 'command') return resolve
         const fake = dev.createCaptureAdapter()
         return (modelId: string) => (resolve(modelId), fake)

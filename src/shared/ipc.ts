@@ -43,6 +43,9 @@ export const IPC = {
   commandConversations: 'command:conversations',
   commandTranscript: 'command:transcript',
   commandRemoveConversation: 'command:removeConversation',
+  commandCancel: 'command:cancel',
+  /** main → renderer 로 밀어 주는 진행 이벤트(invoke 채널이 아니다) */
+  commandEvent: 'command:event',
   armsList: 'arms:list',
   armsConnect: 'arms:connect',
   armsDisconnect: 'arms:disconnect',

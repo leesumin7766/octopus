@@ -1,11 +1,11 @@
-import type { CommandSession } from '../core/command/session'
+import type { CommandSession, EmitEvent } from '../core/command/session'
 import type { ConversationRepository } from '../core/command/conversationRepository'
 import type { KeyStore } from '../core/command/adapterResolver'
 import { SecureStoreError } from '../platform/secureStore'
 import type { ConversationSummary, ModelEntry, PendingApproval, TranscriptItem, TurnState } from '../../shared/command/types'
 import type { ModelsInfo } from '../../shared/command/ipcApi'
 import { IPC, type IpcResult } from '../../shared/ipc'
-import { parseApiKey, parseDecisions, parseProvider, parseSendInput } from '../../shared/validation/command'
+import { parseApiKey, parseCancelTarget, parseDecisions, parseProvider, parseSendInput } from '../../shared/validation/command'
 import { isUlid, parseId } from '../../shared/validation/taskIpc'
 import { dbUnavailable, failure, invalidInput, toFailure, type ErrorLogger, type IpcMainLike } from './result'
 
@@ -23,8 +23,9 @@ export interface CommandHandlers {
   models(): IpcResult<ModelsInfo>
   setKey(provider: unknown, key: unknown): IpcResult<null>
   clearKey(provider: unknown): IpcResult<null>
-  send(input: unknown): Promise<IpcResult<TurnState>>
-  decide(conversationId: unknown, decisions: unknown): Promise<IpcResult<TurnState>>
+  send(input: unknown, emit?: EmitEvent): Promise<IpcResult<TurnState>>
+  decide(conversationId: unknown, decisions: unknown, emit?: EmitEvent): Promise<IpcResult<TurnState>>
+  cancel(conversationId: unknown): Promise<IpcResult<null>>
   pending(conversationId: unknown): IpcResult<PendingApproval[]>
   conversations(): IpcResult<ConversationSummary[]>
   transcript(conversationId: unknown): IpcResult<TranscriptItem[]>
@@ -78,19 +79,19 @@ export function createCommandHandlers(deps: CommandHandlerDeps): CommandHandlers
       })
     },
 
-    async send(input) {
+    async send(input, emit) {
       const parsed = parseSendInput(input, isUlid)
       if (!parsed.ok) return invalidInput(parsed.field)
       const session = deps.getSession()
       if (!session) return dbUnavailable()
       try {
-        return { ok: true, data: await session.send(parsed.value) }
+        return { ok: true, data: await session.send(parsed.value, emit) }
       } catch (error) {
         return toFailure(IPC.commandSend, error, deps.logError)
       }
     },
 
-    async decide(conversationId, decisions) {
+    async decide(conversationId, decisions, emit) {
       const id = parseId(conversationId)
       if (!id.ok) return invalidInput(id.field)
       const d = parseDecisions(decisions)
@@ -98,9 +99,22 @@ export function createCommandHandlers(deps: CommandHandlerDeps): CommandHandlers
       const session = deps.getSession()
       if (!session) return dbUnavailable()
       try {
-        return { ok: true, data: await session.decide(id.value, d.value) }
+        return { ok: true, data: await session.decide(id.value, d.value, emit) }
       } catch (error) {
         return toFailure(IPC.commandDecide, error, deps.logError)
+      }
+    },
+
+    async cancel(conversationId) {
+      const target = parseCancelTarget(conversationId, isUlid)
+      if (!target.ok) return invalidInput(target.field)
+      const session = deps.getSession()
+      if (!session) return dbUnavailable()
+      try {
+        await session.cancel(target.value)
+        return { ok: true, data: null }
+      } catch (error) {
+        return toFailure(IPC.commandCancel, error, deps.logError)
       }
     },
 
@@ -139,12 +153,27 @@ export function createCommandHandlers(deps: CommandHandlerDeps): CommandHandlers
   }
 }
 
+/**
+ * IPC 이벤트를 보낸 그 창(webContents)으로만 진행 이벤트를 밀어 주는 함수를 만든다.
+ * 창이 이미 닫혔으면 아무것도 하지 않는다. 보낸 창을 알 수 없으면 undefined(이벤트 없이 결과만).
+ */
+export function senderEmitter(event: unknown): EmitEvent | undefined {
+  const sender = (event as { sender?: { send?: unknown; isDestroyed?: unknown } } | null)?.sender
+  if (!sender || typeof sender.send !== 'function') return undefined
+  const target = sender as { send: (channel: string, ...args: unknown[]) => void; isDestroyed?: () => boolean }
+  return (payload) => {
+    if (typeof target.isDestroyed === 'function' && target.isDestroyed()) return
+    target.send(IPC.commandEvent, payload)
+  }
+}
+
 export function registerCommandHandlers(ipc: IpcMainLike, h: CommandHandlers): void {
   ipc.handle(IPC.commandModels, () => h.models())
   ipc.handle(IPC.commandSetKey, (_e, provider, key) => h.setKey(provider, key))
   ipc.handle(IPC.commandClearKey, (_e, provider) => h.clearKey(provider))
-  ipc.handle(IPC.commandSend, (_e, input) => h.send(input))
-  ipc.handle(IPC.commandDecide, (_e, id, decisions) => h.decide(id, decisions))
+  ipc.handle(IPC.commandSend, (event, input) => h.send(input, senderEmitter(event)))
+  ipc.handle(IPC.commandDecide, (event, id, decisions) => h.decide(id, decisions, senderEmitter(event)))
+  ipc.handle(IPC.commandCancel, (_e, id) => h.cancel(id))
   ipc.handle(IPC.commandPending, (_e, id) => h.pending(id))
   ipc.handle(IPC.commandConversations, () => h.conversations())
   ipc.handle(IPC.commandTranscript, (_e, id) => h.transcript(id))
