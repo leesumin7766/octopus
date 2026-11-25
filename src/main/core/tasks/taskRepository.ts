@@ -12,6 +12,7 @@ import { addDays, diffDays, localDateString } from '../../../shared/tasks/dates'
 import { nextOccurrenceFrom } from '../../../shared/tasks/repeat'
 import { createUlidGenerator } from '../../../shared/tasks/ulid'
 import {
+  dateRangeIssues,
   isValidDateString,
   TaskValidationError,
   validateTaskFields
@@ -42,6 +43,11 @@ export interface TaskRepository {
   reorder(ids: readonly string[]): void
   listView(view: 'today', today: string): TodayView
   listView(view: Exclude<TaskView, 'today'>, today: string): Task[]
+  /**
+   * from..to(양 끝 포함) 사이 날짜(Task.date)를 가진 할 일. 열린 것과 끝난 것을 모두 주고 취소는 뺀다.
+   * 날짜 → 시간 없음 뒤(시간 있는 것은 시간순) → 만든 순서. 읽기만 한다(루틴 생성 등 부수 효과 없음).
+   */
+  listRange(from: string, to: string): Task[]
   moveToToday(ids: readonly string[], today: string): Task[]
   moveToSomeday(ids: readonly string[]): Task[]
   reschedule(ids: readonly string[], date: string): Task[]
@@ -218,6 +224,17 @@ export function createTaskRepository(db: DatabaseSync, deps: TaskRepositoryDeps)
   }
 
   return {
+    listRange(from, to) {
+      const issues = dateRangeIssues(from, to)
+      if (issues.length > 0) throw new TaskValidationError(issues)
+      return query(
+        `status IN ('open', 'done') AND date BETWEEN ? AND ?
+         ORDER BY date, time IS NULL, time, sort_order, created_at, id`,
+        from,
+        to
+      )
+    },
+
     listDoneBetween(fromIso, toIso) {
       return query(`status = 'done' AND done_at >= ? AND done_at < ? ORDER BY done_at, sort_order, id`, fromIso, toIso)
     },

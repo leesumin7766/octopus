@@ -26,6 +26,14 @@ describe('pie menu', () => {
   })
 
   const prepare = (): Backend => (b = installBackend('home'))
+  /** 캘린더 칸(3번째)에 Google 웹 칸을 둔 배치: 연결이 없을 때 사유가 나오는 칸을 검사할 때 쓴다. */
+  const prepareWithGoogleAtTwo = (): Backend => {
+    const backend = prepare()
+    const slots: ActionId[] = [...DEFAULT_PIE_SLOTS]
+    slots[2] = 'arm:google-calendar'
+    backend.settingsRepo.set('pie.slots', slots)
+    return backend
+  }
 
   /** 홈을 띄우고 원 버튼이 보일 때까지 기다린다. */
   async function show(): Promise<HTMLElement> {
@@ -225,16 +233,16 @@ describe('pie menu', () => {
       const circle = await show()
       await user.click(circle)
 
-      for (const name of ['지시하기', '캘린더', '메일', '위키', '옵시디언']) {
+      for (const name of ['지시하기', '메일', '위키', '옵시디언']) {
         expect(wedge(name).getAttribute('aria-disabled'), name).toBe('true')
         expect(wedge(name).className).toContain('opacity-50')
       }
-      for (const name of ['할 일 추가', '메모', 'Arms']) expect(wedge(name).getAttribute('aria-disabled'), name).toBeNull()
+      for (const name of ['할 일 추가', '메모', '캘린더', 'Arms']) expect(wedge(name).getAttribute('aria-disabled'), name).toBeNull()
     })
 
     it('pointing at one shows why, and the reason goes away when pointing elsewhere', async () => {
       const user = userEvent.setup()
-      prepare()
+      prepareWithGoogleAtTwo()
       const circle = await show()
       await user.click(circle)
       vi.spyOn(menu(), 'getBoundingClientRect').mockReturnValue(new DOMRect(340, 140, 320, 320))
@@ -258,7 +266,7 @@ describe('pie menu', () => {
     })
 
     it('releasing a drag over one does nothing, and the menu stays open so the reason can be read', async () => {
-      const backend = prepare()
+      const backend = prepareWithGoogleAtTwo()
       const circle = await show()
 
       fireEvent.pointerDown(circle, { pointerId: 1, ...CENTER })

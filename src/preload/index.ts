@@ -10,6 +10,7 @@ const api: OctopusApi = {
   initialView: readInitialView(process.argv),
   tasks: {
     list: (view) => ipcRenderer.invoke(IPC.tasksList, view),
+    listRange: (from, to) => ipcRenderer.invoke(IPC.tasksListRange, from, to),
     quickAdd: (text) => ipcRenderer.invoke(IPC.tasksQuickAdd, text),
     create: (input) => ipcRenderer.invoke(IPC.tasksCreate, input),
     update: (id, patch) => ipcRenderer.invoke(IPC.tasksUpdate, id, patch),

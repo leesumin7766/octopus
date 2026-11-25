@@ -26,6 +26,27 @@ export function isValidDateString(value: unknown): value is string {
   return probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day
 }
 
+/** 날짜 구간 조회 한 번에 허용하는 최대 일 수(월 격자 6주 + 여유). */
+export const MAX_TASK_RANGE_DAYS = 62
+
+/**
+ * 날짜 구간(from..to, 양 끝 포함)의 검사. 문제가 없으면 빈 배열.
+ * 날짜 형식·존재 여부, 역순, 너무 넓은 범위를 본다. 어느 필드가 틀렸는지만 알려 준다.
+ */
+export function dateRangeIssues(from: unknown, to: unknown): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  if (!isValidDateString(from)) issues.push({ field: 'from', message: 'must be an existing date in YYYY-MM-DD' })
+  if (!isValidDateString(to)) issues.push({ field: 'to', message: 'must be an existing date in YYYY-MM-DD' })
+  if (issues.length > 0) return issues
+
+  const start = Date.parse(`${from}T00:00:00Z`)
+  const end = Date.parse(`${to}T00:00:00Z`)
+  if (end < start) return [{ field: 'to', message: 'must not be before from' }]
+  const days = Math.round((end - start) / 86_400_000) + 1
+  if (days > MAX_TASK_RANGE_DAYS) return [{ field: 'to', message: `range must be at most ${MAX_TASK_RANGE_DAYS} days` }]
+  return []
+}
+
 export function isValidTimeString(value: unknown): value is string {
   return typeof value === 'string' && TIME_PATTERN.test(value)
 }

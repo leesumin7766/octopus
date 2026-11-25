@@ -17,6 +17,7 @@ const FIXED_ICONS: Record<FixedAction, IconName> = {
   'memo:quickAdd': 'memo',
   command: 'command',
   'arm:google-calendar': 'calendar',
+  'calendar:local': 'calendar',
   'arm:mail': 'mail',
   'arm:obsidian': 'obsidian',
   wiki: 'wiki',
@@ -35,6 +36,7 @@ export const AVAILABLE_FIXED_ACTIONS: ReadonlySet<FixedAction> = new Set<FixedAc
   'nav:settings',
   'task:quickAdd',
   'memo:quickAdd',
+  'calendar:local',
   'arms'
 ])
 

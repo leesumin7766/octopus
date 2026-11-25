@@ -4,24 +4,20 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/App'
 import { ko } from '../../src/renderer/i18n/ko'
-import type { CalendarEvent } from '../../src/shared/calendar/types'
 import { fakeArm } from '../arms/helpers'
 import { installBackend, type Backend } from './backend'
+import { DEFAULT_PIE_SLOTS, type ActionId } from '../../src/shared/pie/actions'
+
+// 홈 "캘린더" 카드: 월간 달력은 Google 상태와 상관없이 보이고, 아래 한 줄에서 Google 상태만 알려 준다(C1-01, C1-11, C1-10 UI).
 
 const t = ko.home
 const c = ko.home.calendar
+const m = ko.home.localCalendar
 
-// "지금" 은 2026-03-10 12:00(로컬). 일정 시각도 로컬 시각으로 만든다.
-const at = (h: number, m = 0): string => new Date(2026, 2, 10, h, m).toISOString()
-const event = (over: Partial<CalendarEvent> & { id: string; title: string }): CalendarEvent => ({
-  start: at(9),
-  end: at(10),
-  allDay: false,
-  url: 'https://calendar.example.com/e/' + over.id,
-  ...over
-})
+/** 날짜 칸(격자의 버튼). 날짜 문자열로 찾는다. */
+const cell = (date: string): HTMLElement => document.querySelector(`[data-date="${date}"]`) as HTMLElement
 
-describe('home: today\'s schedule card', () => {
+describe('home: calendar card (month grid + Google status line)', () => {
   let b: Backend
 
   beforeEach(() => {
@@ -40,131 +36,134 @@ describe('home: today\'s schedule card', () => {
     return screen.findByRole('region', { name: t.cards.calendar })
   }
 
-  describe('the four states', () => {
-    it('1. not connected: explains and offers [캘린더 연결하기], which opens the Arms screen', async () => {
-      const user = userEvent.setup()
-      prepare()
-      const card = await show()
-
-      expect(await within(card).findByText(c.empty)).toBeTruthy()
-      await user.click(within(card).getByRole('button', { name: c.connect }))
-
-      expect(await screen.findByRole('heading', { level: 1, name: /Arms/ })).toBeTruthy()
-    })
-
-    it('2. this build has no Google setup: says so and no connect button', async () => {
-      const backend = prepare()
-      backend.calendarState.configured = false
-      backend.calendarState.unavailableReason = ko.home.calendar.notConfigured
-      const card = await show()
-
-      expect(await within(card).findByText(c.notConfigured)).toBeTruthy()
-      expect(within(card).queryByRole('button', { name: c.connect })).toBeNull()
-      expect(within(card).getByRole('button', { name: c.openArms })).toBeTruthy()
-    })
-
-    it('3. connected: shows today\'s events in time order, all-day first', async () => {
-      const backend = prepare()
-      backend.calendarState.status = { state: 'on' }
-      backend.calendarState.events = [
-        event({ id: 'a', title: '종일 행사', allDay: true, start: '2026-03-10', end: '2026-03-11' }),
-        event({ id: 'b', title: '아침 회의', start: at(9), end: at(10) }),
-        event({ id: 'c', title: '오후 면담', start: at(15), end: at(16) })
-      ]
-      const card = await show()
-
-      const rows = await within(card).findAllByRole('listitem')
-      expect(rows.map((r) => r.textContent)).toEqual([`${c.allDay}종일 행사`, '09:00~10:00아침 회의', '15:00~16:00오후 면담'])
-    })
-
-    it('3b. connected with nothing today', async () => {
-      const backend = prepare()
-      backend.calendarState.status = { state: 'on' }
-      const card = await show()
-      expect(await within(card).findByText(c.noEvents)).toBeTruthy()
-    })
-
-    it('4. error: shows the reason and [다시 연결], which asks the Arm to connect again and refreshes', async () => {
-      const user = userEvent.setup()
-      const backend = prepare()
-      backend.armManager.register(fakeArm({ manifest: { id: 'google-calendar', name: 'Google 캘린더' } }))
-      backend.calendarState.status = { state: 'error', reason: '로그인이 만료됐어요. [다시 연결]을 눌러 주세요.' }
-      const card = await show()
-      expect((await within(card).findByRole('alert')).textContent).toBe('로그인이 만료됐어요. [다시 연결]을 눌러 주세요.')
-
-      backend.calendarState.status = { state: 'on' }
-      await user.click(within(card).getByRole('button', { name: c.reconnect }))
-
-      expect(backend.arms.connect).toHaveBeenCalledWith('google-calendar')
-      await waitFor(() => expect(within(card).getByText(c.noEvents)).toBeTruthy())
-    })
+  it('the card is titled 캘린더 (not 오늘 일정) and shows the month with 42 day cells', async () => {
+    prepare()
+    const card = await show()
+    expect(within(card).getByText('2026년 3월')).toBeTruthy()
+    expect(card.querySelectorAll('[data-date]').length).toBe(42)
+    expect(cell('2026-03-10').getAttribute('aria-current')).toBe('date') // 오늘
   })
 
-  describe('events', () => {
-    it('past events are dimmed, the one in progress is highlighted with a badge, later ones are normal', async () => {
-      const backend = prepare()
-      backend.calendarState.status = { state: 'on' }
-      backend.calendarState.events = [
-        event({ id: 'past', title: '지난 일정', start: at(9), end: at(10) }),
-        event({ id: 'now', title: '진행 중 일정', start: at(11, 30), end: at(12, 30) }),
-        event({ id: 'later', title: '나중 일정', start: at(15), end: at(16) })
-      ]
-      const card = await show()
-
-      const rows = await within(card).findAllByRole('listitem')
-      expect(rows.map((r) => r.getAttribute('data-phase'))).toEqual(['past', 'now', 'later'])
-      expect(rows[1].getAttribute('aria-current')).toBe('time')
-      expect(within(rows[1]).getByText(c.now)).toBeTruthy()
-      expect(within(rows[0]).queryByText(c.now)).toBeNull()
-      expect(rows[0].querySelector('button')?.className).toContain('text-[#8a8983]')
-    })
-
-    it('clicking an event asks main to open it by id; only the stored https address is opened', async () => {
-      const user = userEvent.setup()
-      const backend = prepare()
-      backend.calendarState.status = { state: 'on' }
-      backend.calendarState.events = [event({ id: 'abc', title: '회의' })]
-      const card = await show()
-
-      await user.click(await within(card).findByRole('button', { name: c.eventLabel('회의') }))
-
-      expect(backend.calendar.openEvent).toHaveBeenCalledWith('abc')
-      expect(backend.opened).toEqual(['https://calendar.example.com/e/abc'])
-    })
-
-    it('an event with no link is not a button; an unsafe address is never opened by main', async () => {
-      const backend = prepare()
-      backend.calendarState.status = { state: 'on' }
-      backend.calendarState.events = [event({ id: 'x', title: '링크 없음', url: null })]
-      const card = await show()
-      await within(card).findByText('링크 없음')
-      expect(within(card).queryByRole('button', { name: c.eventLabel('링크 없음') })).toBeNull()
-
-      backend.calendarState.events = [event({ id: 'y', title: '위험', url: 'http://plain.example.com/' })]
-      expect(await backend.calendar.openEvent('y')).toMatchObject({ ok: false })
-      expect(await backend.calendar.openEvent('../etc')).toMatchObject({ ok: false, error: { code: 'invalid_input' } })
-      expect(backend.opened).toEqual([])
-    })
-
-    it('titles are plain text — no HTML, no scripts', async () => {
-      const backend = prepare()
-      backend.calendarState.status = { state: 'on' }
-      const evil = '<img src=x onerror="window.__pwned=1"><b>굵게</b>'
-      backend.calendarState.events = [event({ id: 'e', title: evil })]
-      const card = await show()
-
-      await within(card).findByText(evil)
-      expect(card.querySelector('img, b, script')).toBeNull()
-      expect((window as { __pwned?: number }).__pwned).toBeUndefined()
-    })
+  it('without Google connected the month is still shown and the connect hint does not replace it (C1-01)', async () => {
+    prepare()
+    const card = await show()
+    expect(await within(card).findByText(c.empty)).toBeTruthy()
+    expect(card.querySelectorAll('[data-date]').length).toBe(42)
   })
+
+  it('Google connect button opens the Arms screen; the month stays usable', async () => {
+    const user = userEvent.setup()
+    prepare()
+    const card = await show()
+    await user.click(await within(card).findByRole('button', { name: c.connect }))
+    expect(await screen.findByRole('heading', { level: 1, name: /Arms/ })).toBeTruthy()
+  })
+
+  it('this build without Google setup says so, and the month is still there', async () => {
+    const backend = prepare()
+    backend.calendarState.configured = false
+    backend.calendarState.unavailableReason = c.notConfigured
+    const card = await show()
+    expect(await within(card).findByText(c.notConfigured)).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: c.connect })).toBeNull()
+    expect(card.querySelectorAll('[data-date]').length).toBe(42)
+  })
+
+  it('a Google error shows the reason and [다시 연결] (asks the Arm again), the month is unaffected', async () => {
+    const user = userEvent.setup()
+    const backend = prepare()
+    backend.armManager.register(fakeArm({ manifest: { id: 'google-calendar', name: 'Google 캘린더' } }))
+    backend.calendarState.status = { state: 'error', reason: '로그인이 만료됐어요.' }
+    const card = await show()
+
+    expect((await within(card).findByRole('alert')).textContent).toBe('로그인이 만료됐어요.')
+    expect(card.querySelectorAll('[data-date]').length).toBe(42)
+
+    // 오류 상태에서 누른다(상태를 먼저 바꾸면 진행 중인 읽기가 버튼을 치워 버려 누르기가 빗나갈 수 있다).
+    await user.click(within(card).getByRole('button', { name: c.reconnect }))
+    expect(backend.arms.connect).toHaveBeenCalledWith('google-calendar')
+  })
+
+  it('connected: the status line counts today\'s Google events (the events themselves are in the day detail)', async () => {
+    const backend = prepare()
+    backend.calendarState.status = { state: 'on' }
+    backend.calendarState.events = [
+      { id: 'a', title: '회의', start: new Date(2026, 2, 10, 9).toISOString(), end: new Date(2026, 2, 10, 10).toISOString(), allDay: false, url: null },
+      { id: 'b', title: '면담', start: new Date(2026, 2, 10, 15).toISOString(), end: new Date(2026, 2, 10, 16).toISOString(), allDay: false, url: null }
+    ]
+    const card = await show()
+    expect(await within(card).findByText(m.googleTodayCount(2))).toBeTruthy()
+    expect(within(card).queryByText('회의')).toBeNull()
+  })
+
+  it('a day-count read failure shows a message and a retry that reads again (C1-10)', async () => {
+    const user = userEvent.setup()
+    const backend = prepare()
+    backend.t.repo.create({ title: 'X', date: '2026-03-10' })
+    backend.tasks.listRange.mockResolvedValueOnce({ ok: false, error: { code: 'db_unavailable' } })
+    const card = await show()
+
+    expect(await within(card).findByText(m.countsFailed)).toBeTruthy()
+    expect(card.querySelectorAll('[data-date]').length).toBe(42)
+    expect(cell('2026-03-10').getAttribute('aria-label')).not.toContain('할 일')
+    await user.click(within(card).getByRole('button', { name: m.retry }))
+    await waitFor(() => expect(cell('2026-03-10').getAttribute('aria-label')).toContain('할 일 1개'))
+    expect(within(card).queryByText(m.countsFailed)).toBeNull()
+  })
+
+  it('days show how many items they hold; navigation changes the month and 오늘 comes back', async () => {
+    const user = userEvent.setup()
+    const backend = prepare()
+    backend.t.repo.create({ title: 'A', date: '2026-03-10' })
+    backend.t.repo.create({ title: 'B', date: '2026-03-10' })
+    backend.t.repo.create({ title: 'C', date: '2026-03-10' })
+    const card = await show()
+
+    await waitFor(() => expect(cell('2026-03-10').getAttribute('aria-label')).toContain('할 일 3개'))
+    await user.click(within(card).getByRole('button', { name: m.nextMonth }))
+    expect(within(card).getByText('2026년 4월')).toBeTruthy()
+    await user.click(within(card).getByRole('button', { name: m.prevMonth }))
+    await user.click(within(card).getByRole('button', { name: m.prevMonth }))
+    expect(within(card).getByText('2026년 2월')).toBeTruthy()
+    await user.click(within(card).getByRole('button', { name: m.today }))
+    expect(within(card).getByText('2026년 3월')).toBeTruthy()
+  })
+})
+
+describe('home: Google 캘린더 wedge in the pie menu', () => {
+  let b: Backend
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 2, 10, 12, 0, 0))
+  })
+  afterEach(() => {
+    cleanup()
+    b?.t.db.close()
+    vi.useRealTimers()
+  })
+
+  const prepare = (): Backend => (b = installBackend('home'))
+  const show = async (): Promise<HTMLElement> => {
+    render(<App />)
+    return screen.findByRole('region', { name: t.cards.calendar })
+  }
+
 
   describe('pie menu 캘린더 wedge', () => {
+    // 이 칸은 Google 웹 열기 칸이다(기본 3번 칸은 이제 로컬 달력). 3번 칸에 Google 칸을 둔다.
+    const prepareGoogleAtThree = (): Backend => {
+      const backend = prepare()
+      const slots: ActionId[] = [...DEFAULT_PIE_SLOTS]
+      slots[2] = 'arm:google-calendar'
+      backend.settingsRepo.set('pie.slots', slots)
+      return backend
+    }
     const wedge = (): HTMLElement => within(screen.getByRole('menu')).getAllByRole('menuitem')[2]
 
     it('is disabled until the calendar is connected', async () => {
       const user = userEvent.setup()
-      prepare()
+      prepareGoogleAtThree()
       await show()
       await user.click(await screen.findByRole('button', { name: ko.pie.menuLabel }))
       expect(wedge().getAttribute('aria-label')).toBe(ko.pie.labels['arm:google-calendar'])
@@ -173,7 +172,7 @@ describe('home: today\'s schedule card', () => {
 
     it('when connected it is enabled and opens Google Calendar on the web (a fixed address)', async () => {
       const user = userEvent.setup()
-      const backend = prepare()
+      const backend = prepareGoogleAtThree()
       backend.calendarState.status = { state: 'on' }
       await show()
       await user.click(await screen.findByRole('button', { name: ko.pie.menuLabel }))

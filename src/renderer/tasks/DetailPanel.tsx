@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import type { IpcResult } from '../../shared/ipc'
 import type { Memo } from '../../shared/memos/types'
 import type { Task, TaskBucket, TaskFields, TaskPriority } from '../../shared/tasks/types'
@@ -16,6 +16,8 @@ interface DetailPanelProps {
   onClose: () => void
   /** 이 할 일로 만든 메모가 있으면 읽기 전용으로 보여 준다. */
   linkedMemo?: Memo | null
+  /** 저장하지 않은 고침이 있는지 부모에게 알린다(날짜 상세가 나가기 전에 확인하는 데 쓴다). */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 const inputClass =
@@ -37,7 +39,7 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
   )
 }
 
-export function DetailPanel({ task, onSave, onRemove, onClose, linkedMemo }: DetailPanelProps) {
+export function DetailPanel({ task, onSave, onRemove, onClose, linkedMemo, onDirtyChange }: DetailPanelProps) {
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes)
   const [bucket, setBucket] = useState<TaskBucket>(task.bucket)
@@ -50,6 +52,20 @@ export function DetailPanel({ task, onSave, onRemove, onClose, linkedMemo }: Det
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
   const [confirmingRemove, setConfirmingRemove] = useState(false)
+
+  const dirty =
+    title !== task.title ||
+    notes !== task.notes ||
+    bucket !== task.bucket ||
+    date !== (task.date ?? '') ||
+    time !== (task.time ?? '') ||
+    deadline !== (task.deadline ?? '') ||
+    priority !== String(task.priority) ||
+    project !== (task.project ?? '') ||
+    tags !== task.tags.join(', ')
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
 
   const repeating = task.repeat !== null
   // 루틴 항목은 그날 날짜에 묶여 있어서 날짜·보관함을 바꿀 수 없다.

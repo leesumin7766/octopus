@@ -13,6 +13,7 @@ export const FIXED_ACTIONS = [
   'memo:quickAdd',
   'command',
   'arm:google-calendar',
+  'calendar:local',
   'arm:mail',
   'arm:obsidian',
   'wiki',
@@ -32,7 +33,7 @@ export const PIE_SLOT_COUNT = 8
 export const DEFAULT_PIE_SLOTS: readonly ActionId[] = [
   'command',
   'task:quickAdd',
-  'arm:google-calendar',
+  'calendar:local',
   'arm:mail',
   'memo:quickAdd',
   'wiki',

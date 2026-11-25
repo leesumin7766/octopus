@@ -8,6 +8,8 @@ export type TaskListResult<V extends TaskView> = V extends 'today' ? TodayView :
 /** preload 가 window.octopus.tasks 로 노출하는 API. 모든 호출은 예외 대신 결과 객체를 돌려준다. */
 export interface TasksApi {
   list<V extends TaskView>(view: V): Promise<IpcResult<TaskListResult<V>>>
+  /** from..to(YYYY-MM-DD, 양 끝 포함, 최대 62일) 사이 날짜를 가진 할 일(열린 것·끝난 것). 취소는 없다. */
+  listRange(from: string, to: string): Promise<IpcResult<Task[]>>
   quickAdd(text: string): Promise<IpcResult<Task>>
   create(input: TaskInput): Promise<IpcResult<Task>>
   update(id: string, patch: Partial<TaskFields>): Promise<IpcResult<Task>>

@@ -26,6 +26,7 @@ describe('capture views', () => {
     expect(view('home')).toBe('home')
     expect(view('home-arrange')).toBe('home-arrange')
     expect(view('home-pie')).toBe('home-pie')
+    expect(view('home-day')).toBe('home-day')
     expect(view('settings')).toBe('settings')
     expect(view('routines')).toBe('routines')
     expect(view('memos')).toBe('memos')

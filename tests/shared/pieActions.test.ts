@@ -25,6 +25,7 @@ describe('actions', () => {
       'memo:quickAdd',
       'command',
       'arm:google-calendar',
+      'calendar:local',
       'arm:mail',
       'arm:obsidian',
       'wiki',
@@ -37,7 +38,7 @@ describe('actions', () => {
     expect([...DEFAULT_PIE_SLOTS]).toEqual([
       'command',
       'task:quickAdd',
-      'arm:google-calendar',
+      'calendar:local',
       'arm:mail',
       'memo:quickAdd',
       'wiki',

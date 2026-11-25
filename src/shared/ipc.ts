@@ -2,6 +2,7 @@
 export const IPC = {
   appVersion: 'app:version',
   tasksList: 'tasks:list',
+  tasksListRange: 'tasks:listRange',
   tasksQuickAdd: 'tasks:quickAdd',
   tasksCreate: 'tasks:create',
   tasksUpdate: 'tasks:update',

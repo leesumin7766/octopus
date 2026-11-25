@@ -2,6 +2,7 @@ import { IPC, type IpcResult } from '../../shared/ipc'
 import { localDateString } from '../../shared/tasks/dates'
 import { parseQuickInput, type QuickParseResult } from '../../shared/tasks/quickParse'
 import type { Task, TodayView } from '../../shared/tasks/types'
+import { dateRangeIssues } from '../../shared/validation/task'
 import {
   parseId,
   parseIds,
@@ -30,6 +31,7 @@ export interface TaskHandlerDeps {
 /** 채널마다 받은 인자를 그대로(unknown) 받아 검사한 뒤 결과 객체를 돌려준다. electron 을 쓰지 않는다. */
 export interface TaskHandlers {
   list(view: unknown): IpcResult<TodayView | Task[]>
+  listRange(from: unknown, to: unknown): IpcResult<Task[]>
   quickAdd(text: unknown): IpcResult<Task>
   create(input: unknown): IpcResult<Task>
   update(id: unknown, patch: unknown): IpcResult<Task>
@@ -64,6 +66,13 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
         deps.ensureRoutineTasks?.(day)
         return repo.listView('today', day)
       })
+    },
+
+    listRange(from, to) {
+      // 날짜 구간만 읽는다. 오늘 보기와 달리 루틴 항목을 만들지 않는다(달력을 넘겨도 DB 가 바뀌지 않게).
+      const issues = dateRangeIssues(from, to)
+      if (issues.length > 0) return invalidInput(...new Set(issues.map((issue) => issue.field)))
+      return withRepository(IPC.tasksListRange, (repo) => repo.listRange(from as string, to as string))
     },
 
     quickAdd(text) {
@@ -154,6 +163,7 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
 /** 채널과 핸들러를 잇기만 하는 얇은 등록 함수. */
 export function registerTaskHandlers(ipc: IpcMainLike, handlers: TaskHandlers): void {
   ipc.handle(IPC.tasksList, (_event, view) => handlers.list(view))
+  ipc.handle(IPC.tasksListRange, (_event, from, to) => handlers.listRange(from, to))
   ipc.handle(IPC.tasksQuickAdd, (_event, text) => handlers.quickAdd(text))
   ipc.handle(IPC.tasksCreate, (_event, input) => handlers.create(input))
   ipc.handle(IPC.tasksUpdate, (_event, id, patch) => handlers.update(id, patch))

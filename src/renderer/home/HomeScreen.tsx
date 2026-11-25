@@ -19,10 +19,12 @@ import { PieMenu } from '../pie/PieMenu'
 import { useSetting } from '../settings/useSetting'
 import { errorMessage } from '../tasks/errors'
 import { formatHomeDate, msUntilNextMidnight, todayString } from '../tasks/format'
+import { useDataChanged } from '../dataEvents'
 import { CardFrame } from './CardFrame'
 import { MemoCard } from './cards/MemoCard'
 import type { CalendarToday } from '../../shared/calendar/types'
 import { CalendarCard } from './cards/CalendarCard'
+import { DayDialog } from './calendar/DayDialog'
 import { ShortcutsCard } from './cards/ShortcutsCard'
 import { TodoCard } from './cards/TodoCard'
 import { MemoQuickDialog, TaskQuickDialog } from './QuickDialogs'
@@ -59,6 +61,10 @@ interface HomeScreenProps {
   previewDebounceMs?: number
   /** 개발용 캡처: 원형 메뉴를 펼친 채로 시작하고 한 칸을 강조한다. */
   pieDemo?: { hover: number }
+  /** 개발용 캡처: 오늘의 날짜 상세를 열어 둔 채로 시작한다. */
+  dayDemo?: boolean
+  /** 날짜 상세가 열리고 닫힐 때 알린다(지시하기 단축키를 막는 데 쓴다). */
+  onDayDialogChange?: (open: boolean) => void
 }
 
 interface Notice {
@@ -74,17 +80,44 @@ export function HomeScreen({
   commandReady = false,
   fadeMs = 350,
   previewDebounceMs = 250,
-  pieDemo
+  pieDemo,
+  dayDemo = false,
+  onDayDialogChange
 }: HomeScreenProps) {
   const { value: layout, setLocal, persist } = useSetting('home.layout')
   const pie = useSetting('pie.slots')
   const gridRef = useRef<HTMLDivElement>(null)
   const [dayTick, setDayTick] = useState(0)
   const [shortcuts, setShortcuts] = useState<Shortcut[] | null>(null)
+  const [shortcutsFailed, setShortcutsFailed] = useState(false)
   const [dialog, setDialog] = useState<'task' | 'memo' | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  // 다른 곳(지시하기·날짜 상세 등)에서 데이터가 바뀌면 홈을 다시 그리지 않고, 읽는 카드만 다시 읽게 한다.
+  // 그래서 작성 중인 메모·바로가기 입력, 달력의 보던 달과 선택 날짜가 그대로 남는다.
+  useDataChanged(() => {
+    setRefreshKey((key) => key + 1)
+    void loadShortcuts()
+  })
   const [notice, setNotice] = useState<Notice | null>(null)
   const [calendar, setCalendar] = useState<CalendarToday | null>(null)
+  /** 날짜 상세에서 보는 날짜(YYYY-MM-DD). null 이면 상세를 닫은 상태. */
+  /** 달력에서 마지막으로 고른 날짜. 상세를 닫아도 남아 칸에 표시된다. */
+  const [selectedDay, setSelectedDay] = useState<string | null>(() => (dayDemo ? todayString() : null))
+  /** 날짜 상세가 열려 있는지(열려 있으면 값이 날짜, 닫혀 있으면 null) */
+  const [dayTarget, setDayTarget] = useState<string | null>(() => (dayDemo ? todayString() : null))
+  /** 상세를 열 때마다 바뀌어 대화상자를 새로 그린다 */
+  const [dayOpening, setDayOpening] = useState(0)
+
+  useEffect(() => {
+    onDayDialogChange?.(dayTarget !== null)
+  }, [dayTarget, onDayDialogChange])
+
+  /** 날짜 칸·원형 메뉴에서 날짜 상세를 연다. 고른 날짜는 선택으로 남는다. */
+  function openDay(date: string): void {
+    setSelectedDay(date)
+    setDayTarget(date)
+    setDayOpening((n) => n + 1)
+  }
   const [now, setNow] = useState(() => new Date())
   const [obsidianOn, setObsidianOn] = useState(false)
   const mounted = useRef(true)
@@ -104,9 +137,12 @@ export function HomeScreen({
     return () => window.clearTimeout(timer)
   }, [dayTick])
 
+  // 읽기에 실패하면 빈 목록으로 바꾸지 않는다. 이미 보이던 목록은 남기고, 실패를 따로 알려 다시 시도하게 한다.
   const loadShortcuts = useCallback(async (): Promise<void> => {
-    const result = await window.octopus.shortcuts.list()
-    if (mounted.current) setShortcuts(result.ok ? result.data : [])
+    const result = await safeInvoke(() => window.octopus.shortcuts.list())
+    if (!mounted.current) return
+    if (result.ok) setShortcuts(result.data)
+    setShortcutsFailed(!result.ok)
   }, [])
 
   useEffect(() => {
@@ -183,6 +219,8 @@ export function HomeScreen({
         return onNavigate('arms')
       case 'arm:google-calendar':
         return void window.octopus.calendar.openWeb()
+      case 'calendar:local':
+        return openDay(todayString())
       case 'arm:obsidian':
         return void window.octopus.obsidian.open()
       default:
@@ -192,8 +230,12 @@ export function HomeScreen({
   }
 
   const slotInfos = useMemo(
-    () => (pie.value && shortcuts ? describeSlots(pie.value, shortcuts, { command: commandReady, calendar: calendar?.configured === true && calendar.status.state === 'on', obsidian: obsidianOn }) : null),
-    [pie.value, shortcuts, commandReady, calendar, obsidianOn]
+    () => {
+      // 바로가기를 한 번도 읽지 못했으면(실패) 예전처럼 빈 목록으로 칸을 그린다. 읽는 중이면 기다린다.
+      const known = shortcuts ?? (shortcutsFailed ? [] : null)
+      return pie.value && known ? describeSlots(pie.value, known, { command: commandReady, calendar: calendar?.configured === true && calendar.status.state === 'on', obsidian: obsidianOn }) : null
+    },
+    [pie.value, shortcuts, shortcutsFailed, commandReady, calendar, obsidianOn]
   )
 
   const today = todayString()
@@ -218,17 +260,26 @@ export function HomeScreen({
       case 'calendar':
         return (
           <CalendarCard
-            today={calendar}
-            now={now}
+            calendar={calendar}
+            refreshKey={refreshKey}
+            today={today}
+            selectedDay={selectedDay}
+            onOpenDay={openDay}
             onOpenArms={() => onNavigate('arms')}
             onReconnect={() => void reconnectCalendar()}
-            onOpenEvent={(id) => void openCalendarEvent(id)}
           />
         )
       case 'memo':
         return <MemoCard refreshKey={refreshKey} onOpenMemos={() => onNavigate('memos')} />
       case 'shortcuts':
-        return <ShortcutsCard shortcuts={shortcuts} onChanged={() => void loadShortcuts()} onOpen={(id) => void openShortcut(id)} />
+        return (
+          <ShortcutsCard
+            shortcuts={shortcuts}
+            loadFailed={shortcutsFailed}
+            onChanged={() => void loadShortcuts()}
+            onOpen={(id) => void openShortcut(id)}
+          />
+        )
     }
   }
 
@@ -315,6 +366,24 @@ export function HomeScreen({
             setRefreshKey((key) => key + 1)
             showNotice({ kind: 'info', text: t.dialogs.taskAdded })
           }}
+        />
+      )}
+      {dayTarget !== null && (
+        <DayDialog
+          key={dayOpening}
+          startDate={dayTarget}
+          onDateChange={setSelectedDay}
+          today={today}
+          now={now}
+          calendar={calendar}
+          refreshKey={refreshKey}
+          onClose={() => setDayTarget(null)}
+          onOpenArms={() => {
+            setDayTarget(null)
+            onNavigate('arms')
+          }}
+          onReconnect={() => void reconnectCalendar()}
+          onOpenEvent={(id) => void openCalendarEvent(id)}
         />
       )}
       {dialog === 'memo' && (

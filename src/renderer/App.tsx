@@ -22,7 +22,7 @@ function initialScreen(initial: InitialView | null): Screen {
   if (initial === 'routines' || initial === 'memos' || initial === 'settings') return initial
   if (initial === 'arms' || initial === 'arms-mcp') return 'arms'
   if (initial === 'obsidian') return 'obsidian'
-  if (initial === 'home-pie' || initial === 'command' || initial === 'command-nokey') return 'home'
+  if (initial === 'home-pie' || initial === 'home-day' || initial === 'command' || initial === 'command-nokey') return 'home'
   return 'tasks'
 }
 
@@ -39,16 +39,20 @@ export function App() {
   const [dataVersion, setDataVersion] = useState(0)
   useDataChanged(() => setDataVersion((v) => v + 1))
 
-  // Ctrl+K(맥은 Cmd+K): 어느 화면에서든, 입력창에 글을 쓰는 중에도 지시하기를 연다.
+  // 날짜 상세(큰 대화상자)가 열려 있는지. 열려 있으면 지시하기 단축키를 무시해 모달이 겹치지 않게 한다.
+  const [dayDialogOpen, setDayDialogOpen] = useState(false)
+
+  // Ctrl+K(맥은 Cmd+K): 어느 화면에서든, 입력창에 글을 쓰는 중에도 지시하기를 연다. 날짜 상세가 열린 동안에는 무시한다.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'k') return
+      if (dayDialogOpen) return
       event.preventDefault()
       setCommandOpen(true)
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [])
+  }, [dayDialogOpen])
   const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial as TaskView) : undefined
 
   function navigate(next: Screen): void {
@@ -120,7 +124,8 @@ export function App() {
         onOpenCommand={() => setCommandOpen(true)}
         commandReady={models.connected}
       />
-      <main key={dataVersion} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
+      {/* 홈은 데이터 변경에 다시 그리지 않는다(입력 초안과 달력 선택을 지키기 위해 홈 카드가 스스로 다시 읽는다). 다른 화면은 기존처럼 바뀔 때마다 새로 그린다. */}
+      <main key={screen === 'home' ? 'home' : dataVersion} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
         {screen === 'home' && (
           <HomeScreen
             arranging={arranging}
@@ -129,6 +134,8 @@ export function App() {
             onOpenCommand={() => setCommandOpen(true)}
             commandReady={models.connected}
             pieDemo={initial === 'home-pie' ? { hover: 1 } : undefined}
+            dayDemo={initial === 'home-day'}
+            onDayDialogChange={setDayDialogOpen}
           />
         )}
         {screen === 'tasks' && <TasksScreen initialView={taskView} />}

@@ -150,13 +150,14 @@ describe('preload', () => {
 
   it('exposes exactly the task functions', () => {
     expect(Object.keys(api.tasks).sort()).toEqual(
-      ['create', 'list', 'moveToSomeday', 'moveToToday', 'parsePreview', 'quickAdd', 'remove', 'reorder', 'reschedule', 'setStatus', 'update'].sort()
+      ['create', 'list', 'listRange', 'moveToSomeday', 'moveToToday', 'parsePreview', 'quickAdd', 'remove', 'reorder', 'reschedule', 'setStatus', 'update'].sort()
     )
     for (const fn of Object.values(api.tasks)) expect(typeof fn).toBe('function')
   })
 
   it.each([
     ['list', ['today'], IPC.tasksList],
+    ['listRange', ['2026-03-01', '2026-03-31'], IPC.tasksListRange],
     ['quickAdd', ['내일 회의'], IPC.tasksQuickAdd],
     ['create', [{ title: 'a' }], IPC.tasksCreate],
     ['update', ['ID', { title: 'b' }], IPC.tasksUpdate],
