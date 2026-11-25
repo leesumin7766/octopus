@@ -12,6 +12,8 @@ interface QuickInputProps {
   /** Enter 를 누르거나 추가를 누르면 호출. true 를 돌려주면 입력창을 비운다. */
   onSubmit: (text: string) => Promise<boolean>
   debounceMs: number
+  /** true 면 "알아들은 것" 줄을 입력을 시작했을 때만 보인다(좁은 홈 카드에서 목록 자리를 지키려고). */
+  hintOnlyWhileTyping?: boolean
 }
 
 function chipsOf(preview: QuickParseResult): { label: string; value: string }[] {
@@ -25,7 +27,7 @@ function chipsOf(preview: QuickParseResult): { label: string; value: string }[] 
 }
 
 /** 빠른 입력 카드: 입력줄과 추가 버튼, 아래에 "알아들은 것" 칩. */
-export function QuickInput({ inputRef, onSubmit, debounceMs }: QuickInputProps) {
+export function QuickInput({ inputRef, onSubmit, debounceMs, hintOnlyWhileTyping = false }: QuickInputProps) {
   const [text, setText] = useState('')
   const [preview, setPreview] = useState<QuickParseResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -92,20 +94,22 @@ export function QuickInput({ inputRef, onSubmit, debounceMs }: QuickInputProps) 
           {t.quickAddButton}
         </button>
       </div>
-      <div className="flex min-h-6 flex-wrap items-center gap-1.5">
-        <span className="text-xs text-[#5E5D58]">{t.parsedLabel}</span>
-        {chips.length > 0 ? (
-          <ul aria-label={t.previewLabel} className="flex flex-wrap gap-1.5">
-            {chips.map((chip) => (
-              <li key={chip.label} className="rounded-full bg-[#E9EBFA] px-2.5 py-0.5 text-xs text-[#22309A]">
-                <span className="text-[#5E6BC0]">{chip.label}</span> {chip.value}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className="text-xs text-[#5E5D58]">{t.parseHint}</span>
-        )}
-      </div>
+      {(!hintOnlyWhileTyping || text.trim() !== '') && (
+        <div className="flex min-h-6 flex-wrap items-center gap-1.5">
+          <span className="text-xs text-[#5E5D58]">{t.parsedLabel}</span>
+          {chips.length > 0 ? (
+            <ul aria-label={t.previewLabel} className="flex flex-wrap gap-1.5">
+              {chips.map((chip) => (
+                <li key={chip.label} className="rounded-full bg-[#E9EBFA] px-2.5 py-0.5 text-xs text-[#22309A]">
+                  <span className="text-[#5E6BC0]">{chip.label}</span> {chip.value}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-xs text-[#5E5D58]">{t.parseHint}</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

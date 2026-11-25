@@ -92,7 +92,7 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
 
   return (
     <div className="flex min-h-0 flex-col gap-2">
-      <QuickInput inputRef={inputRef} onSubmit={quickAdd} debounceMs={previewDebounceMs} />
+      <QuickInput inputRef={inputRef} onSubmit={quickAdd} debounceMs={previewDebounceMs} hintOnlyWhileTyping />
 
       {error && (
         <p role="alert" className="text-xs text-red-700">
