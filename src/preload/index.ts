@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { OctopusApi } from '../shared/api'
 import { readInitialView } from '../shared/initialView'
 import { IPC } from '../shared/ipc'
+import { parseCommandEvent } from '../shared/validation/command'
 
 // 채널마다 함수를 하나씩만 노출한다. ipcRenderer 나 범용 invoke 는 넘기지 않는다.
 const api: OctopusApi = {
@@ -27,7 +28,8 @@ const api: OctopusApi = {
     create: (input) => ipcRenderer.invoke(IPC.routinesCreate, input),
     update: (id, patch) => ipcRenderer.invoke(IPC.routinesUpdate, id, patch),
     remove: (id) => ipcRenderer.invoke(IPC.routinesRemove, id),
-    history: (days) => ipcRenderer.invoke(IPC.routinesHistory, days)
+    history: (days) => ipcRenderer.invoke(IPC.routinesHistory, days),
+    move: (id, direction) => ipcRenderer.invoke(IPC.routinesMove, id, direction)
   },
   memos: {
     list: () => ipcRenderer.invoke(IPC.memosList),
@@ -60,7 +62,17 @@ const api: OctopusApi = {
     pending: (conversationId) => ipcRenderer.invoke(IPC.commandPending, conversationId),
     conversations: () => ipcRenderer.invoke(IPC.commandConversations),
     transcript: (conversationId) => ipcRenderer.invoke(IPC.commandTranscript, conversationId),
-    removeConversation: (conversationId) => ipcRenderer.invoke(IPC.commandRemoveConversation, conversationId)
+    removeConversation: (conversationId) => ipcRenderer.invoke(IPC.commandRemoveConversation, conversationId),
+    cancel: (conversationId) => ipcRenderer.invoke(IPC.commandCancel, conversationId),
+    // 진행 이벤트 채널 하나만 구독한다. 받은 값은 모양을 확인한 것만 화면에 넘기고, 돌려주는 함수로 해제한다.
+    onEvent: (listener) => {
+      const handler = (_event: unknown, value: unknown): void => {
+        const parsed = parseCommandEvent(value)
+        if (parsed) listener(parsed)
+      }
+      ipcRenderer.on(IPC.commandEvent, handler)
+      return () => void ipcRenderer.removeListener(IPC.commandEvent, handler)
+    }
   },
   arms: {
     list: () => ipcRenderer.invoke(IPC.armsList),

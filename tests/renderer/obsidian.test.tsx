@@ -186,7 +186,7 @@ describe('Obsidian settings screen', () => {
 
     await user.click(screen.getByRole('button', { name: t.exportNow }))
 
-    expect((await screen.findAllByRole('alert')).some((a) => a.textContent?.includes('vault 폴더를 찾을 수 없어요'))).toBe(true)
+    expect((await screen.findAllByRole('alert')).some((a) => a.textContent?.includes('볼트 폴더를 찾을 수 없어요'))).toBe(true)
     expect(b.t.repo.create({ title: '계속 동작' }).title).toBe('계속 동작')
   })
 

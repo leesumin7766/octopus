@@ -4,6 +4,7 @@ import type { IpcError } from '../../shared/ipc'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
 import { safeInvoke } from '../safeInvoke'
+import { formatDate, todayString } from './format'
 
 const t = ko.tasks.candidates
 
@@ -76,7 +77,7 @@ export function CandidatesSection({ onChanged }: CandidatesSectionProps) {
               <p className="whitespace-pre-wrap break-words text-sm font-medium">{candidate.title}</p>
               <p className="text-xs text-[#5e5d58]">
                 {t.from(names[candidate.armId] ?? candidate.armId)}
-                {candidate.dueDate ? ` · ${t.due(candidate.dueDate)}` : ''}
+                {candidate.dueDate ? ` · ${t.due(formatDate(candidate.dueDate, todayString()))}` : ''}
               </p>
               {candidate.notes && <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-[#4a4945]">{candidate.notes}</p>}
             </div>

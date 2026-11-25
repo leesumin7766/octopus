@@ -59,8 +59,13 @@ export function buildSampleTasks(today: string): TaskInput[] {
 }
 
 /** 표본 할 일을 저장소에 넣는다. */
-export function createSampleTasks(repo: Pick<TaskRepository, 'create'>, today: string): void {
+export function createSampleTasks(repo: Pick<TaskRepository, 'create' | 'setStatus'>, today: string): void {
   for (const input of buildSampleTasks(today)) repo.create(input)
+  // 완료 보기 표본: 오늘 끝낸 것 두 개(완료 시각이 함께 보인다).
+  for (const title of ['물 두 잔 마시기', '책 10쪽 읽기']) {
+    const task = repo.create({ title, date: today })
+    repo.setStatus(task.id, 'done')
+  }
 }
 
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6]

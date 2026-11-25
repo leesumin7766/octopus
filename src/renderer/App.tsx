@@ -13,6 +13,7 @@ import { RoutinesScreen } from './routines/RoutinesScreen'
 import { SettingsScreen } from './settings/SettingsScreen'
 import { useSetting } from './settings/useSetting'
 import { TasksScreen } from './tasks/TasksScreen'
+import { useNarrowWindow } from './layout/useNarrowWindow'
 
 type InitialView = NonNullable<typeof window.octopus.initialView>
 
@@ -22,7 +23,7 @@ function initialScreen(initial: InitialView | null): Screen {
   if (initial === 'routines' || initial === 'memos' || initial === 'settings') return initial
   if (initial === 'arms' || initial === 'arms-mcp') return 'arms'
   if (initial === 'obsidian') return 'obsidian'
-  if (initial === 'home-pie' || initial === 'home-day' || initial === 'command' || initial === 'command-nokey') return 'home'
+  if (initial === 'home-pie' || initial === 'home-narrow' || initial === 'home-day' || initial === 'command' || initial === 'command-nokey' || initial === 'command-streaming') return 'home'
   return 'tasks'
 }
 
@@ -31,10 +32,12 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() => initialScreen(initial))
   const [arranging, setArranging] = useState(initial === 'home-arrange')
   const nav = useSetting('nav.collapsed')
+  const narrow = useNarrowWindow()
+  const [narrowExpanded, setNarrowExpanded] = useState(false)
   // 첫 실행 안내: 'checking'(아직 모름) → 'show' | 'hide'
   const [welcome, setWelcome] = useState<'checking' | 'show' | 'hide'>(typeof initial === 'string' && initial.startsWith('welcome-') ? 'show' : 'checking')
   const models = useModelStatus()
-  const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey')
+  const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey' || initial === 'command-streaming')
   // 지시하기가 데이터를 바꾸면 뒤의 화면이 새로 읽도록 key 를 바꿔 다시 그린다.
   const [dataVersion, setDataVersion] = useState(0)
   useDataChanged(() => setDataVersion((v) => v + 1))
@@ -53,7 +56,8 @@ export function App() {
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [dayDialogOpen])
-  const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial as TaskView) : undefined
+  // 할 일 화면의 처음 보기. 상세 패널 캡처(task-detail)는 오늘 보기에서 연다.
+  const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial === 'task-detail' ? 'today' : (initial as TaskView)) : undefined
 
   function navigate(next: Screen): void {
     setScreen(next)
@@ -106,10 +110,12 @@ export function App() {
     return <Welcome onDone={finishWelcome} initialStep={step} initialChosen={initial === 'welcome-1' || initial === 'welcome-2' ? ['obsidian'] : []} />
   }
 
-  const collapsed = nav.value
+  // 좁은 창에서는 메뉴를 접힌 모양으로 보인다. 사용자가 저장해 둔 선택은 바꾸지 않고, ☰ 는 이 창 안에서만 펼쳤다 접는다.
+  const collapsed = narrow ? !narrowExpanded : nav.value
   function toggleCollapsed(): void {
-    nav.setLocal(!collapsed)
-    nav.persist(!collapsed)
+    if (narrow) return setNarrowExpanded((on) => !on)
+    nav.setLocal(!nav.value)
+    nav.persist(!nav.value)
   }
 
   return (
@@ -138,7 +144,7 @@ export function App() {
             onDayDialogChange={setDayDialogOpen}
           />
         )}
-        {screen === 'tasks' && <TasksScreen initialView={taskView} />}
+        {screen === 'tasks' && <TasksScreen initialView={taskView} openFirst={initial === 'task-detail'} />}
         {screen === 'routines' && <RoutinesScreen />}
         {screen === 'memos' && <MemosScreen />}
         {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} onOpenSettings={(name) => name === 'obsidian' && navigate('obsidian')} />}
@@ -148,6 +154,7 @@ export function App() {
       {commandOpen && (
         <CommandDialog
           openLatest={initial === 'command'}
+          autoSend={initial === 'command-streaming' ? '오늘 할 일을 정리해 줘' : undefined}
           onClose={() => setCommandOpen(false)}
           onOpenSettings={() => {
             setCommandOpen(false)

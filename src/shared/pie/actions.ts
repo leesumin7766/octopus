@@ -14,9 +14,7 @@ export const FIXED_ACTIONS = [
   'command',
   'arm:google-calendar',
   'calendar:local',
-  'arm:mail',
   'arm:obsidian',
-  'wiki',
   'arms'
 ] as const
 
@@ -29,17 +27,20 @@ export const SHORTCUT_PREFIX = 'shortcut:'
 /** 원형 메뉴의 칸 수 */
 export const PIE_SLOT_COUNT = 8
 
-/** 기본 8칸: 12시부터 시계 방향으로 지시하기 · 할 일 추가 · 캘린더 · 메일 · 메모 · 위키 · 옵시디언 · Arms */
+/** 기본 8칸: 12시부터 시계 방향으로 지시하기 · 할 일 추가 · 캘린더(로컬 달력) · 할 일 보기 · 메모 쓰기 · 체크리스트 · 옵시디언 · Arms */
 export const DEFAULT_PIE_SLOTS: readonly ActionId[] = [
   'command',
   'task:quickAdd',
   'calendar:local',
-  'arm:mail',
+  'nav:tasks',
   'memo:quickAdd',
-  'wiki',
+  'nav:routines',
   'arm:obsidian',
   'arms'
 ]
+
+/** 예전 기본값에 있었지만 v0.1 에 없는 액션. 저장된 칸에 남아 있으면 그 칸만 기본값으로 바꾼다. */
+export const REMOVED_ACTIONS: readonly string[] = ['arm:mail', 'wiki']
 
 export function shortcutAction(shortcutId: string): ShortcutAction {
   return `${SHORTCUT_PREFIX}${shortcutId}`
@@ -63,7 +64,17 @@ export function parsePieSlots(raw: unknown): ActionId[] | null {
   return [...raw]
 }
 
-/** 저장되어 있던 8칸을 읽는다. 모르는 액션이 있거나 8개가 아니면 기본값. */
+/**
+ * 저장되어 있던 8칸을 읽는다. 8개가 아니거나 모르는 값이 있으면 전체를 기본값으로.
+ * 다만 v0.1 에서 없어진 액션(REMOVED_ACTIONS)은 그 칸만 새 기본값의 같은 자리 값으로 바꾼다.
+ */
 export function normalizePieSlots(raw: unknown): ActionId[] {
-  return parsePieSlots(raw) ?? [...DEFAULT_PIE_SLOTS]
+  if (!Array.isArray(raw) || raw.length !== PIE_SLOT_COUNT) return [...DEFAULT_PIE_SLOTS]
+  const migrated: ActionId[] = []
+  for (const [index, value] of raw.entries()) {
+    if (isActionId(value)) migrated.push(value)
+    else if (typeof value === 'string' && REMOVED_ACTIONS.includes(value)) migrated.push(DEFAULT_PIE_SLOTS[index])
+    else return [...DEFAULT_PIE_SLOTS]
+  }
+  return migrated
 }

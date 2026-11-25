@@ -1,3 +1,4 @@
+import type { MoveDirection } from '../shortcuts/types'
 import {
   DEFAULT_HISTORY_DAYS,
   MAX_HISTORY_DAYS,
@@ -26,6 +27,11 @@ export function parseRoutineInput(value: unknown): Parsed<RoutineInput> {
 export function parseRoutinePatch(value: unknown): Parsed<RoutinePatch> {
   if (!isPlainObject(value) || !onlyKnownKeys(value)) return bad('patch')
   return good(value as RoutinePatch)
+}
+
+/** 순서 바꾸기 방향: 'up' 또는 'down' 만. */
+export function parseMoveDirection(value: unknown): Parsed<MoveDirection> {
+  return value === 'up' || value === 'down' ? good(value) : bad('direction')
 }
 
 /** 기록 조회 일수. 생략하면 기본값(14). */

@@ -1,5 +1,6 @@
 import type {
   CommandErrorKind,
+  CommandEvent,
   ContentBlock,
   Message,
   PendingApproval,
@@ -15,6 +16,12 @@ import type { CommandTool, ToolRegistry } from './tools/registry'
 
 type ToolUse = Extract<ContentBlock, { type: 'tool_use' }>
 type ToolResult = Extract<ContentBlock, { type: 'tool_result' }>
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
+
+/** 진행 이벤트 한 개(대화 id 는 세션이 붙인다) */
+export type EventBody = DistributiveOmit<CommandEvent, 'conversationId'>
+/** 진행 이벤트를 받는 쪽(창으로 밀어 주는 함수). 표시용이라 던져도 세션은 영향을 받지 않는다. */
+export type EmitEvent = (event: CommandEvent) => void
 
 export interface SessionDeps {
   repo: ConversationRepository
@@ -31,10 +38,20 @@ export interface Decision {
 }
 
 export interface CommandSession {
-  /** 새 대화(conversationId=null)를 시작하거나 이어서 말한다. */
-  send(input: { conversationId: string | null; modelId: string; text: string }): Promise<TurnState>
+  /**
+   * 새 대화(conversationId=null)를 시작하거나 이어서 말한다. emit 이 있으면 진행 이벤트를 보낸다.
+   * owner 는 요청을 보낸 창 같은 주인 표시로, cancelOwner 로 그 주인의 요청만 멈출 때 쓴다.
+   */
+  send(input: { conversationId: string | null; modelId: string; text: string }, emit?: EmitEvent, owner?: unknown): Promise<TurnState>
   /** 승인 대기 중인 쓰기 동작에 대한 결정. 빠진 항목은 거절로 본다. */
-  decide(conversationId: string, decisions: readonly Decision[]): Promise<TurnState>
+  decide(conversationId: string, decisions: readonly Decision[], emit?: EmitEvent, owner?: unknown): Promise<TurnState>
+  /** 이 주인(창)이 보낸, 진행 중인 요청을 모두 중지한다(창이 닫힐 때). 승인 대기는 건드리지 않는다. */
+  cancelOwner(owner: unknown): void
+  /**
+   * 진행 중인 요청을 중지한다(대화 id 가 null 이면 진행 중인 것을 모두). 승인 대기 중이면 거절과 같게 닫는다.
+   * 중지된 턴의 결과는 그 요청을 부른 send/decide 가 돌려준다.
+   */
+  cancel(conversationId: string | null): Promise<void>
   /** 승인 대기 중인 것(앱을 다시 켜면 비어 있다). */
   pending(conversationId: string): PendingApproval[]
   transcript(conversationId: string): TranscriptItem[]
@@ -53,17 +70,32 @@ interface Waiting {
   uses: ToolUse[]
   results: Map<string, ToolResult>
   calls: PendingCall[]
+  /** 이 승인 대기를 만든 요청의 창으로 이벤트를 보내는 함수(중지로 닫을 때 쓴다) */
+  emit: (event: EventBody) => void
+}
+
+/** 한 번의 요청(send/decide)이 진행되는 동안 쓰는 것 */
+interface Run {
+  signal: AbortSignal
+  emit: (event: EventBody) => void
+  /** 사용자가 중지해서 끝났다 */
+  canceled: boolean
 }
 
 const REJECTED = '사용자가 이 동작을 거절했습니다. 같은 동작을 다시 시도하지 마세요.'
 const CANCELED = '이 동작은 승인 전에 취소되었습니다.'
+/** 중지된 턴의 대화 기록에 남기는 표시 */
+const STOPPED = '(중지됨)'
 
 const sourceOf = (tool: CommandTool): ToolSource => tool.source ?? 'core'
 const summary = (text: string): string => (text.length > 200 ? text.slice(0, 200) + '…' : text)
+const textOf = (content: readonly ContentBlock[]): string =>
+  content.filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text').map((b) => b.text).join('')
 
 export function createCommandSession(deps: SessionDeps): CommandSession {
   const maxSteps = deps.maxSteps ?? 8
   const waiting = new Map<string, Waiting>()
+  const active = new Map<string, { controller: AbortController; owner: unknown }>()
 
   const result = (use: ToolUse, text: string, isError: boolean): ToolResult => ({
     type: 'tool_result',
@@ -99,7 +131,19 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
     error
   })
 
-  async function loop(conversationId: string, modelId: string, items: TranscriptItem[]): Promise<TurnState> {
+  /**
+   * 중지로 끝난 턴을 대화 기록에 닫는다: 그때까지 받은 글만 "(중지됨)" 과 함께 assistant 글로 남긴다.
+   * 끝나지 않은 tool_use 는 기록하지 않았으므로(그래서 도구도 실행하지 않았다) 다음 요청의 기록이 API 규칙에 맞는다.
+   */
+  function canceledTurn(conversationId: string, items: TranscriptItem[], partial: string, run: Run): TurnState {
+    run.canceled = true
+    const body = partial.trim() === '' ? STOPPED : `${partial}\n\n${STOPPED}`
+    deps.repo.append(conversationId, { role: 'assistant', content: [{ type: 'text', text: body }] })
+    items.push({ kind: 'assistant', text: body })
+    return { conversationId, status: 'done', items, pending: [] }
+  }
+
+  async function loop(conversationId: string, modelId: string, items: TranscriptItem[], run: Run): Promise<TurnState> {
     let adapter: LlmAdapter
     try {
       adapter = deps.getAdapter(modelId)
@@ -108,11 +152,31 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
     }
 
     for (let step = 0; step < maxSteps; step++) {
+      // 도구를 돌리는 사이에 중지가 왔으면 모델을 다시 부르지 않는다(기록은 user 결과로 끝나 있다).
+      if (run.signal.aborted) return canceledTurn(conversationId, items, '', run)
+
       let response
       try {
-        response = await adapter.chat({ system: SYSTEM_PROMPT, messages: deps.repo.messages(conversationId), tools: deps.registry.llmTools() })
+        response = await adapter.chat({
+          system: SYSTEM_PROMPT,
+          messages: deps.repo.messages(conversationId),
+          tools: deps.registry.llmTools(),
+          signal: run.signal,
+          onText: (text) => run.emit({ kind: 'text', text })
+        })
       } catch (error) {
         return fail(conversationId, items, error instanceof LlmError ? error.kind : 'unknown')
+      }
+
+      // 멈췄거나, 끝나는 순간에 멈추라는 요청이 왔다: 받은 글만 남기고 도구 호출은 버린다.
+      if (response.aborted || run.signal.aborted) return canceledTurn(conversationId, items, textOf(response.content), run)
+
+      if (response.stopReason === 'refusal') {
+        // 이미 흘려보낸 글은 안내로 바꾼다. 부분 글을 결과 항목으로 남기지 않는다.
+        // (모르는 블록은 그대로 보관해 다음 요청에 돌려보낸다.)
+        if (response.content.length > 0) deps.repo.append(conversationId, { role: 'assistant', content: response.content })
+        run.emit({ kind: 'replace', reason: 'refusal' })
+        return fail(conversationId, items, 'refusal')
       }
 
       deps.repo.append(conversationId, { role: 'assistant', content: response.content })
@@ -126,7 +190,6 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
         deps.repo.append(conversationId, { role: 'user', content: uses.map((u) => result(u, '응답이 잘려 실행하지 않았습니다.', true)) })
         return fail(conversationId, items, 'too_long')
       }
-      if (response.stopReason === 'refusal') return fail(conversationId, items, 'refusal')
       if (response.stopReason === 'max_tokens') return fail(conversationId, items, 'too_long')
       if (uses.length === 0) return { conversationId, status: 'done', items, pending: [] }
 
@@ -146,6 +209,7 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
           continue
         }
         if (tool.readOnly) {
+          run.emit({ kind: 'tool', name: use.name })
           const out = await execute(tool, parsed.value)
           results.set(use.id, result(use, out.text, out.isError))
           items.push({ kind: 'tool', name: use.name, source: sourceOf(tool), readOnly: true, status: out.isError ? 'error' : 'done', summary: summary(out.text) })
@@ -164,7 +228,16 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
       }
 
       if (calls.length > 0) {
-        waiting.set(conversationId, { modelId, uses, results, calls })
+        if (run.signal.aborted) {
+          // 승인을 묻기 전에 중지됐다: 거절과 같게 닫는다.
+          for (const call of calls) {
+            results.set(call.use.id, result(call.use, REJECTED, true))
+            items.push({ kind: 'tool', name: call.use.name, source: call.approval.source, readOnly: false, status: 'rejected', summary: call.approval.preview.title })
+          }
+          deps.repo.append(conversationId, { role: 'user', content: uses.map((u) => results.get(u.id) as ToolResult) })
+          return canceledTurn(conversationId, items, '', run)
+        }
+        waiting.set(conversationId, { modelId, uses, results, calls, emit: run.emit })
         return { conversationId, status: 'awaiting_approval', items, pending: calls.map((c) => c.approval) }
       }
       // tool_result 는 한 user 메시지에 모아서 보낸다.
@@ -195,14 +268,40 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
     return { w, items }
   }
 
-  async function decide(conversationId: string, decisions: readonly Decision[]): Promise<TurnState> {
-    const settled = await settle(conversationId, decisions)
-    if (!settled) return { conversationId, status: 'done', items: [], pending: [] }
-    return loop(conversationId, settled.w.modelId, settled.items)
+  /** 한 번의 요청을 돌린다: 중지용 컨트롤러를 두고, 끝나면 결과에 맞는 마지막 이벤트를 보낸다. */
+  async function runTurn(conversationId: string, emit: EmitEvent | undefined, owner: unknown, work: (run: Run) => Promise<TurnState>): Promise<TurnState> {
+    const controller = new AbortController()
+    const entry = { controller, owner }
+    active.set(conversationId, entry)
+    const send = (body: EventBody): void => {
+      try {
+        emit?.({ ...body, conversationId } as CommandEvent)
+      } catch {
+        // 이벤트는 표시용이다. 받는 쪽이 실패해도 지시는 계속된다.
+      }
+    }
+    const run: Run = { signal: controller.signal, emit: send, canceled: false }
+    try {
+      const state = await work(run)
+      if (state.status === 'awaiting_approval') send({ kind: 'approval' })
+      else if (state.status === 'error') send({ kind: 'error', error: state.error ?? 'unknown' })
+      else send({ kind: 'done', ...(run.canceled ? { canceled: true } : {}) })
+      return state
+    } finally {
+      if (active.get(conversationId) === entry) active.delete(conversationId)
+    }
+  }
+
+  async function decide(conversationId: string, decisions: readonly Decision[], emit?: EmitEvent, owner?: unknown): Promise<TurnState> {
+    return runTurn(conversationId, emit, owner, async (run) => {
+      const settled = await settle(conversationId, decisions)
+      if (!settled) return { conversationId, status: 'done', items: [], pending: [] }
+      return loop(conversationId, settled.w.modelId, settled.items, run)
+    })
   }
 
   return {
-    async send({ conversationId, modelId, text }) {
+    async send({ conversationId, modelId, text }, emit, owner) {
       let id = conversationId
       if (id === null) id = deps.repo.create({ title: text.trim().replace(/\s+/g, ' '), modelId }).id
       else {
@@ -213,10 +312,31 @@ export function createCommandSession(deps: SessionDeps): CommandSession {
       }
       const message: Message = { role: 'user', content: [{ type: 'text', text }] }
       deps.repo.append(id, message)
-      return loop(id, modelId, [{ kind: 'user', text }])
+      const conversation = id
+      return runTurn(conversation, emit, owner, (run) => loop(conversation, modelId, [{ kind: 'user', text }], run))
     },
 
     decide,
+
+    async cancel(conversationId) {
+      if (conversationId === null) {
+        for (const entry of active.values()) entry.controller.abort()
+        return
+      }
+      const entry = active.get(conversationId)
+      if (entry) return entry.controller.abort()
+      // 승인 카드를 기다리는 중이었다면 거절과 같게 닫는다.
+      const w = waiting.get(conversationId)
+      if (w) {
+        await settle(conversationId, [])
+        w.emit({ kind: 'done', canceled: true })
+      }
+    },
+
+    cancelOwner(owner) {
+      if (owner === undefined || owner === null) return // 주인을 모르는 요청은 이 길로 멈추지 않는다
+      for (const entry of active.values()) if (entry.owner === owner) entry.controller.abort()
+    },
 
     pending(conversationId) {
       return waiting.get(conversationId)?.calls.map((c) => c.approval) ?? []

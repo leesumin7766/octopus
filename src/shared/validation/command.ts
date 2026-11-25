@@ -1,4 +1,4 @@
-import { DEFAULT_MODELS, type LlmProvider, type ModelEntry } from '../command/types'
+import { DEFAULT_MODELS, type CommandErrorKind, type CommandEvent, type LlmProvider, type ModelEntry } from '../command/types'
 import { bad, good, isPlainObject, type Parsed } from './taskIpc'
 
 // 지시하기 입력 검사. 모델 목록(설정)과 IPC 인자.
@@ -90,6 +90,40 @@ export function parseSendInput(value: unknown, isId: (v: unknown) => boolean): P
   if (typeof modelId !== 'string' || modelId === '' || modelId.length > 60) return bad('modelId')
   if (typeof text !== 'string' || text.trim() === '' || text.length > MAX_COMMAND_TEXT) return bad('text')
   return good({ conversationId: conversationId as string | null, modelId, text })
+}
+
+const ERROR_KINDS: readonly unknown[] = ['no_key', 'auth', 'rate_limit', 'network', 'no_response', 'overloaded', 'bad_request', 'refusal', 'too_long', 'step_limit', 'unknown']
+
+/** 중지할 대화: 대화 id, 또는 null(모두) */
+export function parseCancelTarget(value: unknown, isId: (v: unknown) => boolean): Parsed<string | null> {
+  if (value === null) return good(null)
+  return typeof value === 'string' && isId(value) ? good(value) : bad('conversationId')
+}
+
+/**
+ * main 이 밀어 준 진행 이벤트의 모양을 확인한다(preload 가 화면에 넘기기 전에). 모양이 틀리면 null.
+ * 글 조각은 글자일 뿐이고, 화면은 그것을 HTML 로 해석하지 않는다.
+ */
+export function parseCommandEvent(value: unknown): CommandEvent | null {
+  if (!isPlainObject(value)) return null
+  const { conversationId, kind } = value
+  if (typeof conversationId !== 'string' || conversationId === '' || conversationId.length > 100) return null
+  switch (kind) {
+    case 'text':
+      return typeof value['text'] === 'string' && value['text'].length <= 100_000 ? { conversationId, kind, text: value['text'] } : null
+    case 'replace':
+      return value['reason'] === 'refusal' ? { conversationId, kind, reason: 'refusal' } : null
+    case 'tool':
+      return typeof value['name'] === 'string' && value['name'].length <= 200 ? { conversationId, kind, name: value['name'] } : null
+    case 'approval':
+      return { conversationId, kind }
+    case 'done':
+      return { conversationId, kind, ...(value['canceled'] === true ? { canceled: true } : {}) }
+    case 'error':
+      return ERROR_KINDS.includes(value['error']) ? { conversationId, kind, error: value['error'] as CommandErrorKind } : null
+    default:
+      return null
+  }
 }
 
 export function parseDecisions(value: unknown): Parsed<{ callId: string; approve: boolean }[]> {

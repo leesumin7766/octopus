@@ -11,13 +11,12 @@ const t = ko.home.memo
 const PREVIEW_COUNT = 5
 
 interface MemoCardProps {
-  onOpenMemos: () => void
   /** 값이 바뀌면 목록을 다시 읽는다(대화상자에서 메모를 저장했을 때). */
   refreshKey?: number
 }
 
-/** 메모: 고정한 것 먼저 최근 5개의 첫 줄 미리보기, 한 줄 빠른 메모 입력. */
-export function MemoCard({ onOpenMemos, refreshKey = 0 }: MemoCardProps) {
+/** 메모: 고정한 것 먼저 최근 5개의 첫 줄 미리보기, 한 줄 빠른 메모 입력. "전체 보기"는 카드 아래 고정 영역(HomeScreen)에 있다. */
+export function MemoCard({ refreshKey = 0 }: MemoCardProps) {
   const [memos, setMemos] = useState<Memo[] | null>(null)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<IpcError | null>(null)
@@ -96,9 +95,6 @@ export function MemoCard({ onOpenMemos, refreshKey = 0 }: MemoCardProps) {
         className="min-h-10 rounded-lg border border-[#dad9d4] bg-white px-3 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
       />
 
-      <button type="button" onClick={onOpenMemos} className="self-start py-1 text-[13px] text-accent hover:underline">
-        {t.viewAll}
-      </button>
     </div>
   )
 }

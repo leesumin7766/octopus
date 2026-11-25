@@ -9,7 +9,7 @@ import type { LlmProvider } from '../../shared/command/types'
 
 /** 캡처 화면마다 키가 저장돼 있는지: 지시하기·설정 화면은 "저장됨", 나머지는 없음. 값은 화면 어디에도 나오지 않는다. */
 export function createCaptureKeyStore(view: InitialView): KeyStore {
-  const data: Partial<Record<LlmProvider, string>> = view === 'command' || view === 'settings' ? { anthropic: 'capture-fake-key' } : {}
+  const data: Partial<Record<LlmProvider, string>> = view === 'command' || view === 'command-streaming' || view === 'settings' ? { anthropic: 'capture-fake-key' } : {}
   return { get: (p) => data[p], set: (p, k) => void (data[p] = k), delete: (p) => void delete data[p] }
 }
 
@@ -39,6 +39,29 @@ export function createCaptureAdapter(): LlmAdapter {
   return {
     async chat() {
       return next < steps.length ? steps[next++] : reply([{ type: 'text', text: '(캡처용 가짜 응답입니다.)' }], 'end_turn')
+    }
+  }
+}
+
+/**
+ * 캡처 전용: 글을 조금씩 천천히 흘려보내다가 끝내지 않고 기다리는 가짜 모델(스트리밍 중간 화면용).
+ * 중지(signal)를 받으면 그때까지의 글만 돌려준다. 진짜 네트워크는 쓰지 않는다.
+ */
+export function createCaptureStreamingAdapter(pieceMs = 700): LlmAdapter {
+  const pieces = ['오늘 할 일을 ', '정리해 볼게요. ', '먼저 15:00 의 ', '주간 보고서 작성이 ', '가장 급해 보여요. ', '그다음으로 ', '장보기와 운동을 ', '저녁 시간에 ', '나눠 두면 ', '무리가 없어요.']
+  return {
+    async chat(request) {
+      let text = ''
+      for (const piece of pieces) {
+        if (request.signal?.aborted) break
+        await new Promise((resolve) => setTimeout(resolve, pieceMs))
+        if (request.signal?.aborted) break
+        text += piece
+        request.onText?.(piece)
+      }
+      // 끝까지 흘려도 응답을 끝내지 않고 멈출 때까지 기다린다(캡처가 중간 화면을 찍을 수 있게).
+      while (!request.signal?.aborted) await new Promise((resolve) => setTimeout(resolve, 100))
+      return { content: text === '' ? [] : [{ type: 'text', text }], stopReason: 'other', usage: { inputTokens: 0, outputTokens: 0 }, aborted: true }
     }
   }
 }

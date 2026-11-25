@@ -8,7 +8,8 @@ export default defineConfig({
   main: {
     define: {
       __OCTOPUS_GOOGLE_CLIENT_ID__: JSON.stringify(process.env.OCTOPUS_GOOGLE_CLIENT_ID ?? ''),
-      __OCTOPUS_GOOGLE_CLIENT_SECRET__: JSON.stringify(process.env.OCTOPUS_GOOGLE_CLIENT_SECRET ?? '')
+      __OCTOPUS_GOOGLE_CLIENT_SECRET__: JSON.stringify(process.env.OCTOPUS_GOOGLE_CLIENT_SECRET ?? ''),
+      __OCTOPUS_DEV_TOOLS__: JSON.stringify(process.env.OCTOPUS_DEV_TOOLS === '1')
     }
   },
   preload: {},

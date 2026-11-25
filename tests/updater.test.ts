@@ -6,6 +6,7 @@ import { IPC } from '../src/shared/ipc'
 function fakeUpdater(check: () => Promise<unknown> = async () => undefined) {
   const handlers: Record<string, (arg: never) => void> = {}
   const updater: AutoUpdaterLike & { checks: number; installs: number } = {
+    logger: console,
     autoDownload: false,
     autoInstallOnAppQuit: true,
     checks: 0,
@@ -78,7 +79,7 @@ describe('update checker', () => {
     const { checker, f, logs } = make({ isPackaged: true })
     await checker.start()
     f.emit('error', new Error('signature mismatch'))
-    expect(logs).toEqual(['update error: signature mismatch'])
+    expect(logs).toEqual(['update check failed: signature mismatch'])
     expect(checker.state()).toEqual({ status: 'none' })
   })
 
@@ -97,6 +98,48 @@ describe('update checker', () => {
 
     expect(checker.install()).toBe(true)
     expect(f.updater.installs).toBe(1)
+  })
+})
+
+describe('update failure logging', () => {
+  const stack = ['Error: Error: No published versions on GitHub', '    at newError (C:\app\resources\app.asar\node_modules\builder-util-runtime\out\error.js:5:19)', '    at XElement.element (xml.js:36:40)'].join('\n')
+
+  it('replaces the library logger with a silent one (it printed whole stacks), keeping the console clean', async () => {
+    const { f } = make({ isPackaged: true })
+    await (await Promise.resolve(make({ isPackaged: true, updater: f }))).checker.start()
+    expect(f.updater.logger).not.toBe(console)
+    for (const level of ['info', 'warn', 'error'] as const) expect(() => f.updater.logger?.[level]?.(stack)).not.toThrow()
+  })
+
+  it('a failure with a multi-line stack becomes ONE line without the stack', async () => {
+    const failing = fakeUpdater(async () => {
+      throw new Error(stack)
+    })
+    const { checker, logs } = make({ isPackaged: true, updater: failing })
+    await checker.start()
+    expect(logs).toEqual(['update check failed: No published versions on GitHub'])
+    expect(logs[0]).not.toContain('\n')
+    expect(logs[0]).not.toMatch(/app\.asar|at newError/)
+  })
+
+  it('the same failure reported twice (thrown and as an error event) is logged once; a different one is logged too', async () => {
+    const failing = fakeUpdater(async () => {
+      throw new Error('net::ERR_INTERNET_DISCONNECTED')
+    })
+    const { checker, f, logs } = make({ isPackaged: true, updater: failing })
+    await checker.start()
+    f.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'))
+    f.emit('error', new Error('signature mismatch'))
+    expect(logs).toEqual(['update check failed: net::ERR_INTERNET_DISCONNECTED', 'update check failed: signature mismatch'])
+  })
+
+  it('very long messages are cut', async () => {
+    const failing = fakeUpdater(async () => {
+      throw new Error('x'.repeat(1000))
+    })
+    const { checker, logs } = make({ isPackaged: true, updater: failing })
+    await checker.start()
+    expect(logs[0].length).toBeLessThan(260)
   })
 })
 

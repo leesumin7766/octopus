@@ -3,16 +3,18 @@ import type { IpcError, IpcResult } from '../../shared/ipc'
 import type { Routine, RoutineHistory, RoutineInput, RoutineListData } from '../../shared/routines/types'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
-import { formatDays, todayString } from '../tasks/format'
+import { formatDate, formatDays, todayString } from '../tasks/format'
+import { Checkbox } from '../ui/Checkbox'
 import { RoutineForm } from './RoutineForm'
 
 const t = ko.routines
 
-const CELL_SYMBOL = { done: '✓', missed: '✕', pending: '○', none: '·' } as const
+const CELL_SYMBOL = { done: '✓', missed: '✕', pending: '○', closed: '–', none: '·' } as const
 const CELL_STYLE = {
   done: 'bg-emerald-100 text-emerald-700',
   missed: 'bg-red-50 text-red-500',
   pending: 'bg-sky-50 text-sky-600',
+  closed: 'bg-slate-100 text-slate-400',
   none: 'text-slate-300'
 } as const
 
@@ -84,10 +86,7 @@ export function RoutinesScreen() {
   const routines = data?.routines ?? []
   const historyTitle = t.historyTitle(history ? history.dates.length : 14)
 
-  function cellKind(state: 'done' | 'open' | 'none', date: string): CellKind {
-    if (state === 'open') return date < today ? 'missed' : 'pending'
-    return state
-  }
+  const moveRoutine = (routine: Routine, direction: 'up' | 'down') => void mutate(() => api().routines.move(routine.id, direction))
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-slate-50 text-slate-900">
@@ -106,13 +105,7 @@ export function RoutinesScreen() {
                 const done = task.status === 'done'
                 return (
                   <li key={task.id} className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
-                    <input
-                      type="checkbox"
-                      aria-label={`${ko.tasks.complete}: ${task.title}`}
-                      checked={done}
-                      onChange={() => void toggleToday(task.id, done)}
-                      className="size-5 shrink-0 accent-emerald-600"
-                    />
+                    <Checkbox checked={done} onChange={() => void toggleToday(task.id, done)} aria-label={`${ko.tasks.complete}: ${task.title}`} />
                     <span className={done ? 'text-slate-400 line-through' : 'text-slate-900'}>{task.title}</span>
                   </li>
                 )
@@ -135,7 +128,7 @@ export function RoutinesScreen() {
                       <th
                         key={date}
                         scope="col"
-                        title={date}
+                        title={formatDate(date, today)}
                         className={`w-7 text-center font-normal ${date === today ? 'text-indigo-600' : 'text-slate-500'}`}
                       >
                         {Number(date.slice(8))}
@@ -150,12 +143,12 @@ export function RoutinesScreen() {
                         {row.title}
                       </th>
                       {history.dates.map((date, index) => {
-                        const kind = cellKind(row.cells[index], date)
+                        const kind = row.cells[index]
                         return (
                           <td
                             key={date}
-                            aria-label={`${row.title} ${date}: ${t.cell[kind]}`}
-                            title={`${date} ${t.cell[kind]}`}
+                            aria-label={`${row.title} ${formatDate(date, today)}: ${t.cell[kind]}`}
+                            title={`${formatDate(date, today)} ${t.cell[kind]}`}
                             className={`h-7 w-7 text-center ${CELL_STYLE[kind]}`}
                           >
                             {CELL_SYMBOL[kind]}
@@ -195,6 +188,24 @@ export function RoutinesScreen() {
                       <span className="text-xs text-slate-500">{formatDays(routine.days)}</span>
                       {!routine.active && <span className="rounded bg-slate-100 px-1.5 text-xs text-slate-500">{t.off}</span>}
                       <span className="ml-auto flex gap-1.5 text-xs">
+                        <button
+                          type="button"
+                          aria-label={`${t.moveUp}: ${routine.title}`}
+                          disabled={routines[0]?.id === routine.id}
+                          onClick={() => moveRoutine(routine, 'up')}
+                          className="rounded px-2 py-1 text-slate-700 hover:bg-slate-100 disabled:opacity-30"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`${t.moveDown}: ${routine.title}`}
+                          disabled={routines[routines.length - 1]?.id === routine.id}
+                          onClick={() => moveRoutine(routine, 'down')}
+                          className="rounded px-2 py-1 text-slate-700 hover:bg-slate-100 disabled:opacity-30"
+                        >
+                          ↓
+                        </button>
                         <button
                           type="button"
                           onClick={() => setEditingId(routine.id)}

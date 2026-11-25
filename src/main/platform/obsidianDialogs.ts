@@ -3,7 +3,7 @@ import type { BrowserWindow, Dialog } from 'electron'
 // 옵시디언 Arm 이 main 에서 직접 띄우는 대화상자 둘. (앱 화면 문구가 아니라 운영체제 대화상자에 보이는 글이다.)
 
 const TEXT = {
-  pickTitle: '옵시디언 vault 폴더 고르기',
+  pickTitle: '옵시디언 볼트 폴더 고르기',
   pickButton: '이 폴더 쓰기',
   gitTitle: '.gitignore 수정 확인',
   gitMessage: '.gitignore 에 아래 한 줄을 추가할까요?',

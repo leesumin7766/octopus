@@ -77,9 +77,10 @@ describe('settings screen', () => {
 
     const labels = within(slotSelect(1)).getAllByRole('option').map((option) => option.textContent)
 
-    for (const label of ['홈 화면', '할 일 화면', '체크리스트 화면', '메모 화면', '설정 화면', '할 일 바로 추가', '메모 바로 쓰기', '지시하기', '위키', 'Arms 관리']) {
+    for (const label of ['홈 화면', '할 일 화면', '체크리스트 화면', '메모 화면', '설정 화면', '할 일 바로 추가', '메모 바로 쓰기', '지시하기', 'Arms 관리']) {
       expect(labels).toContain(label)
     }
+    expect(labels).not.toContain('메일 (Arm 연결 필요)')
     expect(labels.some((label) => label?.includes('캘린더'))).toBe(true)
   })
 

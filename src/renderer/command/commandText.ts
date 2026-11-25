@@ -21,6 +21,11 @@ export function toolLine(item: ToolItem): string {
   return t.toolDone(toolLabel(item.name))
 }
 
+/** 읽기 도구를 실행하는 동안 보이는 한 줄("할 일 목록을 보는 중…") */
+export function runningLine(name: string): string {
+  return t.runningLines[name] ?? t.runningFallback(name)
+}
+
 /** 도구 출처 배지 글자 */
 export function sourceLabel(source: string): string {
   if (source.startsWith('arm:')) return t.sources.arm

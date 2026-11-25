@@ -1,5 +1,5 @@
 import { addDays, daysInMonth, formatDate, mondayIndex, parseDate, weekdayOf } from './dates'
-import { firstOccurrence } from './repeat'
+import { firstOccurrence, withAnchor } from './repeat'
 import type { RepeatRule, TaskPriority } from './types'
 import { isValidDateString } from '../validation/task'
 
@@ -259,6 +259,8 @@ export function parseQuickInput(text: string, today: string): QuickParseResult {
   if (repeat?.freq === 'monthly' && repeat.byMonthDay === undefined && date !== null) {
     repeat = { ...repeat, byMonthDay: parseDate(date).day }
   }
+  // 새 반복의 기준일: 그 할 일의 날짜(매년이면 그 날짜의 월·일도 규칙에 넣는다).
+  if (repeat && date !== null) repeat = withAnchor(repeat, date)
 
   return {
     title: titleWords.length > 0 ? titleWords.join(' ') : original,

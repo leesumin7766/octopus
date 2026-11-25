@@ -2,7 +2,7 @@
 export const ko = {
   appTitle: 'Octopus',
   dbOpenFailed:
-    '저장소(데이터베이스)를 열지 못했어요. 앱을 완전히 종료한 뒤 다시 실행해 보세요. 계속되면 사용자 데이터 폴더의 octopus.db 파일을 백업해 두세요.',
+    '할 일과 메모를 저장하는 곳을 열지 못했어요. 앱을 완전히 종료한 뒤 다시 실행해 보세요. 계속되면 앱 데이터 폴더의 octopus.db 파일을 백업해 두세요.',
 
   nav: {
     label: '메뉴',
@@ -28,18 +28,16 @@ export const ko = {
     // 원형 메뉴 칸에 쓰는 짧은 이름
     labels: {
       'nav:home': '홈',
-      'nav:tasks': '할 일',
+      'nav:tasks': '할 일 보기',
       'nav:routines': '체크리스트',
       'nav:memos': '메모 보기',
       'nav:settings': '설정',
       'task:quickAdd': '할 일 추가',
-      'memo:quickAdd': '메모',
+      'memo:quickAdd': '메모 쓰기',
       command: '지시하기',
       'arm:google-calendar': '구글 캘린더',
       'calendar:local': '캘린더',
-      'arm:mail': '메일',
       'arm:obsidian': '옵시디언',
-      wiki: '위키',
       arms: 'Arms'
     },
     // 설정 화면의 목록에 쓰는 설명이 있는 이름
@@ -52,20 +50,16 @@ export const ko = {
       'task:quickAdd': '할 일 바로 추가',
       'memo:quickAdd': '메모 바로 쓰기',
       command: '지시하기',
-      'arm:google-calendar': '캘린더 (Arm 연결 필요)',
+      'arm:google-calendar': '구글 캘린더 (Arm 연결 필요)',
       'calendar:local': '캘린더 (로컬, 연결 필요 없음)',
-      'arm:mail': '메일 (Arm 연결 필요)',
       'arm:obsidian': '옵시디언 (Arm 연결 필요)',
-      wiki: '위키',
       arms: 'Arms 관리'
     },
     // 지금 쓸 수 없는 칸에 가리키면 보이는 이유
     reasons: {
       command: '설정의 "모델 연결"에서 키나 서버 주소를 넣으면 쓸 수 있어요.',
       'arm:google-calendar': '캘린더 Arm 을 연결하면 쓸 수 있어요.',
-      'arm:mail': '메일 Arm 을 연결하면 쓸 수 있어요.',
       'arm:obsidian': '옵시디언 Arm 을 연결하면 쓸 수 있어요.',
-      wiki: '위키는 곧 준비돼요.',
       arms: 'Arms 화면은 곧 준비돼요.'
     },
     deletedShortcut: '지워진 바로가기',
@@ -150,7 +144,7 @@ export const ko = {
       allDay: '종일',
       now: '진행 중',
       reconnect: '다시 연결',
-      notConfigured: '이 빌드에는 Google 연결이 아직 설정되지 않았어요.',
+      notConfigured: 'Google 캘린더 연결은 아직 준비 중이에요.',
       notConfiguredHelp: 'Arms 화면에서 확인할 수 있어요.',
       openArms: 'Arms 화면 열기',
       eventLabel: (title: string) => `일정 열기: ${title}`,
@@ -199,7 +193,8 @@ export const ko = {
       movedNotice: (text: string) => `${text}로 옮겼어요.`,
       movedAway: '날짜 없는 곳으로 옮겼어요. 이 날짜 목록에서는 사라져요.',
       editFailed: '수정하지 못했어요. 입력한 내용은 그대로 있어요.',
-      removeFailed: '지우지 못했어요. 다시 시도해 주세요.'
+      removeFailed: '지우지 못했어요. 다시 시도해 주세요.',
+      cancelFailed: '취소하지 못했어요. 다시 시도해 주세요.'
     },
     memo: {
       empty: '메모가 없어요. 아래에 한 줄로 적어 보세요.',
@@ -276,8 +271,10 @@ export const ko = {
     empty: '아직 루틴이 없어요. 위에서 이름과 요일을 정해 추가해 보세요.',
     historyTitle: (days: number) => `최근 ${days}일 기록`,
     historyEmpty: '루틴을 추가하면 기록이 여기에 쌓여요.',
-    cell: { done: '완료', missed: '못 함', pending: '진행 중', none: '해당 없음' },
-    legend: '✓ 완료   ✕ 못 함   ○ 오늘 진행 중   · 해당 없음',
+    cell: { done: '완료', missed: '못 함', pending: '진행 중', closed: '앱을 안 켠 날', none: '해당 없음' },
+    legend: '✓ 완료   ✕ 못 함   ○ 오늘 진행 중   – 앱을 안 켠 날   · 해당 없음',
+    moveUp: '위로 옮기기',
+    moveDown: '아래로 옮기기',
     fieldErrors: {
       title: '이름을 입력해 주세요.',
       days: '요일을 하나 이상 골라 주세요.',
@@ -337,6 +334,23 @@ export const ko = {
     },
 
     quickInputLabel: '빠른 입력',
+    quickAddButton: '추가',
+    parsedLabel: '알아들은 것',
+    parseHint: '날짜(오늘·내일) · 시간(3시) · #프로젝트 · !높음 · 매주/매월 을 알아듣습니다',
+    subtitles: { inbox: '정리 전 할 일', upcoming: '앞으로의 할 일', someday: '날짜 없는 할 일', done: '끝낸 할 일' } as Record<string, string>,
+    hints: {
+      inbox: '날짜를 정하지 않은 것. 연결된 도구에서 들어온 것도 여기로 와요.',
+      upcoming: '날짜가 정해진 것. 그날이 되면 저절로 오늘에 나타나요.',
+      someday: '언젠가 할 것. 날짜를 붙이면 예정으로 가요.',
+      done: '끝낸 날짜별로 모아 두었어요.'
+    } as Record<string, string>,
+    doneAt: (time: string) => `${time} 완료`,
+    undo: {
+      done: (title: string) => `"${title}" 을(를) 끝냈어요.`,
+      canceled: (title: string) => `"${title}" 을(를) 취소했어요.`,
+      button: '되돌리기',
+      dismiss: '닫기'
+    },
     quickInputPlaceholder: '할 일을 입력하고 Enter 를 누르세요. 예: 내일 오후 3시 보고서 #업무 !높음',
     previewLabel: '인식한 내용',
     chip: {
@@ -352,7 +366,6 @@ export const ko = {
     // 같은 화면의 "오늘" 보기 영역과 이름이 겹치지 않게 다르게 쓴다.
     todaySection: '오늘 할 일',
     complete: '완료',
-    select: '선택',
 
     priority: {
       0: '없음',
@@ -378,13 +391,15 @@ export const ko = {
 
     overdue: {
       title: '지난 할 일',
-      selectAll: '전체 선택',
-      selectedCount: (n: number) => `${n}개 선택`,
+      allToToday: '전부 오늘로',
+      allToSomeday: '전부 나중에',
+      keptRepeating: (n: number) => `반복 할 일 ${n}개는 그대로 뒀어요.`,
       toToday: '오늘로',
       toSomeday: '나중에',
-      reschedule: '날짜 지정',
+      reschedule: '날짜…',
       dateLabel: '옮길 날짜',
-      repeatBlocksSomeday: "반복하는 할 일은 '나중에'로 보낼 수 없어요. 선택에서 빼 주세요."
+      repeatBlocksSomeday: '반복하는 할 일은 나중에로 보낼 수 없어요.',
+      routineBlocksSomeday: '루틴 항목은 체크리스트에서 관리해요. 나중에로 보낼 수 없어요.'
     },
 
     empty: {
@@ -417,7 +432,23 @@ export const ko = {
       close: '닫기',
       linkedMemo: '연결된 메모',
       routineLocksDate: '루틴 항목은 날짜와 보관함을 바꿀 수 없어요. 체크리스트 화면에서 루틴 설정을 바꿔 주세요.',
-      routineManage: '루틴 항목은 체크리스트에서 관리해요.'
+      routineManage: '루틴 항목은 체크리스트에서 관리해요.',
+      cancelTask: '취소',
+      cancelHelp: '취소한 할 일은 목록에서 사라지지만 지워지지 않아요.',
+      repeatEdit: {
+        kinds: { none: '없음', daily: '매일', weekdays: '평일', weekly: '매주', monthly: '매월', yearly: '매년' } as Record<string, string>,
+        interval: '간격',
+        every: { daily: '일마다', weekly: '주마다', monthly: '개월마다', yearly: '년마다' } as Record<string, string>,
+        weekdaysLabel: '요일',
+        monthDayLabel: '날짜(일)',
+        preview: (text: string) => `미리보기: ${text}`,
+        errors: {
+          interval: '간격은 1부터 99 사이의 숫자로 적어 주세요.',
+          weekdays: '요일을 하나 이상 골라 주세요.',
+          monthDay: '날짜는 1일부터 31일 사이로 골라 주세요.'
+        },
+        routineLocked: '루틴 항목은 반복을 바꿀 수 없어요. 체크리스트에서 설정해 주세요.'
+      }
     },
 
     fieldErrors: {
@@ -446,6 +477,7 @@ export const ko = {
       db_unavailable:
         '저장소를 열지 못했어요. 앱을 완전히 종료한 뒤 다시 시작해 주세요. 계속되면 octopus.db 파일을 백업해 두세요.',
       secure_unavailable: '이 PC 에서는 키를 안전하게 저장할 수 없어요. Windows 에 로그인한 상태인지 확인한 뒤 다시 시도해 주세요.',
+      forbidden: '이 화면에서는 요청을 처리할 수 없어요. 앱을 다시 시작해 주세요.',
       internal: '문제가 생겼어요. 잠시 뒤 다시 시도해 주세요. 계속되면 앱을 다시 시작해 주세요.'
     }
   },
@@ -465,7 +497,17 @@ export const ko = {
     inputLabel: '지시 내용',
     placeholder: '무엇을 시킬까요?  (Enter 보내기 · Shift+Enter 줄바꿈)',
     send: '보내기',
+    stop: '중지',
     thinking: '생각 중…',
+    refusalReplaced: '응답을 이어 갈 수 없어요.',
+    runningLines: {
+      list_tasks: '할 일 목록을 보는 중…',
+      search_tasks: '할 일을 찾는 중…',
+      list_memos: '메모 목록을 보는 중…',
+      search_memos: '메모를 찾는 중…',
+      list_routines_today: '오늘 체크리스트를 보는 중…'
+    } as Record<string, string>,
+    runningFallback: (name: string) => `${name} 도구로 읽는 중…`,
     empty: '할 일을 찾거나 추가하고, 메모를 정리하도록 시켜 보세요.',
     conversationLabel: '대화',
     you: '나',
@@ -505,6 +547,7 @@ export const ko = {
       auth: '키가 맞지 않아요. 설정의 모델 연결에서 키를 다시 넣어 주세요.',
       rate_limit: '요청이 너무 많아요. 잠시 뒤 다시 보내 주세요.',
       network: '네트워크에 연결하지 못했어요. 인터넷(또는 서버 주소)을 확인하고 다시 보내 주세요.',
+      no_response: '서버가 응답하지 않아요. 잠시 뒤 다시 보내 주세요. 계속되면 설정의 모델 연결에서 서버 주소를 확인해 주세요.',
       overloaded: '서비스가 지금 바빠요. 잠시 뒤 다시 보내 주세요.',
       bad_request: '요청을 처리하지 못했어요. 설정의 모델 이름과 서버 주소를 확인해 주세요.',
       refusal: '모델이 이 요청에는 답하지 않았어요. 표현을 바꿔서 다시 말해 보세요.',
@@ -578,7 +621,7 @@ export const ko = {
       envNames: (names: string[]) => `환경 변수: ${names.join(', ')}`,
       errors: {
         name: '이름을 적어 주세요(40자까지).',
-        url: '주소는 https:// 로 시작해야 해요. http:// 는 이 PC(localhost)만 쓸 수 있어요.',
+        url: '주소는 https:// 로 시작해야 해요. http:// 는 이 PC 안에서 도는 서버 주소만 쓸 수 있어요.',
         command: '실행할 명령을 적어 주세요.',
         args: '인자가 너무 길거나 너무 많아요.',
         env: '환경 변수 이름은 영문·숫자·밑줄로 적고(숫자로 시작 불가), 같은 이름을 두 번 쓸 수 없어요.'
@@ -587,6 +630,7 @@ export const ko = {
     advanced: {
       summary: '고급',
       title: '내 OAuth 클라이언트 쓰기',
+      googleFallbackHint: '고급에서 직접 만든 OAuth 클라이언트로 연결할 수 있어요.',
       help: '기본 방법이 아니에요. Google Cloud 에서 직접 만든 데스크톱 클라이언트를 쓰려는 경우에만 쓰세요. 입력한 값은 이 PC 에 암호화해 저장하고 화면에는 다시 보여 주지 않아요. 연결을 끊으면 함께 지워져요.',
       clientId: '클라이언트 ID',
       clientSecret: '클라이언트 시크릿 (선택)',
@@ -608,13 +652,13 @@ export const ko = {
       both: { title: '내보내기 + 적어 넣기', desc: '파일 맨 아래 "적어 넣기" 칸에 "- [ ] 할 일" 을 적으면 Octopus 수신함으로 가져가요.' }
     },
     vaultTitle: '내보낼 곳',
-    vault: 'vault',
+    vault: '볼트',
     changeVault: '바꾸기',
-    notVault: '옵시디언 vault 가 아닌 것 같아요(.obsidian 폴더가 없어요). 그래도 쓸 수는 있어요.',
-    fileLabel: '파일 하나 (vault 기준 경로, .md)',
+    notVault: '옵시디언 볼트가 아닌 것 같아요(.obsidian 폴더가 없어요). 그래도 쓸 수는 있어요.',
+    fileLabel: '파일 하나 (볼트 안 경로, .md)',
     saveFile: '저장',
     fileSaved: '저장했어요.',
-    fileError: '경로가 올바르지 않아요. vault 안의 상대 경로(예: Octopus/할 일.md)로 .md 파일을 적어 주세요. ..·절대 경로·드라이브 문자는 쓸 수 없어요.',
+    fileError: '경로가 올바르지 않아요. 볼트 안의 경로(예: Octopus/할 일.md)로 .md 파일을 적어 주세요. 볼트 밖을 가리키는 경로(../ 나 C:\\ 로 시작하는 전체 경로)는 쓸 수 없어요.',
     daily: '오늘 일일노트 맨 끝에 이 파일 링크 한 줄 넣기',
     dailyHelp: '기본은 꺼짐. 켜도 오늘 일일노트가 이미 있을 때만, 하루에 한 번만 넣고 새 노트는 만들지 않아요.',
     lastExport: (time: string) => `마지막으로 내보낸 시각 ${time}`,
@@ -622,9 +666,9 @@ export const ko = {
     exportNow: '지금 내보내기',
     exporting: '내보내는 중…',
     syncTitle: '동기화 점검',
-    gitNone: 'git 저장소가 아니에요. 점검할 것이 없어요.',
-    gitOk: 'vault 가 git 저장소예요. 옵시디언의 작업 영역 파일은 이미 제외되어 있어요.',
-    gitMissing: 'vault 가 git 저장소인데, 옵시디언이 계속 바꾸는 작업 영역 파일이 제외되어 있지 않아요(충돌이 자주 생겨요).',
+    gitNone: '볼트를 버전 관리(git)하지 않아요. 점검할 것이 없어요.',
+    gitOk: '볼트를 버전 관리(git)하고 있어요. 옵시디언의 작업 영역 파일은 이미 제외되어 있어요.',
+    gitMissing: '볼트를 버전 관리(git)하는데, 옵시디언이 계속 바꾸는 작업 영역 파일이 제외되어 있지 않아요(충돌이 자주 생겨요).',
     gitAdd: (line: string) => `제외 목록에 추가: ${line}`,
     gitHelp: '누르면 추가할 줄을 보여 주고 확인을 받아요. 자동으로 고치지 않아요.',
     previewTitle: '옵시디언에 보이는 모습',

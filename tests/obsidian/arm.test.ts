@@ -1,9 +1,17 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createArmContext } from '../../src/main/arms/sdk/context'
-import { createObsidianArm, DEFAULT_DEBOUNCE_MS, MESSAGES, obsidianOpenUri, vaultNameOf, type ObsidianArm } from '../../src/main/arms/obsidian/arm'
+import {
+  createObsidianArm,
+  DEFAULT_DEBOUNCE_MS,
+  DEFAULT_WATCH_DEBOUNCE_MS,
+  MESSAGES,
+  obsidianOpenUri,
+  vaultNameOf,
+  type ObsidianArm
+} from '../../src/main/arms/obsidian/arm'
 import { dailyLinkLine, dailyNotePath, hasDailyLink, UNSUPPORTED_FORMAT } from '../../src/main/arms/obsidian/dailyNote'
 import { addIgnoreLine, checkVaultGit, ignoredByGitignore, IGNORE_LINE } from '../../src/main/arms/obsidian/gitCheck'
 import { FILE_COMMENT, WRITING_HEADING, WRITING_NOTE } from '../../src/main/arms/obsidian/render'
@@ -278,6 +286,8 @@ interface Env {
   opened: string[]
   confirm: ReturnType<typeof vi.fn<(info: { path: string; line: string }) => Promise<boolean>>>
   watchers: { trigger(filename: string | null): void; closed: number }
+  /** 시간 뒤에 저절로 하는 일('export' 내보내기 / 'watch' 파일 감시 확인)이 다음에 하나 끝나기를 기다린다. 실제 시간을 재지 않는다. */
+  nextSettled(kind: 'export' | 'watch'): Promise<void>
   logs: string[]
   file: () => string
   read: () => string | null
@@ -315,6 +325,8 @@ function setup(over: { mode?: ObsidianConfig['mode']; vault?: string; makeVault?
   const makeCtx = (interactive = true) =>
     createArmContext({ armId: 'obsidian', interactive, secureStore: store, http: { fetch: async () => { throw new Error('offline') } }, logSink: (e) => void logs.push(e.message), core })
   const watchers = { handlers: [] as ((f: string | null) => void)[], closed: 0, trigger(f: string | null) { for (const h of this.handlers) h(f) } }
+  const settledWaiters: { kind: 'export' | 'watch'; resolve: () => void }[] = []
+  const nextSettled = (kind: 'export' | 'watch'): Promise<void> => new Promise((resolve) => void settledWaiters.push({ kind, resolve }))
   const confirm = vi.fn<(info: { path: string; line: string }) => Promise<boolean>>(async () => true)
   const opened: string[] = []
   const autoAcceptCalls = { count: 0 }
@@ -328,6 +340,10 @@ function setup(over: { mode?: ObsidianConfig['mode']; vault?: string; makeVault?
     now: () => clock.now,
     debounceMs: over.debounceMs ?? DEFAULT_DEBOUNCE_MS,
     watchDebounceMs: over.watchDebounceMs ?? 50,
+    onSettled: (kind) => {
+      const index = settledWaiters.findIndex((waiter) => waiter.kind === kind)
+      if (index >= 0) settledWaiters.splice(index, 1)[0].resolve()
+    },
     watch: (_dir, onChange) => {
       watchers.handlers.push(onChange)
       return () => void watchers.closed++
@@ -346,6 +362,7 @@ function setup(over: { mode?: ObsidianConfig['mode']; vault?: string; makeVault?
     opened,
     confirm,
     watchers: watchers as unknown as Env['watchers'],
+    nextSettled,
     logs,
     file,
     read: () => (existsSync(file()) ? readFileSync(file(), 'utf8') : null),
@@ -353,8 +370,6 @@ function setup(over: { mode?: ObsidianConfig['mode']; vault?: string; makeVault?
     ctx: makeCtx
   }
 }
-
-const settle = (ms = 40): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
 describe('Obsidian arm: export', () => {
   it('on connect it writes the file with real task data (and today\'s heading)', async () => {
@@ -428,12 +443,13 @@ describe('Obsidian arm: export', () => {
   it('unchanged content is not rewritten (the file keeps its modification time)', async () => {
     const e = setup()
     await e.connect()
+    // 파일 수정 시각을 일부러 옛날로 돌려 두고, 다시 쓰면 그것이 바뀌는지로 본다(시계가 한 칸 넘어가기를 기다리지 않는다).
+    const longAgo = new Date(Date.now() - 60_000)
+    utimesSync(e.file(), longAgo, longAgo)
     const before = statSync(e.file()).mtimeMs
-    await settle(30)
     await e.arm.exportNow()
     expect(statSync(e.file()).mtimeMs).toBe(before)
     e.tasks.repo.create({ title: '바뀜' })
-    await settle(30)
     await e.arm.exportNow()
     expect(statSync(e.file()).mtimeMs).toBeGreaterThan(before)
   })
@@ -473,9 +489,10 @@ describe('Obsidian arm: when it exports', () => {
     e.tasks.repo.create({ title: '셋' }) // 디바운스가 다시 시작된다
     await vi.advanceTimersByTimeAsync(1900)
     expect(e.read()).not.toContain('셋')
+    const exported = e.nextSettled('export')
     await vi.advanceTimersByTimeAsync(200)
+    await exported // 파일 쓰기가 끝나기를 직접 기다린다
     vi.useRealTimers()
-    for (let i = 0; i < 100 && !e.read()?.includes('- [ ] 셋'); i++) await settle(30) // 파일 쓰기가 끝날 때까지(최대 3초)
 
     const text = e.read() as string
     for (const t of ['하나', '둘', '셋']) expect(text).toContain(`- [ ] ${t}`)
@@ -486,24 +503,33 @@ describe('Obsidian arm: when it exports', () => {
     const e = setup({ debounceMs: 10 })
     const a = e.tasks.repo.create({ title: '고칠 일' })
     await e.connect()
+    let exported = e.nextSettled('export')
     e.tasks.repo.update(a.id, { title: '고친 일' })
-    await settle(120)
+    await exported
     expect(e.read()).toContain('고친 일')
+    exported = e.nextSettled('export')
     e.tasks.repo.setStatus(a.id, 'done')
-    await settle(120)
+    await exported
+    exported = e.nextSettled('export')
     e.tasks.repo.remove(a.id)
-    await settle(120)
+    await exported
     expect(e.read()).not.toContain('고친 일')
   })
 
   it('stops listening after disconnect (no more writes)', async () => {
-    const e = setup({ debounceMs: 10 })
-    await e.connect()
-    await e.arm.disconnect()
-    const before = e.read()
-    e.tasks.repo.create({ title: '끊은 뒤의 일' })
-    await settle(120)
-    expect(e.read()).toBe(before)
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const e = setup({ debounceMs: 10 })
+      await e.connect()
+      await e.arm.disconnect()
+      const before = e.read()
+      e.tasks.repo.create({ title: '끊은 뒤의 일' })
+      expect(vi.getTimerCount()).toBe(0) // 내보내기를 예약하지도 않는다
+      await vi.advanceTimersByTimeAsync(5_000)
+      expect(e.read()).toBe(before)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('exports after midnight through sync (a new day gets a new heading), and retries after a failure', async () => {
@@ -524,9 +550,10 @@ describe('Obsidian arm: when it exports', () => {
     const e = setup({ clock })
     await e.connect()
     clock.now = new Date(2026, 2, 11, 0, 0, 3)
+    const exported = e.nextSettled('export')
     await vi.advanceTimersByTimeAsync(5000)
+    await exported
     vi.useRealTimers()
-    await settle(100)
     expect(e.read()).toContain('3월 11일 수요일')
     await e.arm.disconnect()
   })
@@ -538,8 +565,9 @@ describe('Obsidian arm: errors never reach the core', () => {
     await e.connect()
     rmSync(e.vault, { recursive: true, force: true })
 
+    const exported = e.nextSettled('export')
     e.tasks.repo.create({ title: '계속 되는 일' }) // 코어는 그대로 동작한다
-    await settle(150)
+    await exported
 
     expect(e.arm.status()).toEqual({ state: 'error', reason: MESSAGES.vaultGone })
     expect(e.tasks.repo.listView('inbox', '2026-03-10').map((t) => t.title)).toContain('계속 되는 일')
@@ -654,29 +682,72 @@ describe('Obsidian arm: "적어 넣기" (both mode)', () => {
   it('the file watcher picks up a new line after the debounce, and ignores the change caused by our own write', async () => {
     const e = setup({ mode: 'both' })
     await e.connect()
+    let checked = e.nextSettled('watch')
     e.watchers.trigger('할 일.md') // 우리가 방금 쓴 것에 대한 알림
-    await settle(120)
+    await checked // 감시 확인이 끝나기를 직접 기다린다
     expect(e.candidates).toEqual([])
 
     writeFileSync(e.file(), `${e.read()}- [ ] 옵시디언에서 적음\n`)
+    checked = e.nextSettled('watch')
     e.watchers.trigger('할 일.md')
     expect(e.candidates).toEqual([]) // 디바운스가 지나기 전에는 읽지 않는다(쓰는 도중에 읽지 않게)
-    await settle(250)
+    await checked
 
     expect(e.candidates.map((c) => c.title)).toEqual(['옵시디언에서 적음'])
     expect(e.read()).not.toContain('옵시디언에서 적음')
+    checked = e.nextSettled('watch')
     e.watchers.trigger('할 일.md') // 비운 뒤 우리 쓰기에 대한 알림
-    await settle(120)
+    await checked
     expect(e.candidates).toHaveLength(1) // 두 번 읽지 않는다
+  })
+
+  it('a line still being typed (no line break after it at the end of the file) is neither read nor removed', async () => {
+    const e = setup({ mode: 'both' })
+    await e.connect()
+    writeFileSync(e.file(), `${e.read()}- [ ] 아직 쓰는 중`)
+
+    await e.arm.exportNow()
+
+    expect(e.candidates).toEqual([])
+    expect((e.read() as string).endsWith('- [ ] 아직 쓰는 중')).toBe(true) // 줄바꿈을 더하지 않고 그대로 둔다
+
+    writeFileSync(e.file(), `${e.read()}\n`) // 줄바꿈이 생기면 완성된 줄이다
+    await e.arm.exportNow()
+
+    expect(e.candidates.map((c) => c.title)).toEqual(['아직 쓰는 중'])
+    expect(e.read()).not.toContain('아직 쓰는 중')
+  })
+
+  it('a change is read only after 10 seconds without another change', async () => {
+    const e = setup({ mode: 'both', watchDebounceMs: DEFAULT_WATCH_DEBOUNCE_MS })
+    await e.connect()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      writeFileSync(e.file(), `${e.read()}- [ ] 천천히 적는 중\n`)
+      e.watchers.trigger('할 일.md')
+      await vi.advanceTimersByTimeAsync(9000)
+      writeFileSync(e.file(), `${e.read()}- [ ] 두 번째\n`)
+      e.watchers.trigger('할 일.md') // 또 바뀌었으니 다시 10초를 센다
+      await vi.advanceTimersByTimeAsync(9000)
+      expect(e.candidates).toEqual([])
+
+      const checked = e.nextSettled('watch')
+      await vi.advanceTimersByTimeAsync(1500)
+      await checked // 파일 읽기는 실제 입출력이라, 확인이 끝나기를 직접 기다린다
+      expect(e.candidates.map((c) => c.title)).toEqual(['천천히 적는 중', '두 번째'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('other files in the folder and other edits (no new line) do nothing', async () => {
     const e = setup({ mode: 'both' })
     await e.connect()
-    e.watchers.trigger('다른 파일.md')
+    e.watchers.trigger('다른 파일.md') // 다른 파일의 알림은 확인을 부르지 않는다
     writeFileSync(e.file(), `${e.read()}\n그냥 글만 적음\n`)
+    const checked = e.nextSettled('watch')
     e.watchers.trigger('할 일.md')
-    await settle(250)
+    await checked
     expect(e.candidates).toEqual([])
     expect(e.read()).toContain('그냥 글만 적음') // 다음 정식 내보내기 전까지 건드리지 않는다
   })

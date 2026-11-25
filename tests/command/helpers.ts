@@ -43,7 +43,7 @@ export interface Env {
   ran: string[]
 }
 
-export function createEnv(steps: (ChatResponse | LlmError)[], extraTools: CommandTool[] = [], maxSteps?: number): Env {
+export function createEnv(steps: (ChatResponse | LlmError)[], extraTools: CommandTool[] = [], maxSteps?: number, adapterOverride?: LlmAdapter): Env {
   const t = createTestRepo(new Date(2026, 2, 10, 12, 0, 0).toISOString())
   const memos = createMemoRepository(t.db, { now: () => new Date(2026, 2, 10, 12, 0, 0), tasks: t.repo })
   let n = 0
@@ -51,7 +51,7 @@ export function createEnv(steps: (ChatResponse | LlmError)[], extraTools: Comman
   const routines = createRoutineRepository(t.db, { now: () => new Date(2026, 2, 10, 12, 0, 0), tasks: t.repo })
   const core = createCoreTools({ tasks: t.repo, memos, routines, today: () => '2026-03-10' })
   const registry = createToolRegistry([() => core, () => extraTools])
-  const adapter = scripted(steps)
+  const adapter = (adapterOverride ?? scripted(steps)) as ReturnType<typeof scripted>
   const session = createCommandSession({ repo: conv, registry, getAdapter: () => adapter, maxSteps })
   return { t, memos, conv, registry, session, adapter, ran: [] }
 }

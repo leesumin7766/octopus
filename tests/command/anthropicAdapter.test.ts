@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { createAnthropicAdapter, FALLBACK_BETA, type AnthropicClientLike, type AnthropicResponse } from '../../src/main/core/command/llm/anthropicAdapter'
 import { LlmError } from '../../src/main/core/command/llm/types'
 
-const ok: AnthropicResponse = {
+/** 시험용 응답: 실제 SDK 응답의 필요한 부분만(블록의 나머지 필드는 시험이 정한다) */
+type LooseResponse = { content: Record<string, unknown>[]; stop_reason: string | null; usage?: { input_tokens?: number; output_tokens?: number } }
+
+const ok: LooseResponse = {
   content: [
     { type: 'thinking', thinking: 'hmm', signature: 'sig' },
     { type: 'text', text: '안녕' },
@@ -12,11 +15,11 @@ const ok: AnthropicResponse = {
   usage: { input_tokens: 10, output_tokens: 5 }
 }
 
-function fakeClient(response: AnthropicResponse | Error = ok) {
-  const call = (p: Record<string, unknown>) => (response instanceof Error ? Promise.reject(response) : Promise.resolve(response))
+function fakeClient(response: LooseResponse | Error = ok) {
+  const call = (p: Record<string, unknown>) => (response instanceof Error ? Promise.reject(response) : Promise.resolve(response as unknown as AnthropicResponse))
   const plain = vi.fn(call)
   const beta = vi.fn(call)
-  return { client: { messages: { create: plain }, beta: { messages: { create: beta } } } as AnthropicClientLike, plain, beta }
+  return { client: { messages: { create: plain }, beta: { messages: { create: beta } } } as unknown as AnthropicClientLike, plain, beta }
 }
 
 const request = {

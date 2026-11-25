@@ -11,19 +11,20 @@ import { dailyLinkLine, dailyNotePath, hasDailyLink } from './dailyNote'
 import { addIgnoreLine, checkVaultGit, IGNORE_LINE, type RunGit } from './gitCheck'
 import { renderExport, type ExportData } from './render'
 import { atomicWrite, backupLast, exists, isDirectory, readIfExists, resolveInsideVault, VaultPathError } from './vault'
-import { candidateRef, extractCaptured, findWritingSection } from './writing'
+import { candidateRef, extractCaptured, findWritingSection, heldLastLine } from './writing'
 
 export const OBSIDIAN_ID = 'obsidian'
 export const DEFAULT_DEBOUNCE_MS = 2000
-export const DEFAULT_WATCH_DEBOUNCE_MS = 3000
+/** 파일이 바뀐 뒤 이 시간 동안 더 바뀌지 않아야 "적어 넣기"를 읽는다(옵시디언에서 적는 중에 읽지 않도록). */
+export const DEFAULT_WATCH_DEBOUNCE_MS = 10_000
 
 export const MESSAGES = {
-  noFolder: '폴더를 고르지 않았어요. 다시 [연결]을 눌러 vault 폴더를 골라 주세요.',
-  vaultGone: 'vault 폴더를 찾을 수 없어요. 폴더가 있는지 확인하고 [다시 연결]을 눌러 주세요.',
-  needFolder: 'vault 폴더를 다시 골라야 해요. [다시 연결]을 눌러 주세요.',
-  badPath: '내보낼 파일 경로가 vault 밖이거나 올바르지 않아요. 설정에서 고쳐 주세요.',
-  writeFailed: '파일을 쓰지 못했어요. vault 폴더의 쓰기 권한과 파일이 잠겨 있지 않은지 확인해 주세요.',
-  notVault: '옵시디언 vault 가 아닌 것 같아요(.obsidian 폴더가 없어요).'
+  noFolder: '폴더를 고르지 않았어요. 다시 [연결]을 눌러 볼트 폴더를 골라 주세요.',
+  vaultGone: '볼트 폴더를 찾을 수 없어요. 폴더가 있는지 확인하고 [다시 연결]을 눌러 주세요.',
+  needFolder: '볼트 폴더를 다시 골라야 해요. [다시 연결]을 눌러 주세요.',
+  badPath: '내보낼 파일 경로가 볼트 밖이거나 올바르지 않아요. 설정에서 고쳐 주세요.',
+  writeFailed: '파일을 쓰지 못했어요. 볼트 폴더에 쓸 권한이 있는지, 파일이 다른 프로그램에서 열려 잠겨 있지 않은지 확인해 주세요.',
+  notVault: '옵시디언 볼트가 아닌 것 같아요(.obsidian 폴더가 없어요).'
 } as const
 
 /** 설정 저장소 중 Arm 이 쓰는 부분 */
@@ -52,6 +53,11 @@ export interface ObsidianArmDeps {
   debounceMs?: number
   /** 파일이 바뀐 뒤 "적어 넣기"를 읽기까지의 대기(ms). 쓰는 도중에 읽지 않도록 길게 둔다. */
   watchDebounceMs?: number
+  /**
+   * 시간 뒤에 저절로 하는 일(디바운스 내보내기·자정 내보내기·파일 감시 확인)이 하나 끝날 때마다 부른다.
+   * 시험이 실제 시간을 재지 않고 그 일이 끝나기를 직접 기다리게 하려는 알림이다(앱에서는 쓰지 않는다).
+   */
+   onSettled?: (kind: 'export' | 'watch') => void
 }
 
 export interface ObsidianArm extends Arm {
@@ -160,7 +166,7 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
     try {
       target = await resolveInsideVault(vault, note.path)
     } catch {
-      dailyProblem = '일일노트 폴더가 vault 밖이에요.'
+      dailyProblem = '일일노트 폴더가 볼트 밖에 있어요.'
       return
     }
     const content = await readIfExists(target)
@@ -219,13 +225,19 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
         const readAt = now()
         let captured: string[] = []
         let writingLines: string[] | null = null
+        let holding = false
         if (config.mode === 'both') {
           const section = existing === null ? null : findWritingSection(existing)
-          const split = extractCaptured(section?.lines ?? [])
+          const held = section === null || existing === null ? null : heldLastLine(existing, section)
+          const split = extractCaptured(held ? held.complete : (section?.lines ?? []))
           captured = split.items
-          writingLines = split.rest
+          // 아직 쓰는 중인 마지막 줄은 가져가지도 지우지도 않고 구역 맨 아래에 그대로 둔다.
+          writingLines = held && held.last !== null ? [...split.rest, held.last] : split.rest
+          holding = held !== null && held.last !== null
         }
-        const content = renderExport(gather(context.core), { writingLines })
+        const rendered = renderExport(gather(context.core), { writingLines })
+        // 쓰는 중인 줄이 파일 끝에 있으면 줄바꿈을 더하지 않고 그 줄로 끝낸다(사용자가 이어서 적을 수 있게).
+        const content = holding ? rendered.replace(/\r?\n$/, '') : rendered
 
         if (existing === content) {
           lastWriteHash = sha256(content)
@@ -258,13 +270,22 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
 
   const exportQueued = (): Promise<ExportResult> => enqueue(runExport)
 
+  /** 알림은 표시용이라 받는 쪽이 실패해도 일에는 영향이 없다. */
+  function settled(kind: 'export' | 'watch'): void {
+    try {
+      deps.onSettled?.(kind)
+    } catch {
+      // 무시
+    }
+  }
+
   // ---- 일정·감시 ----
 
   function scheduleExport(): void {
     if (exportTimer) clearTimeout(exportTimer)
     exportTimer = setTimeout(() => {
       exportTimer = null
-      void exportQueued()
+      void exportQueued().finally(() => settled('export'))
     }, debounceMs)
   }
 
@@ -274,7 +295,7 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
     const next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 0, 0, 2, 0)
     midnightTimer = setTimeout(() => {
       midnightTimer = null
-      void exportQueued().then(() => scheduleMidnight())
+      void exportQueued().then(() => scheduleMidnight()).finally(() => settled('export'))
     }, Math.max(1000, next.getTime() - n.getTime()))
   }
 
@@ -307,7 +328,7 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
         if (watchTimer) clearTimeout(watchTimer)
         watchTimer = setTimeout(() => {
           watchTimer = null
-          void checkWriting()
+          void checkWriting().finally(() => settled('watch'))
         }, watchDebounceMs)
       })
     } catch {
@@ -376,7 +397,7 @@ export function createObsidianArm(deps: ObsidianArmDeps): ObsidianArm {
       version: '0.1.0',
       auth: 'folder',
       capabilities: ['tasks.export', 'tasks.import', 'links'],
-      description: '할 일을 vault 의 파일 하나로 내보내요. 그 파일은 Octopus 가 통째로 덮어써요. 옵시디언의 다른 노트는 건드리지 않아요.',
+      description: '할 일을 볼트 안의 파일 하나로 내보내요. 그 파일은 Octopus 가 통째로 덮어써요. 옵시디언의 다른 노트는 건드리지 않아요.',
       syncIntervalMinutes: 5
     },
     settingsScreen: 'obsidian',

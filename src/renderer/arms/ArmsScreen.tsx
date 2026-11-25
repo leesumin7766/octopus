@@ -111,7 +111,8 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
 
       {arm.unavailableReason && (
         <p role="status" className="rounded-lg bg-[#fff6e0] px-3 py-2 text-[13px] text-[#6b4a00]">
-          {arm.unavailableReason}
+          <span>{arm.unavailableReason}</span>
+          {arm.id === 'google-calendar' && <span> {t.advanced.googleFallbackHint}</span>}
         </p>
       )}
 

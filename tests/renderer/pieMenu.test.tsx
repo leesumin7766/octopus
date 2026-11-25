@@ -9,7 +9,7 @@ import { DEAD_ZONE_PX, slotCenterPoint } from '../../src/shared/pie/geometry'
 import { installBackend, type Backend } from './backend'
 
 const t = ko.pie
-const LABELS = ['지시하기', '할 일 추가', '캘린더', '메일', '메모', '위키', '옵시디언', 'Arms']
+const LABELS = ['지시하기', '할 일 추가', '캘린더', '할 일 보기', '메모 쓰기', '체크리스트', '옵시디언', 'Arms']
 
 describe('pie menu', () => {
   let b: Backend
@@ -183,7 +183,7 @@ describe('pie menu', () => {
       expect(circle.getAttribute('aria-expanded')).toBe('true')
       expect(menu()).toBeTruthy()
 
-      await user.click(wedge('메모'))
+      await user.click(wedge('메모 쓰기'))
 
       expect(await dialog(ko.home.dialogs.memoTitle)).toBeTruthy()
       expect(screen.queryByRole('menu')).toBeNull()
@@ -233,11 +233,11 @@ describe('pie menu', () => {
       const circle = await show()
       await user.click(circle)
 
-      for (const name of ['지시하기', '메일', '위키', '옵시디언']) {
+      for (const name of ['지시하기', '옵시디언']) {
         expect(wedge(name).getAttribute('aria-disabled'), name).toBe('true')
         expect(wedge(name).className).toContain('opacity-50')
       }
-      for (const name of ['할 일 추가', '메모', '캘린더', 'Arms']) expect(wedge(name).getAttribute('aria-disabled'), name).toBeNull()
+      for (const name of ['할 일 추가', '할 일 보기', '메모 쓰기', '체크리스트', '캘린더', 'Arms']) expect(wedge(name).getAttribute('aria-disabled'), name).toBeNull()
     })
 
     it('pointing at one shows why, and the reason goes away when pointing elsewhere', async () => {
@@ -257,12 +257,12 @@ describe('pie menu', () => {
 
     it('the reason is also on the wedge title', async () => {
       const user = userEvent.setup()
-      prepare()
+      prepareWithGoogleAtTwo()
       const circle = await show()
       await user.click(circle)
 
-      expect(wedge('메일').getAttribute('title')).toContain(t.reasons['arm:mail'])
-      expect(wedge('위키').getAttribute('title')).toContain(t.reasons.wiki)
+      expect(wedge('옵시디언').getAttribute('title')).toContain(t.reasons['arm:obsidian'])
+      expect(wedge('구글 캘린더').getAttribute('title')).toContain(t.reasons['arm:google-calendar'])
     })
 
     it('releasing a drag over one does nothing, and the menu stays open so the reason can be read', async () => {
@@ -286,7 +286,7 @@ describe('pie menu', () => {
       await user.click(circle)
 
       await user.click(wedge('지시하기'))
-      await user.click(wedge('위키'))
+      await user.click(wedge('옵시디언'))
 
       expect(menu()).toBeTruthy()
       expect(screen.queryByRole('dialog')).toBeNull()
@@ -342,7 +342,7 @@ describe('pie menu', () => {
       await user.keyboard('{ArrowDown}')
       expect(document.activeElement).toBe(wedge('캘린더'))
       await user.keyboard('{Tab}')
-      expect(document.activeElement).toBe(wedge('메일'))
+      expect(document.activeElement).toBe(wedge('할 일 보기'))
       await user.keyboard('{ArrowLeft}{ArrowUp}')
       expect(document.activeElement).toBe(wedge('할 일 추가'))
       await user.keyboard('{Shift>}{Tab}{/Shift}')
@@ -545,16 +545,16 @@ describe('pie menu', () => {
   describe('custom slots', () => {
     it('uses the eight actions saved in settings, with the right names', async () => {
       const backend = prepare()
-      backend.settingsRepo.set('pie.slots', ['nav:settings', 'nav:home', 'nav:tasks', 'nav:routines', 'nav:memos', 'task:quickAdd', 'memo:quickAdd', 'wiki'])
+      backend.settingsRepo.set('pie.slots', ['nav:settings', 'nav:home', 'nav:tasks', 'nav:routines', 'nav:memos', 'task:quickAdd', 'memo:quickAdd', 'arm:obsidian'])
       const user = userEvent.setup()
       const circle = await show()
       await user.click(circle)
 
       expect(within(menu()).getAllByRole('menuitem').map((el) => el.getAttribute('aria-label'))).toEqual([
-        '설정', '홈', '할 일', '체크리스트', '메모 보기', '할 일 추가', '메모', '위키'
+        '설정', '홈', '할 일 보기', '체크리스트', '메모 보기', '할 일 추가', '메모 쓰기', '옵시디언'
       ])
       expect(wedge('설정').getAttribute('aria-disabled')).toBeNull()
-      expect(wedge('위키').getAttribute('aria-disabled')).toBe('true')
+      expect(wedge('옵시디언').getAttribute('aria-disabled')).toBe('true')
     })
 
     it('falls back to the default eight when the saved value is broken', async () => {

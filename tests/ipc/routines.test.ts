@@ -114,6 +114,33 @@ describe('routine IPC handlers', () => {
     })
   })
 
+  describe('move', () => {
+    it('moves a routine up or down and reports ok', () => {
+      const { handlers } = s()
+      const a = data(handlers.create({ title: 'a', days: EVERY_DAY }))
+      data(handlers.create({ title: 'b', days: EVERY_DAY }))
+
+      expect(data(handlers.move(a.id, 'down'))).toBeNull()
+      expect(data(handlers.list()).routines.map((r) => r.title)).toEqual(['b', 'a'])
+      expect(data(handlers.list()).todayItems.map((task) => task.title)).toEqual(['b', 'a'])
+    })
+
+    it('rejects a bad direction or id without touching anything', () => {
+      const { handlers } = s()
+      const a = data(handlers.create({ title: 'a', days: EVERY_DAY }))
+
+      invalid(handlers.move(a.id, 'left'), 'direction')
+      invalid(handlers.move(a.id, undefined), 'direction')
+      invalid(handlers.move(42, 'up'), 'id')
+      expect(data(handlers.list()).routines.map((r) => r.title)).toEqual(['a'])
+    })
+
+    it('an unknown id is reported as not_found', () => {
+      const { handlers } = s()
+      expect(handlers.move('01ARZ3NDEKTSV4RRFFQ69G5FAV', 'up')).toEqual({ ok: false, error: { code: 'not_found' } })
+    })
+  })
+
   describe('invalid input', () => {
     it('rejects malformed creates', () => {
       const { handlers, t } = s()

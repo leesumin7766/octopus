@@ -29,6 +29,10 @@ import { ShortcutsCard } from './cards/ShortcutsCard'
 import { TodoCard } from './cards/TodoCard'
 import { MemoQuickDialog, TaskQuickDialog } from './QuickDialogs'
 import { ResizeSeparator } from './ResizeSeparator'
+import { useNarrowWindow } from '../layout/useNarrowWindow'
+
+/** 좁은 창에서 오늘 할 일 카드가 보여야 하는 최소 높이(px): 할 일 다섯 개 정도 */
+const NARROW_TODO_MIN_PX = 440
 
 const t = ko.home
 
@@ -86,6 +90,7 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const { value: layout, setLocal, persist } = useSetting('home.layout')
   const pie = useSetting('pie.slots')
+  const narrow = useNarrowWindow()
   const gridRef = useRef<HTMLDivElement>(null)
   const [dayTick, setDayTick] = useState(0)
   const [shortcuts, setShortcuts] = useState<Shortcut[] | null>(null)
@@ -270,7 +275,7 @@ export function HomeScreen({
           />
         )
       case 'memo':
-        return <MemoCard refreshKey={refreshKey} onOpenMemos={() => onNavigate('memos')} />
+        return <MemoCard refreshKey={refreshKey} />
       case 'shortcuts':
         return (
           <ShortcutsCard
@@ -283,12 +288,35 @@ export function HomeScreen({
     }
   }
 
-  const gridStyle: CSSProperties | undefined = layout
-    ? {
-        gridTemplateColumns: `${layout.col}fr ${GAP_PX}px ${100 - layout.col}fr`,
-        gridTemplateRows: `${layout.row}fr ${GAP_PX}px ${100 - layout.row}fr`
-      }
-    : undefined
+  /** 카드 아래 고정 영역: "전체 보기 →" (스크롤 밖에 있다) */
+  function renderFooter(card: CardId) {
+    switch (card) {
+      case 'todo':
+        return (
+          <button type="button" onClick={() => onNavigate('tasks')} className="self-start py-1 text-[13px] text-accent hover:underline">
+            {t.todo.viewAll}
+          </button>
+        )
+      case 'memo':
+        return (
+          <button type="button" onClick={() => onNavigate('memos')} className="self-start py-1 text-[13px] text-accent hover:underline">
+            {t.memo.viewAll}
+          </button>
+        )
+      default:
+        return undefined
+    }
+  }
+
+  // 좁은 창: 한 열로 쌓고(읽는 순서대로 위에서 아래), 목록은 격자 전체가 스크롤한다.
+  const gridStyle: CSSProperties | undefined = narrow
+    ? { gridTemplateColumns: '1fr', gridTemplateRows: 'repeat(4, auto)', rowGap: `${GAP_PX}px` }
+    : layout
+      ? {
+          gridTemplateColumns: `${layout.col}fr ${GAP_PX}px ${100 - layout.col}fr`,
+          gridTemplateRows: `${layout.row}fr ${GAP_PX}px ${100 - layout.row}fr`
+        }
+      : undefined
 
   return (
     <div className="relative flex h-full min-w-0 flex-col gap-2.5 bg-page px-5 pb-5 pt-3.5 text-ink">
@@ -315,7 +343,7 @@ export function HomeScreen({
       {!layout ? (
         <div aria-busy="true" className="flex-1" />
       ) : (
-        <div ref={gridRef} style={gridStyle} className="relative grid min-h-0 flex-1">
+        <div ref={gridRef} style={gridStyle} className={`relative grid min-h-0 flex-1 ${narrow ? 'overflow-y-auto' : ''}`}>
           {layout.order.map((card, position) => (
             <CardFrame
               key={card}
@@ -323,36 +351,47 @@ export function HomeScreen({
               position={position}
               arranging={arranging}
               onMove={(id: CardId, direction: Direction) => change(moveCard(layout, id, direction))}
-              style={PLACEMENT[position]}
+              style={narrow ? { gridColumn: 1, gridRow: position + 1, minHeight: card === 'todo' ? NARROW_TODO_MIN_PX : undefined } : PLACEMENT[position]}
+              footer={renderFooter(card)}
             >
               {renderCard(card)}
             </CardFrame>
           ))}
 
-          <ResizeSeparator
-            orientation="vertical"
-            value={layout.col}
-            label={t.columnSeparator}
-            areaRef={gridRef}
-            style={{ gridColumn: 2, gridRow: '1 / 4' }}
-            onChange={(value) => setLocal(setCol(layout, value))}
-            onCommit={() => persist()}
-            onReset={() => setLocal(setCol(layout, DEFAULT_RATIO))}
-          />
-          <ResizeSeparator
-            orientation="horizontal"
-            value={layout.row}
-            label={t.rowSeparator}
-            areaRef={gridRef}
-            style={{ gridRow: 2, gridColumn: '1 / 4' }}
-            onChange={(value) => setLocal(setRow(layout, value))}
-            onCommit={() => persist()}
-            onReset={() => setLocal(setRow(layout, DEFAULT_RATIO))}
-          />
+          {!narrow && (
+            <>
+              <ResizeSeparator
+                orientation="vertical"
+                value={layout.col}
+                label={t.columnSeparator}
+                areaRef={gridRef}
+                style={{ gridColumn: 2, gridRow: '1 / 4' }}
+                onChange={(value) => setLocal(setCol(layout, value))}
+                onCommit={() => persist()}
+                onReset={() => setLocal(setCol(layout, DEFAULT_RATIO))}
+              />
+              <ResizeSeparator
+                orientation="horizontal"
+                value={layout.row}
+                label={t.rowSeparator}
+                areaRef={gridRef}
+                style={{ gridRow: 2, gridColumn: '1 / 4' }}
+                onChange={(value) => setLocal(setRow(layout, value))}
+                onCommit={() => persist()}
+                onReset={() => setLocal(setRow(layout, DEFAULT_RATIO))}
+              />
+            </>
+          )}
 
-          {/* 두 경계가 만나는 점의 원 버튼과 8칸 원형 메뉴. 크기를 조절하면 함께 움직인다. */}
+          {/* 두 경계가 만나는 점의 원 버튼과 8칸 원형 메뉴. 크기를 조절하면 함께 움직인다. 좁은 창에서는 오른쪽 아래에 떠 있다. */}
           {slotInfos && (
-            <PieMenu slots={slotInfos} onRun={runSlot} initialOpen={pieDemo !== undefined} initialHover={pieDemo?.hover ?? null} />
+            <PieMenu
+              slots={slotInfos}
+              onRun={runSlot}
+              initialOpen={pieDemo !== undefined}
+              initialHover={pieDemo?.hover ?? null}
+              floating={narrow}
+            />
           )}
         </div>
       )}

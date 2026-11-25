@@ -3,11 +3,14 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ko } from '../../src/renderer/i18n/ko'
+import { formatDate } from '../../src/renderer/tasks/format'
 import { RoutinesScreen } from '../../src/renderer/routines/RoutinesScreen'
 import { installBackend, type Backend } from './backend'
 
 const t = ko.routines
 const TODAY = '2026-03-10' // 화요일
+/** 칸의 이름에 쓰는 날짜 표기(오늘은 "오늘", 그 밖은 "3/8 (일)") */
+const shown = (date: string): string => formatDate(date, TODAY)
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6]
 
 describe('routines screen', () => {
@@ -250,6 +253,27 @@ describe('routines screen', () => {
     })
   })
 
+  describe('order', () => {
+    it('the arrows move a routine, the first has no up arrow and the last has no down arrow', async () => {
+      const user = userEvent.setup()
+      b.routineRepo.create({ title: '첫째', days: EVERY_DAY }, TODAY)
+      b.routineRepo.create({ title: '둘째', days: EVERY_DAY }, TODAY)
+      render(<RoutinesScreen />)
+      await within(manageSection()).findByText('둘째')
+
+      expect((within(manageSection()).getByRole('button', { name: `${t.moveUp}: 첫째` }) as HTMLButtonElement).disabled).toBe(true)
+      expect((within(manageSection()).getByRole('button', { name: `${t.moveDown}: 둘째` }) as HTMLButtonElement).disabled).toBe(true)
+
+      await user.click(within(manageSection()).getByRole('button', { name: `${t.moveDown}: 첫째` }))
+
+      await waitFor(() => expect(b.routines.move).toHaveBeenCalledWith(expect.any(String), 'down'))
+      await waitFor(() => {
+        const titles = within(manageSection()).getAllByRole('listitem').map((li) => li.querySelector('span')?.textContent)
+        expect(titles.slice(0, 2)).toEqual(['둘째', '첫째'])
+      })
+    })
+  })
+
   describe('14-day history', () => {
     it('shows done, missed, in-progress and not-applicable cells', async () => {
       const routine = b.routineRepo.create({ title: '아침 스트레칭', days: EVERY_DAY }, TODAY)
@@ -259,11 +283,11 @@ describe('routines screen', () => {
       render(<RoutinesScreen />)
 
       const table = await screen.findByRole('table', { name: t.historyTitle(14) })
-      const cell = (date: string) => within(table).getByLabelText(`아침 스트레칭 ${date}: `, { exact: false })
-      expect(within(table).getByLabelText(`아침 스트레칭 2026-03-08: ${t.cell.done}`).textContent).toBe('✓')
-      expect(within(table).getByLabelText(`아침 스트레칭 2026-03-09: ${t.cell.missed}`).textContent).toBe('✕')
-      expect(within(table).getByLabelText(`아침 스트레칭 ${TODAY}: ${t.cell.pending}`).textContent).toBe('○')
-      expect(within(table).getByLabelText(`아침 스트레칭 2026-03-07: ${t.cell.none}`).textContent).toBe('·')
+      const cell = (date: string) => within(table).getByLabelText(`아침 스트레칭 ${shown(date)}: `, { exact: false })
+      expect(within(table).getByLabelText(`아침 스트레칭 ${shown('2026-03-08')}: ${t.cell.done}`).textContent).toBe('✓')
+      expect(within(table).getByLabelText(`아침 스트레칭 ${shown('2026-03-09')}: ${t.cell.missed}`).textContent).toBe('✕')
+      expect(within(table).getByLabelText(`아침 스트레칭 ${shown(TODAY)}: ${t.cell.pending}`).textContent).toBe('○')
+      expect(within(table).getByLabelText(`아침 스트레칭 ${shown('2026-03-07')}: ${t.cell.none}`).textContent).toBe('·')
       expect(cell('2026-02-25')).toBeTruthy() // 14일 전체가 열로 나온다
       expect(within(table).getAllByRole('columnheader')).toHaveLength(15) // 이름 칸 + 14일
     })
@@ -275,7 +299,7 @@ describe('routines screen', () => {
 
       await user.click(await within(todaySection()).findByRole('checkbox', { name: `${ko.tasks.complete}: 아침 스트레칭` }))
 
-      await waitFor(() => expect(screen.getByLabelText(`아침 스트레칭 ${TODAY}: ${t.cell.done}`)).toBeTruthy())
+      await waitFor(() => expect(screen.getByLabelText(`아침 스트레칭 ${shown(TODAY)}: ${t.cell.done}`)).toBeTruthy())
     })
 
     it('has a hint instead of a table when there are no routines', async () => {

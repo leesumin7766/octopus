@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { Task } from '../../shared/tasks/types'
 import { ko } from '../i18n/ko'
 import { TaskRow } from './TaskRow'
@@ -12,44 +12,36 @@ interface OverdueSectionProps {
   pending: ReadonlyMap<string, boolean>
   onToggle: (task: Task) => void
   onOpen: (task: Task) => void
-  /** 성공하면 true. 성공했을 때만 선택을 비운다. */
+  /** 성공하면 true. 목록은 호출한 쪽에서 새로 불러온다. */
   onMoveToToday: (ids: string[]) => Promise<boolean>
   onMoveToSomeday: (ids: string[]) => Promise<boolean>
   onReschedule: (ids: string[], date: string) => Promise<boolean>
 }
 
+/** '나중에'로 보낼 수 없는 항목이면 그 이유(없으면 null). 루틴 항목과 반복 할 일이 해당한다. */
+function somedayBlockedReason(task: Task): string | null {
+  if (task.routineId !== null) return t.routineBlocksSomeday
+  if (task.repeat !== null) return t.repeatBlocksSomeday
+  return null
+}
+
+const buttonClass =
+  'rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40'
+
 export function OverdueSection(props: OverdueSectionProps) {
   const { tasks, today, activeId, pending } = props
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
-  const [date, setDate] = useState('')
-  const selectAllRef = useRef<HTMLInputElement>(null)
+  const [openDateId, setOpenDateId] = useState<string | null>(null)
+  const [keptNotice, setKeptNotice] = useState<string | null>(null)
 
-  // 목록에서 사라진 항목은 선택에서도 뺀다.
-  const chosen = tasks.filter((task) => selected.has(task.id))
-  const ids = chosen.map((task) => task.id)
-  const allSelected = tasks.length > 0 && chosen.length === tasks.length
-  const hasRepeat = chosen.some((task) => task.repeat !== null)
+  const movable = tasks.filter((task) => somedayBlockedReason(task) === null)
+  const kept = tasks.length - movable.length
 
-  useEffect(() => {
-    if (selectAllRef.current) selectAllRef.current.indeterminate = chosen.length > 0 && !allSelected
-  }, [chosen.length, allSelected])
-
-  function toggleOne(id: string, on: boolean): void {
-    setSelected((previous) => {
-      const next = new Set(previous)
-      if (on) next.add(id)
-      else next.delete(id)
-      return next
-    })
+  async function allToSomeday(): Promise<void> {
+    if (movable.length === 0) return
+    const ok = await props.onMoveToSomeday(movable.map((task) => task.id))
+    // 반복 할 일과 루틴 항목은 건너뛰었다고 알려 준다.
+    setKeptNotice(ok && kept > 0 ? t.keptRepeating(kept) : null)
   }
-
-  async function run(action: () => Promise<boolean>): Promise<void> {
-    if (await action()) setSelected(new Set())
-  }
-
-  const none = ids.length === 0
-  const buttonClass =
-    'rounded-md border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40'
 
   return (
     <section aria-label={t.title} className="mb-5 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
@@ -57,64 +49,77 @@ export function OverdueSection(props: OverdueSectionProps) {
         <h2 className="text-sm font-semibold text-amber-800">
           {t.title} <span className="font-normal">({tasks.length})</span>
         </h2>
-        <label className="flex items-center gap-1.5 text-xs text-slate-600">
-          <input
-            ref={selectAllRef}
-            type="checkbox"
-            checked={allSelected}
-            onChange={(event) => setSelected(event.target.checked ? new Set(tasks.map((task) => task.id)) : new Set())}
-            className="size-4 accent-indigo-600"
-          />
-          {t.selectAll}
-        </label>
-        {!none && <span className="text-xs text-slate-500">{t.selectedCount(ids.length)}</span>}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button type="button" disabled={tasks.length === 0} onClick={() => void props.onMoveToToday(tasks.map((task) => task.id))} className={buttonClass}>
+            {t.allToToday}
+          </button>
+          <button type="button" disabled={movable.length === 0} onClick={() => void allToSomeday()} className={buttonClass}>
+            {t.allToSomeday}
+          </button>
+        </div>
       </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <button type="button" disabled={none} onClick={() => void run(() => props.onMoveToToday(ids))} className={buttonClass}>
-          {t.toToday}
-        </button>
-        <button
-          type="button"
-          disabled={none || hasRepeat}
-          onClick={() => void run(() => props.onMoveToSomeday(ids))}
-          className={buttonClass}
-        >
-          {t.toSomeday}
-        </button>
-        <input
-          type="date"
-          aria-label={t.dateLabel}
-          value={date}
-          onChange={(event) => setDate(event.target.value)}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
-        />
-        <button
-          type="button"
-          disabled={none || date === ''}
-          onClick={() => void run(() => props.onReschedule(ids, date))}
-          className={buttonClass}
-        >
-          {t.reschedule}
-        </button>
-      </div>
-      {hasRepeat && <p className="mt-2 text-xs text-amber-700">{t.repeatBlocksSomeday}</p>}
+      {keptNotice && (
+        <p role="status" className="mt-2 text-xs text-amber-700">
+          {keptNotice}
+        </p>
+      )}
 
       <ul className="mt-2">
-        {tasks.map((task) => (
-          <TaskRow
-            key={task.id}
-            task={task}
-            today={today}
-            checked={pending.get(task.id) ?? task.status === 'done'}
-            fading={pending.has(task.id)}
-            active={task.id === activeId}
-            selected={selected.has(task.id)}
-            onSelect={(on) => toggleOne(task.id, on)}
-            onToggle={() => props.onToggle(task)}
-            onOpen={() => props.onOpen(task)}
-          />
-        ))}
+        {tasks.map((task) => {
+          const blocked = somedayBlockedReason(task)
+          const dateOpen = openDateId === task.id
+          return (
+            <TaskRow
+              key={task.id}
+              task={task}
+              today={today}
+              checked={pending.get(task.id) ?? task.status === 'done'}
+              fading={pending.has(task.id)}
+              active={task.id === activeId}
+              onToggle={() => props.onToggle(task)}
+              onOpen={() => props.onOpen(task)}
+              trailing={
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                  <button type="button" onClick={() => void props.onMoveToToday([task.id])} className={buttonClass}>
+                    {t.toToday}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={blocked !== null}
+                    title={blocked ?? undefined}
+                    onClick={() => void props.onMoveToSomeday([task.id])}
+                    className={buttonClass}
+                  >
+                    {t.toSomeday}
+                  </button>
+                  <button
+                    type="button"
+                    aria-expanded={dateOpen}
+                    aria-label={`${t.reschedule}: ${task.title}`}
+                    onClick={() => setOpenDateId(dateOpen ? null : task.id)}
+                    className={buttonClass}
+                  >
+                    {t.reschedule}
+                  </button>
+                  {dateOpen && (
+                    <input
+                      type="date"
+                      aria-label={`${t.dateLabel}: ${task.title}`}
+                      onChange={(event) => {
+                        const date = event.target.value
+                        if (date === '') return
+                        void props.onReschedule([task.id], date).then((ok) => {
+                          if (ok) setOpenDateId(null)
+                        })
+                      }}
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+                    />
+                  )}
+                </div>
+              }
+            />
+          )
+        })}
       </ul>
     </section>
   )
