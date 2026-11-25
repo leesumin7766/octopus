@@ -45,7 +45,7 @@ export function isSettingKey(value: unknown): value is SettingKey {
 
 export function defaultSetting<K extends SettingKey>(key: K): SettingsMap[K] {
   const value: SettingsMap[SettingKey] =
-    key === 'home.layout' ? defaultLayout() : key === 'pie.slots' ? [...DEFAULT_PIE_SLOTS] : key === 'command.models' ? DEFAULT_MODELS.map((m) => ({ ...m })) : key === 'command.model' ? '' : key === 'arms.connected' || key === 'arms.autoAccept' || key === 'mcp.servers' || key === 'mcp.approvals' ? [] : key === 'obsidian.config' ? { ...DEFAULT_OBSIDIAN_CONFIG } : false
+    key === 'home.layout' ? defaultLayout() : key === 'pie.slots' ? [...DEFAULT_PIE_SLOTS] : key === 'command.models' ? DEFAULT_MODELS.map((m) => ({ ...m })) : key === 'command.model' ? '' : key === 'arms.connected' || key === 'arms.autoAccept' || key === 'mcp.servers' || key === 'mcp.approvals' ? [] : key === 'obsidian.config' ? { ...DEFAULT_OBSIDIAN_CONFIG } : key === 'nav.collapsed' ? true : false
   return value as SettingsMap[K]
 }
 

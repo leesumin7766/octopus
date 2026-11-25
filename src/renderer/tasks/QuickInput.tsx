@@ -14,6 +14,8 @@ interface QuickInputProps {
   debounceMs: number
   /** true 면 "알아들은 것" 줄을 입력을 시작했을 때만 보인다(좁은 홈 카드에서 목록 자리를 지키려고). */
   hintOnlyWhileTyping?: boolean
+  /** 입력칸 안내 문구. 없으면 할 일 화면의 기본 문구 */
+  placeholder?: string
 }
 
 function chipsOf(preview: QuickParseResult): { label: string; value: string }[] {
@@ -27,7 +29,7 @@ function chipsOf(preview: QuickParseResult): { label: string; value: string }[] 
 }
 
 /** 빠른 입력 카드: 입력줄과 추가 버튼, 아래에 "알아들은 것" 칩. */
-export function QuickInput({ inputRef, onSubmit, debounceMs, hintOnlyWhileTyping = false }: QuickInputProps) {
+export function QuickInput({ inputRef, onSubmit, debounceMs, hintOnlyWhileTyping = false, placeholder = t.quickInputPlaceholder }: QuickInputProps) {
   const [text, setText] = useState('')
   const [preview, setPreview] = useState<QuickParseResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -80,7 +82,7 @@ export function QuickInput({ inputRef, onSubmit, debounceMs, hintOnlyWhileTyping
           value={text}
           maxLength={MAX_TEXT_LENGTH}
           aria-label={t.quickInputLabel}
-          placeholder={t.quickInputPlaceholder}
+          placeholder={placeholder}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={handleKeyDown}
           className="min-w-0 flex-1 bg-transparent px-1 py-2 text-[15px] text-ink outline-none placeholder:text-[#8A8984]"

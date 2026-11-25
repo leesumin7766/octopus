@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { movableDirections, type CardId, type Direction } from '../../shared/home/layout'
 import { ko } from '../i18n/ko'
+import { useScrollingFlag } from '../ui/useScrollingFlag'
 
 const t = ko.home
 
@@ -22,6 +23,7 @@ interface CardFrameProps {
  */
 export function CardFrame({ card, position, arranging, onMove, style, children, footer }: CardFrameProps) {
   const title = t.cards[card]
+  const onScroll = useScrollingFlag()
 
   return (
     <section
@@ -51,7 +53,9 @@ export function CardFrame({ card, position, arranging, onMove, style, children, 
           </div>
         )}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">{children}</div>
+      <div onScroll={onScroll} className="scroll-quiet flex min-h-0 flex-1 flex-col gap-2.5 overflow-auto">
+        {children}
+      </div>
       {footer && <div className="shrink-0">{footer}</div>}
     </section>
   )

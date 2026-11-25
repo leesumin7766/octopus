@@ -14,7 +14,7 @@ describe('settings schema', () => {
 
   it('has a default for each key', () => {
     expect(defaultSetting('home.layout')).toEqual(defaultLayout())
-    expect(defaultSetting('nav.collapsed')).toBe(false)
+    expect(defaultSetting('nav.collapsed')).toBe(true) // ATDT 처럼 아이콘만(2026-11-25 사용자 결정)
     expect(defaultSetting('pie.slots')).toEqual([...DEFAULT_PIE_SLOTS])
   })
 

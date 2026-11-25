@@ -34,7 +34,7 @@ function DialogShell({ label, onClose, children }: DialogShellProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-ink/35 px-4 pt-24"
+      className="app-no-drag fixed inset-0 z-[60] flex items-start justify-center bg-ink/35 px-4 pt-24"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}

@@ -178,12 +178,12 @@ describe('app shell (left menu)', () => {
       expect(within(menu()).queryByText(ko.appTitle)).toBeNull()
     })
 
-    it('starts expanded when a saved value cannot be read (settings unavailable)', async () => {
+    it('starts with the default (collapsed) when a saved value cannot be read (settings unavailable)', async () => {
       const backend = prepare()
       backend.settings.get.mockResolvedValue({ ok: false, error: { code: 'db_unavailable' } })
       show()
 
-      expect(await screen.findByRole('button', { name: n.collapse })).toBeTruthy()
+      expect(await screen.findByRole('button', { name: n.expand })).toBeTruthy()
     })
 
     it('every icon-only button keeps its name for screen readers, and icons are inline SVG', async () => {

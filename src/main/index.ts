@@ -254,6 +254,11 @@ function createWindow(): void {
     width: captureSession?.config.view === 'home-narrow' ? 700 : 900,
     height: 700,
     title: 'Octopus',
+    // OS 제목 표시줄 대신 앱이 40px 제목 줄(날짜)을 그린다. 창 버튼은 OS 가 그린다:
+    // Windows·Linux 는 오른쪽 위(titleBarOverlay), macOS 는 왼쪽 위 신호등(trafficLightPosition).
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#f6f6f3', symbolColor: '#1b1b19', height: 40 },
+    trafficLightPosition: { x: 14, y: 13 },
     webPreferences: {
       ...buildWebPreferences(
         join(__dirname, '../preload/index.js'),

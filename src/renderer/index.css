@@ -36,3 +36,31 @@
     opacity: 1;
   }
 }
+
+/* 창 틀을 숨긴 제목 표시줄: 이 영역을 끌어 창을 옮긴다. 대화상자 배경은 no-drag 로 덮어 끌기를 막는다. */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 카드 안 스크롤바: 사용자가 스크롤하는 동안(data-scrolling)에만 보인다. 자리는 유지해 내용이 흔들리지 않는다. */
+.scroll-quiet::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-quiet::-webkit-scrollbar-button {
+  display: none;
+}
+.scroll-quiet::-webkit-scrollbar-track,
+.scroll-quiet::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.scroll-quiet::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: transparent;
+}
+.scroll-quiet[data-scrolling]::-webkit-scrollbar-thumb {
+  background: rgb(27 27 25 / 0.28);
+}

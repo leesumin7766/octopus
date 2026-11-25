@@ -132,6 +132,7 @@ export const ko = {
     centerSpot: 'Octopus 메뉴 자리',
     todo: {
       overdue: (n: number) => `지난 할 일 ${n}개`,
+      inputPlaceholder: '할 일 추가 · 예: 내일 오후 3시 보고서',
       empty: '오늘 할 일이 없어요. 위 입력창에 적어 추가해 보세요.',
       viewAll: '전체 보기 →'
     },

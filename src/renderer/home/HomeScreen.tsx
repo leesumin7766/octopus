@@ -319,13 +319,16 @@ export function HomeScreen({
       : undefined
 
   return (
-    <div className="relative flex h-full min-w-0 flex-col gap-2.5 bg-page px-5 pb-5 pt-3.5 text-ink">
-      <div className="flex min-h-8 items-center justify-center">
-        <h1 className="text-base font-semibold">{formatHomeDate(new Date())}</h1>
-      </div>
+    <div className="relative flex h-full min-w-0 flex-col bg-page p-4 text-ink">
+      {/* 날짜는 창 맨 위 제목 줄에 보인다. 화면 읽기 프로그램을 위해 홈 제목은 남겨 둔다. */}
+      <h1 className="sr-only">{formatHomeDate(new Date())}</h1>
 
+      {/* 배치 안내는 카드 자리를 밀지 않도록 아래쪽에 떠 있는 띠로 보인다. */}
       {arranging && (
-        <div role="status" className="flex flex-wrap items-center gap-3 rounded-[10px] bg-accent-soft px-3.5 py-2.5 text-[13px] text-accent-strong">
+        <div
+          role="status"
+          className="absolute bottom-4 left-1/2 z-[65] flex w-max max-w-[calc(100%-32px)] -translate-x-1/2 flex-wrap items-center gap-3 rounded-xl bg-accent-soft px-3.5 py-2.5 text-[13px] text-accent-strong shadow-lg ring-1 ring-[#c9c7f0]"
+        >
           <span className="min-w-60 flex-1">{t.arranging}</span>
           <button
             type="button"

@@ -5,6 +5,7 @@ import { useModelStatus } from './command/useModelStatus'
 import { useDataChanged } from './dataEvents'
 import { HomeScreen } from './home/HomeScreen'
 import { MemosScreen } from './memos/MemosScreen'
+import { TitleBar } from './layout/TitleBar'
 import { NavMenu, type Screen } from './nav/NavMenu'
 import { Welcome } from './onboarding/Welcome'
 import { ArmsScreen } from './arms/ArmsScreen'
@@ -104,10 +105,21 @@ export function App() {
   }
 
   // 메뉴 접힘 상태를 읽어 오기 전에는 틀만 보여 준다(펼쳤다가 접히는 깜빡임을 막는다).
-  if (nav.value === null || welcome === 'checking') return <div className="h-screen bg-page" />
+  if (nav.value === null || welcome === 'checking') return (
+    <div className="flex h-screen flex-col bg-page">
+      <TitleBar />
+    </div>
+  )
   if (welcome === 'show') {
     const step = initial === 'welcome-2' ? 2 : initial === 'welcome-3' ? 3 : 1
-    return <Welcome onDone={finishWelcome} initialStep={step} initialChosen={initial === 'welcome-1' || initial === 'welcome-2' ? ['obsidian'] : []} />
+    return (
+      <div className="flex h-screen flex-col bg-page">
+        <TitleBar />
+        <div className="min-h-0 flex-1">
+          <Welcome onDone={finishWelcome} initialStep={step} initialChosen={initial === 'welcome-1' || initial === 'welcome-2' ? ['obsidian'] : []} />
+        </div>
+      </div>
+    )
   }
 
   // 좁은 창에서는 메뉴를 접힌 모양으로 보인다. 사용자가 저장해 둔 선택은 바꾸지 않고, ☰ 는 이 창 안에서만 펼쳤다 접는다.
@@ -119,38 +131,41 @@ export function App() {
   }
 
   return (
-    <div className="flex h-screen bg-page text-ink">
-      <NavMenu
-        screen={screen}
-        collapsed={collapsed}
-        onToggleCollapsed={toggleCollapsed}
-        onNavigate={navigate}
-        arranging={arranging}
-        onToggleArranging={() => setArranging((on) => !on)}
-        onOpenCommand={() => setCommandOpen(true)}
-        commandReady={models.connected}
-      />
-      {/* 홈은 데이터 변경에 다시 그리지 않는다(입력 초안과 달력 선택을 지키기 위해 홈 카드가 스스로 다시 읽는다). 다른 화면은 기존처럼 바뀔 때마다 새로 그린다. */}
-      <main key={screen === 'home' ? 'home' : dataVersion} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
-        {screen === 'home' && (
-          <HomeScreen
-            arranging={arranging}
-            onDoneArranging={() => setArranging(false)}
-            onNavigate={navigate}
-            onOpenCommand={() => setCommandOpen(true)}
-            commandReady={models.connected}
-            pieDemo={initial === 'home-pie' ? { hover: 1 } : undefined}
-            dayDemo={initial === 'home-day'}
-            onDayDialogChange={setDayDialogOpen}
-          />
-        )}
-        {screen === 'tasks' && <TasksScreen initialView={taskView} openFirst={initial === 'task-detail'} />}
-        {screen === 'routines' && <RoutinesScreen />}
-        {screen === 'memos' && <MemosScreen />}
-        {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} onOpenSettings={(name) => name === 'obsidian' && navigate('obsidian')} />}
-        {screen === 'obsidian' && <ObsidianScreen onBack={() => navigate('arms')} />}
-        {screen === 'settings' && <SettingsScreen />}
-      </main>
+    <div className="flex h-screen flex-col bg-page text-ink">
+      <TitleBar />
+      <div className="flex min-h-0 flex-1">
+        <NavMenu
+          screen={screen}
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
+          onNavigate={navigate}
+          arranging={arranging}
+          onToggleArranging={() => setArranging((on) => !on)}
+          onOpenCommand={() => setCommandOpen(true)}
+          commandReady={models.connected}
+        />
+        {/* 홈은 데이터 변경에 다시 그리지 않는다(입력 초안과 달력 선택을 지키기 위해 홈 카드가 스스로 다시 읽는다). 다른 화면은 기존처럼 바뀔 때마다 새로 그린다. */}
+        <main key={screen === 'home' ? 'home' : dataVersion} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
+          {screen === 'home' && (
+            <HomeScreen
+              arranging={arranging}
+              onDoneArranging={() => setArranging(false)}
+              onNavigate={navigate}
+              onOpenCommand={() => setCommandOpen(true)}
+              commandReady={models.connected}
+              pieDemo={initial === 'home-pie' ? { hover: 1 } : undefined}
+              dayDemo={initial === 'home-day'}
+              onDayDialogChange={setDayDialogOpen}
+            />
+          )}
+          {screen === 'tasks' && <TasksScreen initialView={taskView} openFirst={initial === 'task-detail'} />}
+          {screen === 'routines' && <RoutinesScreen />}
+          {screen === 'memos' && <MemosScreen />}
+          {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} onOpenSettings={(name) => name === 'obsidian' && navigate('obsidian')} />}
+          {screen === 'obsidian' && <ObsidianScreen onBack={() => navigate('arms')} />}
+          {screen === 'settings' && <SettingsScreen />}
+        </main>
+      </div>
       {commandOpen && (
         <CommandDialog
           openLatest={initial === 'command'}

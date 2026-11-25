@@ -248,7 +248,7 @@ export function CommandDialog({ onClose, onOpenSettings, openLatest = false, aut
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-start justify-center bg-ink/35 px-4 pt-10"
+      className="app-no-drag fixed inset-0 z-[80] flex items-start justify-center bg-ink/35 px-4 pt-10"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}

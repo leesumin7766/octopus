@@ -291,7 +291,7 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4"
+      className="app-no-drag fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) request({ kind: 'close' })
       }}

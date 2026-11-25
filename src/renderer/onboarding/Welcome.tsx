@@ -85,7 +85,7 @@ export function Welcome({ onDone, initialStep = 1, initialChosen = [], previewDe
   const primary = 'min-h-11 rounded-lg bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-strong'
 
   return (
-    <div className="flex h-screen items-start justify-center overflow-y-auto bg-page px-4 py-8 text-ink">
+    <div className="flex h-full items-start justify-center overflow-y-auto bg-page px-4 py-8 text-ink">
       <div className="flex w-full max-w-xl flex-col gap-5">
         <header className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-lg font-bold text-accent">

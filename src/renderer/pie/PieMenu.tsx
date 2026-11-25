@@ -182,7 +182,7 @@ export function PieMenu({ slots, onRun, initialOpen = false, initialHover = null
           data-testid="pie-backdrop"
           aria-hidden="true"
           onClick={() => close()}
-          className="fixed inset-0 z-40 bg-page/60"
+          className="app-no-drag fixed inset-0 z-40 bg-page/60"
         />
       )}
 
