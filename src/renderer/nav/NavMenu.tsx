@@ -1,5 +1,5 @@
 import { ko } from '../i18n/ko'
-import { Icon, LayoutIcon, type IconName } from '../ui/Icon'
+import { Icon, type IconName } from '../ui/Icon'
 
 const t = ko.nav
 
@@ -142,7 +142,7 @@ export function NavMenu({ screen, collapsed, onToggleCollapsed, onNavigate, arra
           collapsed ? 'justify-center px-0' : 'px-2.5'
         } ${arranging ? 'border-2 border-accent bg-white text-accent' : 'border-2 border-transparent text-ink hover:bg-black/5'}`}
       >
-        <LayoutIcon />
+        <Icon name="layout" />
         {!collapsed && <span className="whitespace-nowrap">{t.arrange}</span>}
       </button>
       </div>
