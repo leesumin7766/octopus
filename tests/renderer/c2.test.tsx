@@ -69,9 +69,10 @@ describe('C2 day actions', () => {
       expect(saved?.date).toBe(T1)
       expect(saved?.time).toBe('10:30')
       expect(b.tasks.create).toHaveBeenCalledWith(expect.objectContaining({ title: '내일 회의', date: T1 }))
-      expect(await within(dialog).findByText(m.addSaved)).toBeTruthy()
+      // 따로 "추가했어요" 문구 없이, 입력칸이 비고 목록에 바로 나타난다
+      expect(await within(dialog).findByText('내일 회의')).toBeTruthy()
       expect(titleField(dialog).value).toBe('')
-      expect(within(dialog).getByText('내일 회의')).toBeTruthy()
+      expect(within(dialog).queryByText(m.addSaved)).toBeNull()
     })
 
     it('C2-01: the month count and the day list agree with the saved task', async () => {
@@ -375,18 +376,15 @@ describe('C2 routines, Google navigation guard and routines screen', () => {
     expect((editor.querySelector('#task-bucket') as HTMLSelectElement).disabled).toBe(true)
   })
 
-  it('C2-10 / screen move: with text typed, the Google connect button asks first and does not open the Arms screen', async () => {
+  it('C2-10: when Google is not connected the day detail has no Google section or connect button (connecting is on the Arms screen)', async () => {
     const user = userEvent.setup()
     b.calendarState.status = { state: 'off' }
     render(<App />)
     await waitFor(() => expect(cell(T)).toBeTruthy())
     await user.click(cell(T))
     const dialog = await dialogFor('2026년 11월 24일 (화) · 오늘')
-    await user.type(within(dialog).getByLabelText(m.addLabel), '이동 전 글')
-    await user.click(await within(dialog).findByRole('button', { name: ko.home.calendar.connect }))
-
-    expect(within(dialog).getByText(m.discardTitle)).toBeTruthy()
-    expect(screen.queryByRole('heading', { level: 1, name: /Arms/ })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: ko.home.calendar.connect })).toBeNull()
+    expect(within(dialog).queryByRole('region', { name: m.googleSection })).toBeNull()
   })
 
   it('regression: the routines screen shows a routine added elsewhere after the data event', async () => {

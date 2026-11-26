@@ -40,9 +40,9 @@ describe('settings screen', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: t.title })).toBeTruthy()
     expect(within(menu()).getByRole('button', { name: ko.nav.settings }).getAttribute('aria-current')).toBe('page')
-    expect((within(menu()).getByRole('button', { name: ko.nav.arrange }) as HTMLButtonElement).disabled).toBe(true) // 홈이 아니라서
-    const buttons = within(menu()).getAllByRole('button')
-    const labels = buttons.map((button) => button.getAttribute('aria-label'))
+    expect(within(menu()).queryByRole('button', { name: ko.nav.arrange })).toBeNull() // 홈이 아니라서 보이지 않는다(ATDT 와 같게)
+    await user.click(within(menu()).getByRole('button', { name: ko.nav.home }))
+    const labels = within(menu()).getAllByRole('button').map((button) => button.getAttribute('aria-label'))
     expect(labels.indexOf(ko.nav.settings)).toBe(labels.indexOf(ko.nav.arrange) - 1)
   })
 

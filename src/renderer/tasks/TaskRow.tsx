@@ -36,7 +36,7 @@ export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen
 
   return (
     <li
-      className={`flex items-start gap-3 rounded-[10px] border bg-white px-3 py-2.5 transition-opacity duration-300 ${
+      className={`group flex items-start gap-3 rounded-[10px] border bg-white px-3 py-2.5 transition-opacity duration-300 ${
         fading ? 'opacity-40' : 'opacity-100'
       } ${active ? 'border-accent ring-1 ring-accent/30' : 'border-[#E4E3DE] hover:border-[#c9c7c0]'}`}
     >

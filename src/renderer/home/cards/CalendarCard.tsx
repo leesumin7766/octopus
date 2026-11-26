@@ -5,6 +5,7 @@ import type { CalendarToday } from '../../../shared/calendar/types'
 import { ko } from '../../i18n/ko'
 import { formatDayTitle, formatMonthTitle } from '../calendar/format'
 import { useTasksInRange } from '../calendar/useTasksInRange'
+import { Icon } from '../../ui/Icon'
 
 const c = ko.home.calendar
 const m = ko.home.localCalendar
@@ -20,7 +21,6 @@ interface CalendarCardProps {
   selectedDay: string | null
   /** 날짜 칸을 누르면: 날짜 상세를 연다 */
   onOpenDay: (date: string) => void
-  onOpenArms: () => void
   onReconnect: () => void
 }
 
@@ -30,7 +30,7 @@ const pad2 = (n: number): string => String(n).padStart(2, '0')
  * 캘린더 카드: 월간 달력(로컬 할 일의 날짜별 보기)과 아래 한 줄의 Google 상태.
  * Google 이 없거나 실패해도 달력은 그대로 보이고 쓸 수 있다.
  */
-export function CalendarCard({ calendar, refreshKey, today, selectedDay, onOpenDay, onOpenArms, onReconnect }: CalendarCardProps) {
+export function CalendarCard({ calendar, refreshKey, today, selectedDay, onOpenDay, onReconnect }: CalendarCardProps) {
   const [shown, setShown] = useState<MonthRef>(() => monthOf(today))
   const cells = useMemo(() => monthGridDates(shown), [shown])
   const range = gridRange(shown)
@@ -46,27 +46,18 @@ export function CalendarCard({ calendar, refreshKey, today, selectedDay, onOpenD
           type="button"
           aria-label={m.prevMonth}
           onClick={() => setShown((s) => shiftMonth(s, -1))}
-          className="size-6 rounded-md border border-line bg-white text-sm hover:bg-black/5"
+          className="flex size-6 items-center justify-center rounded-md text-[#5e5d58] hover:bg-black/5"
         >
-          ‹
+          <Icon name="prev" size={16} />
         </button>
-        <div className="flex min-w-0 items-center gap-2">
-          <p className="text-sm font-semibold">{formatMonthTitle(shown)}</p>
-          <button
-            type="button"
-            onClick={() => setShown(monthOf(today))}
-            className="min-h-7 rounded-md border border-line bg-white px-2 text-xs hover:bg-black/5"
-          >
-            {m.today}
-          </button>
-        </div>
+        <p className="text-sm font-semibold">{formatMonthTitle(shown)}</p>
         <button
           type="button"
           aria-label={m.nextMonth}
           onClick={() => setShown((s) => shiftMonth(s, 1))}
-          className="size-6 rounded-md border border-line bg-white text-sm hover:bg-black/5"
+          className="flex size-6 items-center justify-center rounded-md text-[#5e5d58] hover:bg-black/5"
         >
-          ›
+          <Icon name="next" size={16} />
         </button>
       </div>
 
@@ -116,19 +107,21 @@ export function CalendarCard({ calendar, refreshKey, today, selectedDay, onOpenD
         })}
       </div>
 
-      <div className="mt-auto border-t border-line pt-1.5 text-[11px]">{googleLine(calendar, onOpenArms, onReconnect)}</div>
+      {googleLine(calendar, onReconnect)}
     </div>
   )
 }
 
-/** 카드 아래 한 줄: Google 상태만 알린다. 달력을 가리지 않는다. */
-function googleLine(calendar: CalendarToday | null, onOpenArms: () => void, onReconnect: () => void): ReactNode {
-  if (calendar === null) return null
-  if (!calendar.configured) return <p className="text-[#5e5d58]">{calendar.unavailableReason ?? c.notConfigured}</p>
-
+/**
+ * 카드 아래 한 줄: Google 이 연결돼 있거나 연결이 끊겼을 때만 보인다.
+ * 연결하지 않았거나 준비 중이면 아무것도 쓰지 않는다(연결은 Arms 화면에서). 달력을 가리지 않는다.
+ */
+function googleLine(calendar: CalendarToday | null, onReconnect: () => void): ReactNode {
+  if (calendar === null || !calendar.configured) return null
+  const line = (children: ReactNode): ReactNode => <div className="mt-auto border-t border-line pt-1.5 text-[11px]">{children}</div>
   switch (calendar.status.state) {
     case 'error':
-      return (
+      return line(
         <div className="flex flex-wrap items-center gap-2">
           <p role="alert" className="text-[#7d2a21]">
             {calendar.status.reason}
@@ -138,18 +131,9 @@ function googleLine(calendar: CalendarToday | null, onOpenArms: () => void, onRe
           </button>
         </div>
       )
-    case 'connecting':
-      return <p className="text-[#5e5d58]">{c.connecting}</p>
-    case 'off':
-      return (
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-[#5e5d58]">{c.empty}</p>
-          <button type="button" onClick={onOpenArms} className="min-h-7 rounded-md border border-line bg-white px-2 hover:bg-black/5">
-            {c.connect}
-          </button>
-        </div>
-      )
     case 'on':
-      return <p className="text-[#5e5d58]">{m.googleTodayCount(calendar.events.length)}</p>
+      return line(<p className="text-[#5e5d58]">{m.googleTodayCount(calendar.events.length)}</p>)
+    default:
+      return null
   }
 }

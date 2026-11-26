@@ -79,7 +79,8 @@ export function OverdueSection(props: OverdueSectionProps) {
               onToggle={() => props.onToggle(task)}
               onOpen={() => props.onOpen(task)}
               trailing={
-                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                // 행 동작은 마우스를 올리거나 키보드로 들어갔을 때만 보인다(ATDT 와 같게). 날짜 칸을 연 동안은 계속 보인다.
+                <div className={`flex shrink-0 flex-wrap items-center justify-end gap-1.5 ${dateOpen ? '' : 'opacity-0 focus-within:opacity-100 group-hover:opacity-100'}`}>
                   <button type="button" onClick={() => void props.onMoveToToday([task.id])} className={buttonClass}>
                     {t.toToday}
                   </button>

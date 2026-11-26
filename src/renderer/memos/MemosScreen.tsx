@@ -137,11 +137,11 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
             type="button"
             disabled={body.trim() === ''}
             onClick={() => void saveNew()}
+            title={t.hint}
             className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
           >
             {t.save}
           </button>
-          <span className="text-xs text-slate-500">{t.hint}</span>
           <input
             type="search"
             value={query}
@@ -172,7 +172,7 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
         ) : (
           <ul className="space-y-3">
             {memos.map((memo) => (
-              <li key={memo.id} className={`rounded-lg border bg-white p-3 ${memo.pinned ? 'border-amber-300' : 'border-slate-200'}`}>
+              <li key={memo.id} className={`group rounded-lg border bg-white p-3 ${memo.pinned ? 'border-amber-300' : 'border-slate-200'}`}>
                 {editing?.id === memo.id ? (
                   <div className="space-y-2">
                     <textarea
@@ -233,7 +233,8 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
                     </button>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-slate-400">{t.updated(formatTimestamp(memo.updatedAt))}</span>
-                      <span className="ml-auto flex flex-wrap gap-1.5">
+                      {/* 동작은 마우스를 올리거나 키보드로 들어갔을 때만 보인다 */}
+                      <span className="ml-auto flex flex-wrap gap-1.5 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
                         <button
                           type="button"
                           onClick={() => void mutate(() => api().togglePin(memo.id))}

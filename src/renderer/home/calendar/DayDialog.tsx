@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useId, useImperativeHandle, useRef, useState, type FormEvent, type KeyboardEvent, type Ref } from 'react'
 import { groupDayTasks } from '../../../shared/calendar/day'
 import type { CalendarEvent, CalendarToday } from '../../../shared/calendar/types'
 import type { IpcResult } from '../../../shared/ipc'
@@ -10,6 +10,7 @@ import { safeInvoke } from '../../safeInvoke'
 import { DetailPanel } from '../../tasks/DetailPanel'
 import { errorMessage } from '../../tasks/errors'
 import { Checkbox } from '../../ui/Checkbox'
+import { Icon } from '../../ui/Icon'
 import { formatDayTitle } from './format'
 import { useTasksInRange } from './useTasksInRange'
 
@@ -27,7 +28,7 @@ const hhmm = (iso: string): string => {
 }
 
 /** 작성 중인 내용이 있을 때 나가려던 곳. 확인 후에만 실행한다. */
-type Leave = { kind: 'close' } | { kind: 'move'; to: string } | { kind: 'arms' } | { kind: 'edit'; id: string } | { kind: 'leaveEdit' }
+type Leave = { kind: 'close' } | { kind: 'move'; to: string } | { kind: 'edit'; id: string } | { kind: 'leaveEdit' }
 
 interface DayDialogProps {
   /** 처음 보일 날짜(YYYY-MM-DD). 이후 날짜는 대화상자 안에서 옮긴다. */
@@ -43,20 +44,28 @@ interface DayDialogProps {
   /** 홈의 갱신 신호와 오늘 날짜가 바뀌면 다시 읽는다 */
   refreshKey: number
   onClose: () => void
-  onOpenArms: () => void
   onReconnect: () => void
   onOpenEvent: (id: string) => void
+  /** dialog: 홈의 큰 대화상자(기본). panel: 달력 화면 오른쪽에 붙어 있는 날짜 상세(닫기·포커스 가두기 없음) */
+  variant?: 'dialog' | 'panel'
+  /** panel 에서 달력 칸을 눌렀을 때 날짜를 옮긴다(작성 중이면 먼저 묻는다) */
+  handleRef?: Ref<DayViewHandle>
+}
+
+export interface DayViewHandle {
+  goTo(date: string): void
 }
 
 /**
  * 날짜 상세(큰 대화상자). 선택한 날짜의 할 일을 보고, 추가·완료·편집할 수 있다.
  * - 추가는 선택한 날짜로 명시해서 저장한다(제목 안의 '내일' 같은 말로 날짜를 바꾸지 않는다).
- * - 작성·편집 중인 내용이 있으면 닫기·Esc·배경 클릭·날짜 이동·Google 화면 이동 전에 확인한다.
+ * - 작성·편집 중인 내용이 있으면 닫기·Esc·배경 클릭·날짜 이동 전에 확인한다.
  * - 저장 중에는 날짜를 옮기거나 닫지 못한다. 같은 저장 요청은 한 번만 보낸다.
  * - 저장한 결과는 알림으로 홈 전체에 알려 달력·오늘 카드·목록이 같은 값을 보게 한다. 홈은 다시 그리지 않는다.
  * 열 때 누른 칸으로 포커스를 돌려주고, 대화상자 안에서만 Tab 이 돈다.
  */
-export function DayDialog({ startDate, onDateChange, today, now, calendar, refreshKey, onClose, onOpenArms, onReconnect, onOpenEvent }: DayDialogProps) {
+export function DayDialog({ startDate, onDateChange, today, now, calendar, refreshKey, onClose, onReconnect, onOpenEvent, variant = 'dialog', handleRef }: DayDialogProps) {
+  const isPanel = variant === 'panel'
   const [date, setDate] = useState(startDate)
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -93,13 +102,14 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
 
   useEffect(() => {
     mounted.current = true
-    const returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    titleRef.current?.focus()
+    // 대화상자만 열 때 제목으로 포커스를 옮기고, 닫으면 누른 칸으로 돌려준다(달력 화면의 패널은 포커스를 건드리지 않는다).
+    const returnTo = !isPanel && document.activeElement instanceof HTMLElement ? document.activeElement : null
+    if (!isPanel) titleRef.current?.focus()
     return () => {
       mounted.current = false
       if (returnTo && returnTo.isConnected) returnTo.focus()
     }
-  }, [])
+  }, [isPanel])
 
   useEffect(() => {
     if (leaving !== null) keepWritingRef.current?.focus()
@@ -136,8 +146,6 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
         return onClose()
       case 'move':
         return moveTo(next.to)
-      case 'arms':
-        return onOpenArms()
       case 'edit':
         setEditingId(next.id)
         setEditDirty(false)
@@ -163,6 +171,12 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
     }
     perform(next)
   }
+
+  useImperativeHandle(handleRef, () => ({
+    goTo: (next: string) => {
+      if (next !== date) request({ kind: 'move', to: next })
+    }
+  }))
 
   /** 확인에서 "버리기": 잃는 내용만 지운 뒤 나간다. 편집만 닫는 경우에는 추가 입력을 지우지 않는다. */
   function discardAndLeave(next: Leave): void {
@@ -258,12 +272,12 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
         setLeaving(null)
         return
       }
-      // 편집 중에는 편집 창이 Esc 를 처리한다(편집 닫기).
-      if (editingId !== null) return
+      // 편집 중에는 편집 창이 Esc 를 처리한다(편집 닫기). 패널은 닫을 것이 없다.
+      if (editingId !== null || isPanel) return
       request({ kind: 'close' })
       return
     }
-    if (event.key !== 'Tab') return
+    if (event.key !== 'Tab' || isPanel) return
 
     // 대화상자 안의 조작 칸만 돈다. 제목(포커스 가능하지만 Tab 칸은 아님)에서 Shift+Tab 은 마지막 칸으로.
     const dialog = dialogRef.current
@@ -289,41 +303,27 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
   const shiftDay = (days: number): void => request({ kind: 'move', to: addDays(date, days) })
   const editing = editingId === null || state.status !== 'ready' ? undefined : state.tasks.find((task) => task.id === editingId)
 
-  return (
-    <div
-      className="app-no-drag fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) request({ kind: 'close' })
-      }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onKeyDown={onKeyDown}
-        className="flex max-h-[min(680px,calc(100vh-48px))] w-[min(560px,100%)] flex-col rounded-2xl bg-white shadow-xl"
-      >
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3.5">
-          <h2 id={titleId} ref={titleRef} tabIndex={-1} className="min-w-0 text-base font-bold outline-none [overflow-wrap:anywhere]">
-            {formatDayTitle(date, today)}
-          </h2>
-          <div className="flex flex-wrap gap-1.5">
-            <button type="button" disabled={busy} onClick={() => shiftDay(-1)} className="min-h-8 rounded-lg border border-line bg-white px-2.5 text-sm hover:bg-black/5 disabled:opacity-50">
-              {m.prevDay}
-            </button>
-            <button type="button" disabled={busy} onClick={() => request({ kind: 'move', to: today })} className="min-h-8 rounded-lg border border-line bg-white px-2.5 text-sm hover:bg-black/5 disabled:opacity-50">
-              {m.today}
-            </button>
-            <button type="button" disabled={busy} onClick={() => shiftDay(1)} className="min-h-8 rounded-lg border border-line bg-white px-2.5 text-sm hover:bg-black/5 disabled:opacity-50">
-              {m.nextDay}
-            </button>
-            <button type="button" onClick={() => request({ kind: 'close' })} className="min-h-8 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-strong">
-              {t.close}
-            </button>
-          </div>
-        </header>
+  const navButton = 'flex size-8 items-center justify-center rounded-lg text-[#5e5d58] hover:bg-black/5 disabled:opacity-40'
+  const header = (
+    <header className="flex items-center gap-1 border-b border-line px-4 py-3">
+      <button type="button" aria-label={m.prevDay} title={m.prevDay} disabled={busy} onClick={() => shiftDay(-1)} className={navButton}>
+        <Icon name="prev" size={18} />
+      </button>
+      <h2 id={titleId} ref={titleRef} tabIndex={-1} className="min-w-0 flex-1 text-center text-base font-bold outline-none [overflow-wrap:anywhere]">
+        {formatDayTitle(date, today)}
+      </h2>
+      <button type="button" aria-label={m.nextDay} title={m.nextDay} disabled={busy} onClick={() => shiftDay(1)} className={navButton}>
+        <Icon name="next" size={18} />
+      </button>
+      {!isPanel && (
+        <button type="button" aria-label={t.close} title={t.close} onClick={() => request({ kind: 'close' })} className={`${navButton} ml-1`}>
+          <Icon name="close" size={18} />
+        </button>
+      )}
+    </header>
+  )
 
+  const body = (
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {leaving !== null && (
             <div role="group" aria-label={leaving.kind === 'leaveEdit' || editingId !== null ? m.editDiscardTitle : m.discardTitle} className="mb-4 rounded-lg border border-[#e7c9bf] bg-[#fbeee9] p-3">
@@ -388,16 +388,36 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
             </>
           )}
 
-          {isToday ? (
-            <GoogleToday calendar={calendar} now={now} onOpenArms={() => request({ kind: 'arms' })} onReconnect={onReconnect} onOpenEvent={onOpenEvent} />
-          ) : (
-            calendar?.status.state === 'on' && (
-              <section aria-label={m.googleSection} className="mt-4 border-t border-line pt-3">
-                <p className="text-sm text-[#5e5d58]">{m.googleOtherDays}</p>
-              </section>
-            )
-          )}
+          {isToday && <GoogleToday calendar={calendar} now={now} onReconnect={onReconnect} onOpenEvent={onOpenEvent} />}
         </div>
+  )
+
+  if (isPanel) {
+    return (
+      <section aria-labelledby={titleId} onKeyDown={onKeyDown} className="flex min-h-0 flex-col rounded-2xl border border-line bg-white">
+        {header}
+        {body}
+      </section>
+    )
+  }
+
+  return (
+    <div
+      className="app-no-drag fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) request({ kind: 'close' })
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onKeyDown={onKeyDown}
+        className="flex max-h-[min(680px,calc(100vh-48px))] w-[min(560px,100%)] flex-col rounded-2xl bg-white shadow-xl"
+      >
+        {header}
+        {body}
       </div>
     </div>
   )
@@ -433,14 +453,13 @@ function AddForm({
       }}
       className="mb-4 flex flex-col gap-2 border-b border-line pb-4"
     >
-      <p className="text-xs text-[#5e5d58]">{m.saveDate(formatDayTitle(date, today))}</p>
       <div className="flex flex-wrap items-center gap-2">
         <input
           aria-label={m.addLabel}
           placeholder={m.addPlaceholder}
           value={title}
           onChange={(event) => onTitle(event.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-line px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+          className="min-w-[10rem] flex-1 rounded-lg border border-line px-2.5 py-1.5 text-sm outline-none focus:border-accent"
         />
         <input
           type="time"
@@ -457,8 +476,6 @@ function AddForm({
           {m.addButton}
         </button>
       </div>
-      {status === 'saving' && <p className="text-xs text-[#5e5d58]">{m.addSaving}</p>}
-      {status === 'saved' && <p className="text-xs text-accent-strong">{m.addSaved}</p>}
       {status === 'failed' && error && (
         <p role="alert" className="text-sm text-[#7d2a21]">
           {error}
@@ -503,28 +520,27 @@ function LocalTasks({
   const { timed, untimed } = groupDayTasks(state.tasks)
   const list = (label: string, tasks: Task[], showTime: boolean) => (
     <section>
-      <h3 className="mb-1.5 text-xs font-semibold text-[#5e5d58]">{label}</h3>
-      <ul aria-label={label} className="flex flex-col gap-1">
+      <ul aria-label={label} className="flex flex-col gap-0.5">
         {tasks.map((task) => {
           const done = task.status === 'done'
           const overdue = !done && task.date !== null && task.date < today
           return (
-            <li key={task.id} className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm">
+            <li key={task.id} className="group flex flex-wrap items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-black/[0.03]">
               <span className="pt-0.5">
                 <Checkbox checked={done} onChange={() => onToggle(task)} aria-label={m.toggleLabel(task.title)} />
               </span>
               {showTime && <span className="w-12 shrink-0 pt-0.5 text-xs tabular-nums text-[#5e5d58]">{task.time}</span>}
-              <span className={`min-w-0 flex-1 whitespace-normal [overflow-wrap:anywhere] ${done ? 'text-[#8a8983] line-through' : 'text-ink'}`}>{task.title}</span>
-              {done && <span className="shrink-0 rounded-full bg-[#eeeeea] px-2 py-0.5 text-[11px] text-[#5e5d58]">{m.done}</span>}
-              {overdue && <span className="shrink-0 rounded-full bg-[#fbeee9] px-2 py-0.5 text-[11px] text-[#7d2a21]">{m.overdue}</span>}
+              {/* 제목을 누르면 편집(할 일 화면과 같다). 따로 [편집] 버튼을 두지 않아 좁은 곳에서도 제목이 넓게 보인다. */}
               <button
                 type="button"
                 aria-label={m.editButton(task.title)}
+                title={m.editText}
                 onClick={() => onEdit(task)}
-                className="shrink-0 rounded-md border border-line bg-white px-2 py-0.5 text-xs hover:bg-black/5"
+                className={`min-w-0 flex-1 whitespace-normal rounded text-left [overflow-wrap:anywhere] hover:underline ${done ? 'text-[#8a8983] line-through' : 'text-ink'}`}
               >
-                {m.editText}
+                {task.title}
               </button>
+              {overdue && <span className="shrink-0 rounded-full bg-[#fbeee9] px-2 py-0.5 text-[11px] text-[#7d2a21]">{m.overdue}</span>}
               {rowError?.id === task.id && (
                 <p role="alert" className="basis-full text-xs text-[#7d2a21]">
                   {rowError.text}
@@ -538,32 +554,32 @@ function LocalTasks({
   )
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       {timed.length > 0 && list(m.timedHeading, timed, true)}
       {untimed.length > 0 && list(m.untimedHeading, untimed, false)}
     </div>
   )
 }
 
+/** 오늘 날짜의 Google 일정. 연결돼 있거나 연결이 끊겼을 때만 보인다(연결하지 않았으면 아무것도 쓰지 않는다. 연결은 Arms 화면에서). */
 function GoogleToday({
   calendar,
   now,
-  onOpenArms,
   onReconnect,
   onOpenEvent
 }: {
   calendar: CalendarToday | null
   now: Date
-  onOpenArms: () => void
   onReconnect: () => void
   onOpenEvent: (id: string) => void
 }) {
+  if (calendar === null || !calendar.configured) return null
+  const state = calendar.status.state
+  if (state !== 'error' && state !== 'on') return null
   return (
     <section aria-label={m.googleSection} className="mt-4 border-t border-line pt-3">
       <h3 className="mb-2 text-xs font-semibold text-[#5e5d58]">{m.googleSection}</h3>
-      {calendar === null && <p className="text-sm text-[#5e5d58]">{c.loading}</p>}
-      {calendar !== null && !calendar.configured && <p className="text-sm text-[#5e5d58]">{calendar.unavailableReason ?? c.notConfigured}</p>}
-      {calendar !== null && calendar.configured && calendar.status.state === 'error' && (
+      {calendar.status.state === 'error' ? (
         <div className="flex flex-col items-start gap-2">
           <p role="alert" className="text-sm text-[#7d2a21]">
             {calendar.status.reason}
@@ -572,17 +588,9 @@ function GoogleToday({
             {c.reconnect}
           </button>
         </div>
+      ) : (
+        <GoogleEvents events={calendar.events} now={now} onOpenEvent={onOpenEvent} />
       )}
-      {calendar !== null && calendar.configured && calendar.status.state === 'connecting' && <p className="text-sm text-[#5e5d58]">{c.connecting}</p>}
-      {calendar !== null && calendar.configured && calendar.status.state === 'off' && (
-        <div className="flex flex-col items-start gap-2">
-          <p className="text-sm text-[#5e5d58]">{c.empty}</p>
-          <button type="button" onClick={onOpenArms} className="min-h-8 rounded-lg border border-line bg-white px-3 text-sm hover:bg-black/5">
-            {c.connect}
-          </button>
-        </div>
-      )}
-      {calendar !== null && calendar.configured && calendar.status.state === 'on' && <GoogleEvents events={calendar.events} now={now} onOpenEvent={onOpenEvent} />}
     </section>
   )
 }

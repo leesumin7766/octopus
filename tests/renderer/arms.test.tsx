@@ -39,7 +39,7 @@ describe('Arms screen', () => {
     for (const name of ['Slack', 'GitHub', 'Google', 'Gmail']) expect(screen.queryByText(new RegExp(name))).toBeNull()
   })
 
-  it('shows only the registered arms, each with name, status, description, capability chips and sign-in method', async () => {
+  it('shows only the registered arms, each with name, status and description (no capability chips or sign-in footnote)', async () => {
     const backend = prepare()
     backend.armManager.register(fakeArm({ manifest: { id: 'one', name: '예시 하나', auth: 'oauth', scopes: ['x'], capabilities: ['tasks.import', 'events.read'], description: '설명 한 줄' } }))
     show()
@@ -48,9 +48,8 @@ describe('Arms screen', () => {
 
     expect(within(c).getByText(t.statuses.off)).toBeTruthy()
     expect(within(c).getByText('설명 한 줄')).toBeTruthy()
-    expect(within(c).getByText(t.capabilities['tasks.import'])).toBeTruthy()
-    expect(within(c).getByText(t.capabilities['events.read'])).toBeTruthy()
-    expect(within(c).getByText(t.auth.oauth)).toBeTruthy()
+    expect(within(c).queryByText(t.capabilities['tasks.import'])).toBeNull()
+    expect(within(c).queryByText(t.auth.oauth)).toBeNull()
     expect(screen.getAllByRole('article')).toHaveLength(1)
   })
 

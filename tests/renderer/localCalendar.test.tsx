@@ -110,7 +110,8 @@ describe('local calendar: day detail', () => {
     expect(dialog.textContent).toContain(m.overdue)
     const e = rows(dialog).find((text) => text.includes('E 어제 한 일'))
     expect(e).toBeTruthy()
-    expect(e).toContain(m.done)
+    // 완료는 줄긋기와 체크로만 보인다(따로 '완료' 글자를 붙이지 않는다)
+    expect(e).not.toContain(m.done)
     expect(dialog.textContent).not.toContain('A 아침')
   })
 
@@ -138,7 +139,7 @@ describe('local calendar: day detail', () => {
     expect(dialogNow()).toBeNull()
   })
 
-  it('C1-05: 다음 날 / 이전 날 / 오늘 move the detail and show that day\'s own items', async () => {
+  it('C1-05: 다음 날 / 이전 날 move the detail and show that day\'s own items', async () => {
     const user = userEvent.setup()
     await show(prepare())
     await user.click(cell(T))
@@ -154,7 +155,9 @@ describe('local calendar: day detail', () => {
     dialog = await dialogNamed('2026년 3월 9일 (월)')
     await waitFor(() => expect(dialog.textContent).toContain('D 지난'))
 
-    await user.click(within(dialog).getByRole('button', { name: m.today }))
+    // '오늘' 버튼은 없앴다(화살표로 충분하다)
+    expect(within(dialog).queryByRole('button', { name: m.today })).toBeNull()
+    await user.click(within(dialog).getByRole('button', { name: m.nextDay }))
     dialog = await dialogNamed('2026년 3월 10일 (화) · 오늘')
     await waitFor(() => expect(dialog.textContent).toContain('A 아침'))
   })
@@ -280,7 +283,7 @@ describe('local calendar: day detail', () => {
     expect(backend.opened).toEqual(['https://calendar.example.com/e/abc'])
   })
 
-  it('C1-12: on another day the Google section never shows today\'s events; it says they are only available for today', async () => {
+  it('C1-12: on another day the Google section never shows today\'s events (and no "only today" explanation either)', async () => {
     const user = userEvent.setup()
     const backend = prepare()
     backend.calendarState.status = { state: 'on' }
@@ -289,7 +292,7 @@ describe('local calendar: day detail', () => {
     await user.click(cell('2026-03-11'))
 
     const dialog = await dialogNamed('2026년 3월 11일 (수)')
-    expect(within(dialog).getByRole('region', { name: m.googleSection }).textContent).toContain(m.googleOtherDays)
+    expect(within(dialog).queryByRole('region', { name: m.googleSection })).toBeNull()
     expect(dialog.textContent).not.toContain('오늘 회의')
   })
 

@@ -218,7 +218,7 @@ describe('app shell (left menu)', () => {
   })
 
   describe('"화면 배치" button', () => {
-    it('is only active on the home screen, and toggles arrange mode', async () => {
+    it('is only shown on the home screen, and toggles arrange mode', async () => {
       const user = userEvent.setup()
       open()
       await heading('3월 10일 화요일')
@@ -234,7 +234,7 @@ describe('app shell (left menu)', () => {
       expect(arrange.getAttribute('aria-pressed')).toBe('false')
 
       await user.click(item(n.tasks))
-      expect(arrange.disabled).toBe(true)
+      expect(within(menu()).queryByRole('button', { name: n.arrange })).toBeNull()
     })
 
     it('leaving the home screen turns arrange mode off', async () => {

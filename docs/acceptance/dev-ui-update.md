@@ -2,6 +2,8 @@
 
 Claude Code / 2026-11-26 / `dev` 브랜치 (기준: 4213333 홈 개방감 정리 위)
 
+> **바뀜(같은 날 2차):** 제목 줄의 한 줄 업데이트 알림(§2.2·2.3 의 '제목 줄 알림')은 사용자 피드백으로 없애고, ATDT 와 같은 **알림 표시(종)** 안에서 처리하도록 바꿨다. 화면 배치 버튼·달력 탭·문구 정리와 함께 [`dev-ui-atdt.md`](dev-ui-atdt.md) 에 적었다. 아래 §2.2·2.3·3 의 제목 줄 알림 부분은 그 문서가 대신한다.
+
 사용자 요청:
 
 1. 설정·화면 배치 아이콘을 ATDT 와 같게.
@@ -27,7 +29,7 @@ Octopus 는 새 패키지를 넣지 않고 같은 모양의 SVG 경로를 `src/r
 - '할 일' 아이콘(네모 안 체크)은 그대로 두어 체크리스트와 구분된다.
 - 원형 메뉴의 '설정' 칸도 같은 톱니바퀴로 바뀐다(같은 아이콘 이름을 쓰므로).
 
-증거: `evidence/ui-update/home-icons-900x700.png`
+증거: `evidence/ui-update/home-bell-900x700.png` (2차 뒤 모습. 왼쪽 메뉴에 '달력'이 더해짐)
 
 ## 2. 프로그램 업데이트
 
@@ -58,7 +60,7 @@ Octopus 는 새 패키지를 넣지 않고 같은 모양의 SVG 경로를 `src/r
 ### 2.3 화면
 
 - **제목 줄 알림** (`src/renderer/update/UpdateChip.tsx`): 상태가 `available`·`downloading`·`ready` 일 때만 보인다. 확인 중·실패·최신은 제목 줄에 띄우지 않는다(설정에서만). `app-no-drag` 라서 창 끌기 영역 안에서도 눌린다.
-  - 증거: `evidence/ui-update/titlebar-update-available.png`, `titlebar-update-downloading.png`, `titlebar-update-ready.png`
+  - (2차에서 알림 표시로 바뀜. 증거: `evidence/ui-update/notice-bell-update.png`)
 - **설정 > 업데이트** (`src/renderer/settings/UpdateSection.tsx`): 설정 화면 맨 아래. 현재 버전, 상태 문구, [업데이트 확인] / [업데이트 받기] / [다시 시작해서 설치], 진행 막대, 접히는 "바뀐 점".
   - 증거: `evidence/ui-update/settings-update-ready.png`
 - 이전 설정 화면의 "새 버전 있음" 상자(새 버전이 있을 때만 맨 위에 뜨던 것)는 이 구역으로 바뀌었다.
@@ -85,7 +87,7 @@ renderer/update/useUpdate.ts   읽기 + 이벤트 따라가기 (제목 줄·설�
 | 파일 | 내용 |
 |---|---|
 | `tests/updater.test.ts` (다시 씀, 18건) | 개발 모드는 손대지 않음, 5초 뒤 한 번 자동 확인, 자동 받기·자동 설치 없음, 확인→있음→받기→진행률→받음→설치 흐름, 최신, 받는 중 재확인 막기, 실패 분류·한 줄 로그·재시도, 노트 HTML 정리, IPC 채널 4개, 밀어 준 상태 검증 |
-| `tests/renderer/updateChip.test.tsx` (새로, 5건) | 최신이면 안 보임, 제목 줄 안·no-drag·[받기]만 받음, 진행률→설치 버튼·누를 때만 설치, ×는 다음 단계까지 숨김, 확인 중·실패는 제목 줄에 안 뜸 |
+| ~~`tests/renderer/updateChip.test.tsx`~~ (2차에서 `noticeBell.test.tsx` 로 바뀜) | 최신이면 안 보임, 제목 줄 안·no-drag·[받기]만 받음, 진행률→설치 버튼·누를 때만 설치, ×는 다음 단계까지 숨김, 확인 중·실패는 제목 줄에 안 뜸 |
 | `tests/renderer/settingsScreen.test.tsx` (업데이트 부분 다시 씀, 7건) | 현재 버전·지금 확인, 받기는 누를 때만·바뀐 점, 받는 중 진행 막대·재확인 비활성, 설치는 누를 때만, 실패 안내 문구, 개발 모드 안내, 밀어 준 상태 반영 |
 | `tests/preload/api.test.ts` | 노출 함수 5개(check·download·install·onState·state), 채널 매핑, 이벤트는 한 채널·모양 틀린 값 버림·해제 |
 

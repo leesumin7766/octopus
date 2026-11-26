@@ -3,7 +3,7 @@ import { Icon, type IconName } from '../ui/Icon'
 
 const t = ko.nav
 
-export type Screen = 'home' | 'tasks' | 'routines' | 'memos' | 'arms' | 'obsidian' | 'settings'
+export type Screen = 'home' | 'tasks' | 'calendar' | 'routines' | 'memos' | 'arms' | 'obsidian' | 'settings'
 
 interface NavItem {
   id: Screen | 'command' | 'arms'
@@ -16,6 +16,7 @@ interface NavItem {
 const ITEMS: readonly NavItem[] = [
   { id: 'home', label: t.home, icon: 'home' },
   { id: 'tasks', label: t.tasks, icon: 'tasks' },
+  { id: 'calendar', label: t.calendar, icon: 'calendar' },
   { id: 'routines', label: t.routines, icon: 'checklist' },
   { id: 'memos', label: t.memos, icon: 'memo' },
   { id: 'command', label: t.command, icon: 'command' },
@@ -38,7 +39,6 @@ interface NavMenuProps {
 /** 왼쪽 메뉴. ☰ 로 펼침(아이콘+이름)/접음(아이콘만). */
 export function NavMenu({ screen, collapsed, onToggleCollapsed, onNavigate, arranging, onToggleArranging, onOpenCommand, commandReady }: NavMenuProps) {
   const itemClass = `flex min-h-11 w-full items-center gap-3 rounded-[10px] text-sm ${collapsed ? 'justify-center px-0' : 'px-3'}`
-  const canArrange = screen === 'home'
 
   return (
     <nav
@@ -131,20 +131,20 @@ export function NavMenu({ screen, collapsed, onToggleCollapsed, onNavigate, arra
           <Icon name="settings" />
           {!collapsed && <span>{t.settings}</span>}
         </button>
-      <button
-        type="button"
-        aria-pressed={arranging}
-        aria-label={t.arrange}
-        disabled={!canArrange}
-        title={canArrange ? t.arrange : `${t.arrange} — ${t.arrangeHint}`}
-        onClick={onToggleArranging}
-        className={`flex min-h-12 w-full items-center gap-2.5 rounded-[10px] text-[13px] disabled:cursor-not-allowed disabled:opacity-40 ${
-          collapsed ? 'justify-center px-0' : 'px-2.5'
-        } ${arranging ? 'border-2 border-accent bg-white text-accent' : 'border-2 border-transparent text-ink hover:bg-black/5'}`}
-      >
-        <Icon name="layout" />
-        {!collapsed && <span className="whitespace-nowrap">{t.arrange}</span>}
-      </button>
+        {/* 화면 배치는 홈에서만 쓴다. 다른 화면에서는 버튼을 보이지 않는다(ATDT 와 같게). */}
+        {screen === 'home' && (
+          <button
+            type="button"
+            aria-pressed={arranging}
+            aria-label={t.arrange}
+            title={t.arrangeHint}
+            onClick={onToggleArranging}
+            className={`${itemClass} whitespace-nowrap ${arranging ? 'bg-white font-semibold text-accent ring-2 ring-accent' : 'text-ink hover:bg-black/5'}`}
+          >
+            <Icon name="layout" />
+            {!collapsed && <span>{t.arrange}</span>}
+          </button>
+        )}
       </div>
     </nav>
   )

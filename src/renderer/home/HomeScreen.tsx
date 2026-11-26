@@ -270,7 +270,6 @@ export function HomeScreen({
             today={today}
             selectedDay={selectedDay}
             onOpenDay={openDay}
-            onOpenArms={() => onNavigate('arms')}
             onReconnect={() => void reconnectCalendar()}
           />
         )
@@ -420,10 +419,6 @@ export function HomeScreen({
           calendar={calendar}
           refreshKey={refreshKey}
           onClose={() => setDayTarget(null)}
-          onOpenArms={() => {
-            setDayTarget(null)
-            onNavigate('arms')
-          }}
           onReconnect={() => void reconnectCalendar()}
           onOpenEvent={(id) => void openCalendarEvent(id)}
         />

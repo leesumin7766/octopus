@@ -122,14 +122,6 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
         </p>
       )}
 
-      <ul aria-label="능력" className="flex flex-wrap gap-1.5">
-        {arm.capabilities.map((capability) => (
-          <li key={capability} className="rounded-full bg-[#f0efeb] px-2 py-1 text-xs text-[#4a4945]">
-            {t.capabilities[capability] ?? capability}
-          </li>
-        ))}
-      </ul>
-
       {state === 'on' && arm.capabilities.includes('tasks.import') && (
         <label className="flex items-center gap-2 text-[13px] text-[#4a4945]">
           <input type="checkbox" checked={arm.autoAccept} onChange={(event) => onAutoAccept(event.target.checked)} className="size-4" />
@@ -153,8 +145,7 @@ function ArmCard({ arm, busy, confirming, onConnect, onAskDisconnect, onCancelDi
         </div>
       ) : (
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
-          <span className="text-xs text-[#5e5d58]">{t.auth[arm.auth] ?? arm.auth}</span>
-          <span className="flex gap-1.5">
+          <span className="ml-auto flex gap-1.5">
             {arm.settingsScreen && onOpenSettings && (
               <button type="button" onClick={onOpenSettings} className={`${primary} border border-line bg-white font-normal hover:bg-black/5`}>
                 {t.settings}
@@ -219,11 +210,10 @@ export function ArmsScreen({ scrollToMcp = false, onOpenSettings }: { scrollToMc
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-page px-5 py-4 text-ink">
-      <h1 className="flex items-baseline gap-2.5 text-lg font-semibold">
+      <h1 className="mb-4 flex items-baseline gap-2.5 text-lg font-semibold">
         {t.title}
         <span className="text-sm font-medium text-[#5e5d58]">{t.subtitle}</span>
       </h1>
-      <p className="mb-4 mt-1 max-w-2xl text-[13px] text-[#4a4945]">{t.intro}</p>
 
       {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
 

@@ -9,6 +9,7 @@ import { TitleBar } from './layout/TitleBar'
 import { NavMenu, type Screen } from './nav/NavMenu'
 import { Welcome } from './onboarding/Welcome'
 import { ArmsScreen } from './arms/ArmsScreen'
+import { CalendarScreen } from './calendar/CalendarScreen'
 import { ObsidianScreen } from './arms/ObsidianScreen'
 import { RoutinesScreen } from './routines/RoutinesScreen'
 import { SettingsScreen } from './settings/SettingsScreen'
@@ -144,8 +145,8 @@ export function App() {
           onOpenCommand={() => setCommandOpen(true)}
           commandReady={models.connected}
         />
-        {/* 홈은 데이터 변경에 다시 그리지 않는다(입력 초안과 달력 선택을 지키기 위해 홈 카드가 스스로 다시 읽는다). 다른 화면은 기존처럼 바뀔 때마다 새로 그린다. */}
-        <main key={screen === 'home' ? 'home' : dataVersion} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
+        {/* 홈과 달력은 데이터 변경에 다시 그리지 않는다(입력 초안과 달력 선택을 지키기 위해 스스로 다시 읽는다). 다른 화면은 기존처럼 바뀔 때마다 새로 그린다. */}
+        <main key={screen === 'home' || screen === 'calendar' ? screen : dataVersion} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
           {screen === 'home' && (
             <HomeScreen
               arranging={arranging}
@@ -158,6 +159,7 @@ export function App() {
               onDayDialogChange={setDayDialogOpen}
             />
           )}
+          {screen === 'calendar' && <CalendarScreen />}
           {screen === 'tasks' && <TasksScreen initialView={taskView} openFirst={initial === 'task-detail'} />}
           {screen === 'routines' && <RoutinesScreen />}
           {screen === 'memos' && <MemosScreen />}

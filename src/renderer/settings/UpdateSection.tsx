@@ -75,7 +75,6 @@ export function UpdateSection() {
           <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap rounded-md bg-page p-2 font-sans text-xs text-[#4a4945]">{state?.notes}</pre>
         </details>
       )}
-      <p className="mt-2 text-xs text-[#77756f]">{t.help}</p>
     </section>
   )
 }

@@ -7,7 +7,7 @@ import { ko } from '../../src/renderer/i18n/ko'
 import { installBackend, type Backend } from './backend'
 
 // 시연에서 발견: 작은 창에서 홈 '오늘 할 일' 카드의 입력 도움말("알아들은 것")이 목록 자리를 차지했다.
-// 홈 카드에서는 입력을 시작했을 때만 도움말 줄을 보이고, 할 일 화면은 지금처럼 항상 보인다.
+// 홈 카드와 할 일 화면 모두 입력을 시작했을 때만 도움말 줄을 보인다.
 
 describe('quick input hint on the home today card', () => {
   let b: Backend
@@ -41,9 +41,13 @@ describe('quick input hint on the home today card', () => {
     expect(within(card).queryByText(ko.tasks.parsedLabel)).toBeNull()
   })
 
-  it('the tasks screen still always shows the hint row', async () => {
+  it('the tasks screen also shows the hint row only while typing (less text on screen)', async () => {
+    const user = userEvent.setup()
     b = installBackend('today')
     render(<App />)
-    expect(await screen.findByText(ko.tasks.parseHint)).toBeTruthy()
+    const input = await screen.findByLabelText(ko.tasks.quickInputLabel)
+    expect(screen.queryByText(ko.tasks.parsedLabel)).toBeNull()
+    await user.type(input, '내일 3시 회의')
+    expect(await screen.findByText(ko.tasks.parsedLabel)).toBeTruthy()
   })
 })

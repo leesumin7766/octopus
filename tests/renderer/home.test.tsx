@@ -206,17 +206,13 @@ describe('home screen', () => {
   })
 
   describe('today\'s schedule card', () => {
-    it('when no calendar is connected it offers an active "connect calendar" button that opens the Arms screen', async () => {
-      const user = userEvent.setup()
+    it('when no calendar is connected the card is just the month (no connect text; connecting is on the Arms screen)', async () => {
       open()
       const calendar = await card(t.cards.calendar)
-
-      expect(await within(calendar).findByText(t.calendar.empty)).toBeTruthy()
-      const connect = within(calendar).getByRole('button', { name: t.calendar.connect })
-      expect(connect.getAttribute('aria-disabled')).toBeNull()
-      await user.click(connect)
-
-      expect(await screen.findByRole('heading', { level: 1, name: /Arms/ })).toBeTruthy()
+      await within(calendar).findByRole('button', { name: /^2026년 3월 10일/ })
+      expect(within(calendar).queryByText(t.calendar.empty)).toBeNull()
+      expect(within(calendar).queryByRole('button', { name: t.calendar.connect })).toBeNull()
+      expect(within(calendar).queryByRole('button', { name: ko.home.localCalendar.today })).toBeNull() // '오늘' 버튼 없음
     })
   })
 

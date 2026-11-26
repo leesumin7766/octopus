@@ -4,12 +4,33 @@ export const ko = {
   dbOpenFailed:
     '할 일과 메모를 저장하는 곳을 열지 못했어요. 앱을 완전히 종료한 뒤 다시 실행해 보세요. 계속되면 앱 데이터 폴더의 octopus.db 파일을 백업해 두세요.',
 
+  // 제목 줄의 알림 표시(ATDT 와 같은 자리). 알림이 있을 때만 보이고, 누르면 그 안에서 바로 처리한다.
+  notices: {
+    button: (count: number) => `알림 ${count}`,
+    buttonLabel: (count: number) => `알림 ${count}개 보기`,
+    panel: '알림',
+    later: '나중에',
+    update: {
+      available: (version: string) => `새 버전 ${version}`,
+      downloading: (version: string) => `새 버전 ${version} 받는 중`,
+      ready: (version: string) => `새 버전 ${version} 준비됨`,
+      readyBody: '다시 시작하면 설치돼요.',
+      download: '받기',
+      install: '다시 시작해서 설치'
+    }
+  },
+  // 달력 화면(왼쪽 메뉴 '달력')
+  calendarScreen: {
+    title: '달력',
+    monthDone: (done: number, total: number) => `이 달 완료 ${done}/${total}`
+  },
   nav: {
     label: '메뉴',
     collapse: '메뉴 접기',
     expand: '메뉴 펼치기',
     home: '홈',
     tasks: '할 일',
+    calendar: '달력',
     routines: '체크리스트',
     memos: '메모',
     command: '지시하기',
@@ -99,17 +120,7 @@ export const ko = {
       install: '다시 시작해서 설치',
       installHelp: '누르면 앱이 닫히고 새 버전이 설치된 뒤 다시 켜져요. 할 일·메모·설정은 그대로 남아요.',
       progress: '업데이트 받는 중',
-      notes: '바뀐 점',
-      help: '앱을 켤 때 한 번 새 버전을 확인해요. 받기와 설치는 직접 눌러야 해요.',
-      // 제목 줄의 작은 알림
-      chip: {
-        label: '업데이트 알림',
-        available: (version: string) => `새 버전 ${version}`,
-        download: '받기',
-        downloading: (percent: number) => `받는 중 ${percent}%`,
-        install: '다시 시작해서 설치',
-        dismiss: '이번에는 닫기'
-      }
+      notes: '바뀐 점'
     },
     model: {
       title: '모델 연결',
@@ -196,7 +207,7 @@ export const ko = {
       timedHeading: '시간 지정',
       untimedHeading: '시간 미지정',
       done: '완료',
-      overdue: '지난 미완료',
+      overdue: '지난',
       emptyDay: '이 날짜에 등록된 할 일이 없어요.',
       loading: '할 일을 불러오는 중…',
       loadFailed: '할 일을 불러오지 못했어요.',
@@ -227,9 +238,9 @@ export const ko = {
       cancelFailed: '취소하지 못했어요. 다시 시도해 주세요.'
     },
     memo: {
-      empty: '메모가 없어요. 아래에 한 줄로 적어 보세요.',
+      empty: '메모가 없어요.',
       quickLabel: '빠른 메모',
-      quickPlaceholder: '한 줄 메모 (Enter)',
+      quickPlaceholder: '메모 추가',
       viewAll: '전체 보기 →'
     },
     dialogs: {
@@ -314,14 +325,14 @@ export const ko = {
 
   memos: {
     newLabel: '새 메모',
-    newPlaceholder: '메모를 적고 Ctrl+Enter 로 저장하세요. 여러 줄도 괜찮아요.',
+    newPlaceholder: '메모 (Ctrl+Enter 로 저장)',
     hint: 'Ctrl+Enter 로 저장',
     save: '저장',
     searchLabel: '메모 검색',
     searchPlaceholder: '메모 검색',
     listLabel: '메모 목록',
-    empty: '메모가 없어요. 위 입력창에 적고 Ctrl+Enter 로 저장해 보세요.',
-    noResults: '검색 결과가 없어요. 다른 낱말로 찾아 보세요.',
+    empty: '메모가 없어요.',
+    noResults: '검색 결과가 없어요.',
     pinned: '고정',
     pin: '고정',
     unpin: '고정 해제',
@@ -381,7 +392,7 @@ export const ko = {
       button: '되돌리기',
       dismiss: '닫기'
     },
-    quickInputPlaceholder: '할 일을 입력하고 Enter 를 누르세요. 예: 내일 오후 3시 보고서 #업무 !높음',
+    quickInputPlaceholder: '할 일 추가 · 예: 내일 3시 보고서 #업무 !높음',
     previewLabel: '인식한 내용',
     chip: {
       date: '날짜',
@@ -591,7 +602,7 @@ export const ko = {
     subtitle: '다리',
     intro: '쓰는 도구를 끼우고 빼세요. 로그인 한 번이면 돼요. Arm 을 빼도 할 일은 Octopus 에 그대로 남아요.',
     listLabel: 'Arm 목록',
-    empty: '아직 연결할 수 있는 Arm 이 없어요. Arm 은 앞으로 하나씩 추가돼요. 그동안에도 할 일·메모·지시하기는 그대로 쓸 수 있어요.',
+    empty: '아직 연결할 수 있는 Arm 이 없어요.',
     statuses: { off: '연결 안 됨', connecting: '연결 중…', on: '연결됨', error: '문제가 있어요' },
     connect: '연결',
     connecting: '연결 중…',
@@ -616,7 +627,7 @@ export const ko = {
     } as Record<string, string>,
     mcp: {
       title: 'MCP 서버 꽂기',
-      help: '위에 없는 도구는 MCP 서버로 연결해요. 화면 카드는 생기지 않고, 지시하기(Ctrl+K)에서 말로 시킬 수 있게 돼요. 읽기 전용이라고 알린 도구만 바로 실행되고, 나머지는 실행 전에 승인을 물어요.',
+      help: '위에 없는 도구는 MCP 서버로 연결해 지시하기(Ctrl+K)에서 써요. 바꾸는 동작은 실행 전에 물어요.',
       kindLabel: '종류',
       kinds: { http: '주소', stdio: '실행 명령' },
       nameLabel: '이름',

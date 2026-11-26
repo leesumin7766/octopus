@@ -12,8 +12,6 @@ interface QuickInputProps {
   /** Enter 를 누르거나 추가를 누르면 호출. true 를 돌려주면 입력창을 비운다. */
   onSubmit: (text: string) => Promise<boolean>
   debounceMs: number
-  /** true 면 "알아들은 것" 줄을 입력을 시작했을 때만 보인다(좁은 홈 카드에서 목록 자리를 지키려고). */
-  hintOnlyWhileTyping?: boolean
   /** 입력칸 안내 문구. 없으면 할 일 화면의 기본 문구 */
   placeholder?: string
 }
@@ -29,7 +27,7 @@ function chipsOf(preview: QuickParseResult): { label: string; value: string }[] 
 }
 
 /** 빠른 입력 카드: 입력줄과 추가 버튼, 아래에 "알아들은 것" 칩. */
-export function QuickInput({ inputRef, onSubmit, debounceMs, hintOnlyWhileTyping = false, placeholder = t.quickInputPlaceholder }: QuickInputProps) {
+export function QuickInput({ inputRef, onSubmit, debounceMs, placeholder = t.quickInputPlaceholder }: QuickInputProps) {
   const [text, setText] = useState('')
   const [preview, setPreview] = useState<QuickParseResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -96,7 +94,8 @@ export function QuickInput({ inputRef, onSubmit, debounceMs, hintOnlyWhileTyping
           {t.quickAddButton}
         </button>
       </div>
-      {(!hintOnlyWhileTyping || text.trim() !== '') && (
+      {/* 알아들은 것은 입력을 시작했을 때만 보인다(빈 칸일 때 설명 줄로 자리를 차지하지 않는다) */}
+      {text.trim() !== '' && (
         <div className="flex min-h-6 flex-wrap items-center gap-1.5">
           <span className="text-xs text-[#5E5D58]">{t.parsedLabel}</span>
           {chips.length > 0 ? (

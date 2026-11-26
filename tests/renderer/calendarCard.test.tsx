@@ -44,28 +44,22 @@ describe('home: calendar card (month grid + Google status line)', () => {
     expect(cell('2026-03-10').getAttribute('aria-current')).toBe('date') // 오늘
   })
 
-  it('without Google connected the month is still shown and the connect hint does not replace it (C1-01)', async () => {
-    prepare()
+  it('without Google connected the card is only the month: no connect hint or button (C1-01; connecting is on the Arms screen)', async () => {
+    const backend = prepare()
     const card = await show()
-    expect(await within(card).findByText(c.empty)).toBeTruthy()
+    await waitFor(() => expect(backend.calendar.today).toHaveBeenCalled())
+    expect(within(card).queryByText(c.empty)).toBeNull()
+    expect(within(card).queryByRole('button', { name: c.connect })).toBeNull()
     expect(card.querySelectorAll('[data-date]').length).toBe(42)
   })
 
-  it('Google connect button opens the Arms screen; the month stays usable', async () => {
-    const user = userEvent.setup()
-    prepare()
-    const card = await show()
-    await user.click(await within(card).findByRole('button', { name: c.connect }))
-    expect(await screen.findByRole('heading', { level: 1, name: /Arms/ })).toBeTruthy()
-  })
-
-  it('this build without Google setup says so, and the month is still there', async () => {
+  it('a build without Google setup does not explain it on the card either; the month is there', async () => {
     const backend = prepare()
     backend.calendarState.configured = false
     backend.calendarState.unavailableReason = c.notConfigured
     const card = await show()
-    expect(await within(card).findByText(c.notConfigured)).toBeTruthy()
-    expect(within(card).queryByRole('button', { name: c.connect })).toBeNull()
+    await waitFor(() => expect(backend.calendar.today).toHaveBeenCalled())
+    expect(within(card).queryByText(c.notConfigured)).toBeNull()
     expect(card.querySelectorAll('[data-date]').length).toBe(42)
   })
 
@@ -111,7 +105,7 @@ describe('home: calendar card (month grid + Google status line)', () => {
     expect(within(card).queryByText(m.countsFailed)).toBeNull()
   })
 
-  it('days show how many items they hold; navigation changes the month and 오늘 comes back', async () => {
+  it('days show how many items they hold; arrows change the month (no 오늘 button on the card)', async () => {
     const user = userEvent.setup()
     const backend = prepare()
     backend.t.repo.create({ title: 'A', date: '2026-03-10' })
@@ -125,7 +119,8 @@ describe('home: calendar card (month grid + Google status line)', () => {
     await user.click(within(card).getByRole('button', { name: m.prevMonth }))
     await user.click(within(card).getByRole('button', { name: m.prevMonth }))
     expect(within(card).getByText('2026년 2월')).toBeTruthy()
-    await user.click(within(card).getByRole('button', { name: m.today }))
+    expect(within(card).queryByRole('button', { name: m.today })).toBeNull()
+    await user.click(within(card).getByRole('button', { name: m.nextMonth }))
     expect(within(card).getByText('2026년 3월')).toBeTruthy()
   })
 })
