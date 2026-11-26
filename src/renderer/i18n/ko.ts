@@ -77,10 +77,39 @@ export const ko = {
     reset: '기본값으로',
     soon: '준비 중',
     update: {
-      ready: (version: string) => `새 버전이 있어요 (${version}).`,
-      downloading: (version: string) => `새 버전(${version})을 내려받고 있어요.`,
+      title: '업데이트',
+      current: '현재 버전',
+      status: {
+        disabled: '개발 모드에서는 업데이트를 확인하지 않아요. 설치한 앱에서만 동작해요.',
+        idle: '아직 확인하지 않았어요.',
+        checking: '확인하는 중…',
+        latest: '최신 버전이에요.',
+        available: (version: string) => `새 버전 ${version} 이 있어요.`,
+        downloading: (version: string) => `새 버전 ${version} 을 받는 중…`,
+        ready: (version: string) => `새 버전 ${version} 을 받았어요. 다시 시작하면 설치돼요.`,
+        error: '업데이트를 확인하지 못했어요.'
+      },
+      errors: {
+        offline: '인터넷 연결을 확인한 뒤 다시 확인해 보세요.',
+        noRelease: '배포된 업데이트 정보를 찾지 못했어요. 잠시 뒤 다시 확인해 보세요.',
+        other: '잠시 뒤 다시 확인해 보세요.'
+      },
+      check: '업데이트 확인',
+      download: '업데이트 받기',
       install: '다시 시작해서 설치',
-      installHelp: '누르면 앱이 닫히고 새 버전이 설치돼요. 하던 일은 모두 저장되어 있어요.'
+      installHelp: '누르면 앱이 닫히고 새 버전이 설치된 뒤 다시 켜져요. 할 일·메모·설정은 그대로 남아요.',
+      progress: '업데이트 받는 중',
+      notes: '바뀐 점',
+      help: '앱을 켤 때 한 번 새 버전을 확인해요. 받기와 설치는 직접 눌러야 해요.',
+      // 제목 줄의 작은 알림
+      chip: {
+        label: '업데이트 알림',
+        available: (version: string) => `새 버전 ${version}`,
+        download: '받기',
+        downloading: (percent: number) => `받는 중 ${percent}%`,
+        install: '다시 시작해서 설치',
+        dismiss: '이번에는 닫기'
+      }
     },
     model: {
       title: '모델 연결',

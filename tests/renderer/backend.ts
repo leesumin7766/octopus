@@ -91,9 +91,11 @@ export interface Backend {
   vault: string
   /** .gitignore 수정 확인 창의 가짜(기본: 허용) */
   obsidianConfirm: Mock<(info: { path: string; line: string }) => Promise<boolean>>
-  update: { state: Mock<UpdateApi['state']>; install: Mock<UpdateApi['install']> }
-  /** 설정 화면의 업데이트 알림이 읽는 값(기본: 새 버전 없음) */
+  update: { state: Mock<UpdateApi['state']>; check: Mock<UpdateApi['check']>; download: Mock<UpdateApi['download']>; install: Mock<UpdateApi['install']>; onState: Mock<UpdateApi['onState']> }
+  /** 업데이트 상태(기본: 최신). state()·check()·download() 가 이 값을 돌려준다. */
   updateState: UpdateState
+  /** main 이 업데이트 상태를 밀어 준 것처럼 화면에 보낸다(updateState 도 바꾼다) */
+  emitUpdate: (state: UpdateState) => void
   mcp: McpSpies
   mcpService: McpService
   /** stdio 처음 실행 확인 창의 가짜(기본: 허용) */
@@ -274,10 +276,22 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     fixGitignore: vi.fn(async () => obsidianHandlers.fixGitignore()),
     open: vi.fn(async () => obsidianHandlers.open())
   } as unknown as ObsidianSpies
-  const updateState: UpdateState = { status: 'none' }
+  const updateState: UpdateState = { status: 'latest', current: '0.1.0' }
+  const updateListeners = new Set<(state: UpdateState) => void>()
   const update = {
     state: vi.fn(async () => ({ ok: true as const, data: { ...updateState } })),
-    install: vi.fn(async () => ({ ok: true as const, data: null }))
+    check: vi.fn(async () => ({ ok: true as const, data: { ...updateState } })),
+    download: vi.fn(async () => ({ ok: true as const, data: { ...updateState } })),
+    install: vi.fn(async () => ({ ok: true as const, data: null })),
+    onState: vi.fn((listener: (state: UpdateState) => void) => {
+      updateListeners.add(listener)
+      return () => void updateListeners.delete(listener)
+    })
+  }
+  const emitUpdate = (state: UpdateState): void => {
+    for (const key of Object.keys(updateState) as (keyof UpdateState)[]) delete updateState[key]
+    Object.assign(updateState, state)
+    for (const listener of [...updateListeners]) listener({ ...state })
   }
   const mcpConnector = { current: (async () => fakeConnection()) as McpConnector }
   const mcpServers: McpServerConfig[] = []
@@ -402,5 +416,5 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
   }
   Object.defineProperty(window, 'octopus', { value: api, configurable: true, writable: true })
 
-  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, update, updateState, obsidian, obsidianArm, vault, obsidianConfirm, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => { const adapter = scripted(steps); llm = adapter; return adapter }, setAdapter: (adapter) => void (llm = adapter), emitCommandEvent }
+  return { t, routineRepo, memoRepo, settingsRepo, shortcutRepo, platform, tasks, routines, memos, settings, shortcuts, command, arms, candidates, update, updateState, emitUpdate, obsidian, obsidianArm, vault, obsidianConfirm, mcp, mcpService, mcpConfirm, mcpConnector, calendar, calendarState, armManager, candidateRepo, opened, keys, setLlm: (steps) => { const adapter = scripted(steps); llm = adapter; return adapter }, setAdapter: (adapter) => void (llm = adapter), emitCommandEvent }
 }

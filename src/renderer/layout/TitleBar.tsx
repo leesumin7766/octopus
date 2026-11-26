@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatHomeDate, msUntilNextMidnight, todayString } from '../tasks/format'
+import { UpdateChip } from '../update/UpdateChip'
 
 /** macOS 는 왼쪽에 신호등 버튼이 있어 그만큼 비운다. Windows·Linux 는 오른쪽에 OS 가 창 버튼을 그린다. */
 const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent)
@@ -19,6 +20,7 @@ export function TitleBar() {
 
   return (
     <header className={`app-drag relative flex h-10 shrink-0 items-center border-b border-line bg-page ${isMac ? 'pl-20' : 'pl-4'}`}>
+      <UpdateChip />
       <time dateTime={day} className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-sm font-semibold text-ink">
         {formatHomeDate(new Date())}
       </time>

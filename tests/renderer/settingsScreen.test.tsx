@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/App'
@@ -46,13 +46,13 @@ describe('settings screen', () => {
     expect(labels.indexOf(ko.nav.settings)).toBe(labels.indexOf(ko.nav.arrange) - 1)
   })
 
-  it('shows the model connection section and then the pie menu section', async () => {
+  it('shows the model connection section, the pie menu section, then updates', async () => {
     prepare()
     show()
 
     await screen.findByRole('heading', { level: 1, name: t.title })
 
-    expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual([t.model.title, t.pieTitle])
+    expect(screen.getAllByRole('region').map((region) => region.getAttribute('aria-label'))).toEqual([t.model.title, t.pieTitle, t.update.title])
   })
 
   it('lists the eight slots in order from 12 o\'clock, each set to the saved action', async () => {
@@ -132,36 +132,81 @@ describe('settings screen', () => {
     expect(backend.settingsRepo.get('pie.slots')).toEqual([...DEFAULT_PIE_SLOTS])
   })
 
-  describe('update notice', () => {
-    it('shows nothing when there is no new version', async () => {
+  describe('update section', () => {
+    const u = t.update
+    const section = (): HTMLElement => screen.getByRole('region', { name: u.title })
+
+    it('always shows the installed version, and [업데이트 확인] asks main to check now', async () => {
+      const user = userEvent.setup()
       const backend = prepare()
       show()
-      await screen.findByRole('heading', { level: 1, name: t.title })
-      await waitFor(() => expect(backend.update.state).toHaveBeenCalled())
-      expect(screen.queryByRole('button', { name: t.update.install })).toBeNull()
+      expect(await screen.findByText(u.status.latest)).toBeTruthy()
+      expect(within(section()).getByText('0.1.0')).toBeTruthy()
+      expect(within(section()).queryByRole('button', { name: u.install })).toBeNull()
+
+      backend.updateState.status = 'available'
+      backend.updateState.version = '0.2.0'
+      await user.click(within(section()).getByRole('button', { name: u.check }))
+      expect(backend.update.check).toHaveBeenCalledTimes(1)
+      expect(await within(section()).findByText(u.status.available('0.2.0'))).toBeTruthy()
+    })
+
+    it('a new version is only fetched when [업데이트 받기] is clicked; its notes can be opened', async () => {
+      const user = userEvent.setup()
+      const backend = prepare()
+      Object.assign(backend.updateState, { status: 'available', version: '0.2.0', notes: '바뀐 점 한 줄' })
+      show()
+      const button = await screen.findByRole('button', { name: u.download })
+      expect(backend.update.download).not.toHaveBeenCalled()
+      expect(within(section()).getByText('바뀐 점 한 줄')).toBeTruthy()
+      await user.click(button)
+      expect(backend.update.download).toHaveBeenCalledTimes(1)
+    })
+
+    it('while downloading it shows progress, cannot check again, and offers no install', async () => {
+      const backend = prepare()
+      Object.assign(backend.updateState, { status: 'downloading', version: '0.2.0', percent: 40 })
+      show()
+      expect(await screen.findByText(u.status.downloading('0.2.0'))).toBeTruthy()
+      expect(within(section()).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('40')
+      expect((within(section()).getByRole('button', { name: u.check }) as HTMLButtonElement).disabled).toBe(true)
+      expect(within(section()).queryByRole('button', { name: u.install })).toBeNull()
     })
 
     it('a downloaded version offers [다시 시작해서 설치], and only clicking it installs', async () => {
       const user = userEvent.setup()
       const backend = prepare()
-      backend.updateState.status = 'ready'
-      backend.updateState.version = '0.2.0'
+      Object.assign(backend.updateState, { status: 'ready', version: '0.2.0' })
       show()
-
-      const button = await screen.findByRole('button', { name: t.update.install })
-      expect(screen.getByText(t.update.ready('0.2.0'))).toBeTruthy()
+      const button = await within(await screen.findByRole('region', { name: u.title })).findByRole('button', { name: u.install })
+      expect(screen.getByText(u.status.ready('0.2.0'))).toBeTruthy()
       expect(backend.update.install).not.toHaveBeenCalled() // 알림만으로는 설치하지 않는다
       await user.click(button)
       expect(backend.update.install).toHaveBeenCalledTimes(1)
     })
 
-    it('while downloading it only informs (no install button)', async () => {
+    it('a failed check says what to do next', async () => {
       const backend = prepare()
-      backend.updateState.status = 'downloading'
-      backend.updateState.version = '0.2.0'
+      Object.assign(backend.updateState, { status: 'error', error: 'offline' })
       show()
-      expect(await screen.findByText(t.update.downloading('0.2.0'))).toBeTruthy()
-      expect(screen.queryByRole('button', { name: t.update.install })).toBeNull()
+      const alert = await within(await screen.findByRole('region', { name: u.title })).findByRole('alert')
+      expect(alert.textContent).toContain(u.errors.offline)
+    })
+
+    it('in development it explains that nothing is checked, and has no check button', async () => {
+      const backend = prepare()
+      backend.updateState.status = 'disabled'
+      show()
+      expect(await screen.findByText(u.status.disabled)).toBeTruthy()
+      expect(within(section()).queryByRole('button', { name: u.check })).toBeNull()
+    })
+
+    it('follows the state main pushes', async () => {
+      const backend = prepare()
+      show()
+      await screen.findByText(u.status.latest)
+      act(() => backend.emitUpdate({ status: 'downloading', current: '0.1.0', version: '0.2.0', percent: 75 }))
+      expect(await screen.findByText(u.status.downloading('0.2.0'))).toBeTruthy()
     })
   })
 

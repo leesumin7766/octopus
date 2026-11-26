@@ -94,11 +94,16 @@ let armManager: ArmManager | null = null
 let calendarProvider: CalendarProvider | null = null
 let mcpService: McpService | null = null
 let obsidianArm: ObsidianArm | null = null
-// 자동 업데이트 확인(패키지된 앱에서만 시작할 때 한 번). GitHub Releases, 설치는 사용자가 승인할 때만.
+// 자동 업데이트(GitHub Releases). 패키지된 앱은 켠 뒤 잠시 있다 한 번 확인하고, 받기·설치는 사용자가 누를 때만.
+// 상태가 바뀌면 열린 창에 밀어 준다(제목 줄의 작은 알림과 설정 화면이 받는다).
 const updateChecker: UpdateChecker = createUpdateChecker({
   isPackaged: app.isPackaged,
+  currentVersion: app.getVersion(),
   autoUpdater: () => autoUpdater,
-  log: (message) => console.warn(`[octopus] ${message}`)
+  log: (message) => console.warn(`[octopus] ${message}`),
+  onChange: (state) => {
+    for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC.updateEvent, state)
+  }
 })
 // API 키 보관(Electron safeStorage 로 암호화한 파일). app ready 이후에 만든다.
 // 개발용 캡처에서는 진짜 보관소 대신 메모리의 가짜를 쓴다(진짜 키를 읽지도 쓰지도 않는다).
@@ -370,7 +375,7 @@ if (primaryInstance) void app.whenReady().then(async () => {
   }
   if (dev && captureSession?.config.view === 'command' && commandSession) await dev.seedCaptureCommand(commandSession, 'anthropic-opus')
   createWindow()
-  void updateChecker.start() // 패키지된 앱이 아니면 아무것도 하지 않는다. 실패는 조용히 로그만.
+  updateChecker.start() // 패키지된 앱이 아니면 아무것도 하지 않는다. 5초 뒤 한 번 확인, 실패는 상태와 로그 한 줄로만.
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -3,6 +3,7 @@ import type { OctopusApi } from '../shared/api'
 import { readInitialView } from '../shared/initialView'
 import { IPC } from '../shared/ipc'
 import { parseCommandEvent } from '../shared/validation/command'
+import { parseUpdateState } from '../shared/validation/update'
 
 // 채널마다 함수를 하나씩만 노출한다. ipcRenderer 나 범용 invoke 는 넘기지 않는다.
 const api: OctopusApi = {
@@ -110,7 +111,18 @@ const api: OctopusApi = {
   },
   update: {
     state: () => ipcRenderer.invoke(IPC.updateState),
-    install: () => ipcRenderer.invoke(IPC.updateInstall)
+    check: () => ipcRenderer.invoke(IPC.updateCheck),
+    download: () => ipcRenderer.invoke(IPC.updateDownload),
+    install: () => ipcRenderer.invoke(IPC.updateInstall),
+    // 상태 이벤트 채널 하나만 구독한다. 모양을 확인한 것만 넘긴다.
+    onState: (listener) => {
+      const handler = (_event: unknown, value: unknown): void => {
+        const parsed = parseUpdateState(value)
+        if (parsed) listener(parsed)
+      }
+      ipcRenderer.on(IPC.updateEvent, handler)
+      return () => void ipcRenderer.removeListener(IPC.updateEvent, handler)
+    }
   }
 }
 

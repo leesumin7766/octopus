@@ -123,9 +123,26 @@ describe('preload', () => {
     })
   })
 
+  it('update state events: one channel, only well-formed states pass, and the returned function unsubscribes', () => {
+    type Handler = (event: unknown, value: unknown) => void
+    mocks.on.mockClear()
+    mocks.removeListener.mockClear()
+    const seen: unknown[] = []
+    const stop = (api.update.onState as unknown as (l: (s: unknown) => void) => () => void)((s) => seen.push(s))
+    expect(mocks.on).toHaveBeenCalledTimes(1)
+    expect(mocks.on.mock.calls[0][0]).toBe(IPC.updateEvent)
+    const handler = mocks.on.mock.calls[0][1] as Handler
+    handler({}, { status: 'ready', current: '0.1.0', version: '0.2.0', secret: 'x' })
+    handler({}, { status: 'bogus', current: '0.1.0' })
+    handler({}, null)
+    expect(seen).toEqual([{ status: 'ready', current: '0.1.0', version: '0.2.0' }])
+    stop()
+    expect(mocks.removeListener).toHaveBeenCalledWith(IPC.updateEvent, handler)
+  })
+
   it('exposes exactly the arms and candidate functions; nothing takes an address or a path', () => {
     expect(Object.keys(api.arms).sort()).toEqual(['connect', 'disconnect', 'list', 'setAutoAccept', 'setClient'])
-    expect(Object.keys(api.update).sort()).toEqual(['install', 'state'])
+    expect(Object.keys(api.update).sort()).toEqual(['check', 'download', 'install', 'onState', 'state'])
     expect(Object.keys(api.obsidian).sort()).toEqual(['changeVault', 'exportNow', 'fixGitignore', 'open', 'setConfig', 'state'])
     expect(Object.keys(api.mcp).sort()).toEqual(['add', 'list', 'reconnect', 'remove'])
     expect(Object.keys(api.calendar).sort()).toEqual(['openEvent', 'openWeb', 'today'])
@@ -182,6 +199,8 @@ describe('preload', () => {
     ['arms', 'setAutoAccept', ['example', true], IPC.armsSetAutoAccept],
     ['arms', 'setClient', ['example', { clientId: 'x' }], IPC.armsSetClient],
     ['update', 'state', [], IPC.updateState],
+    ['update', 'check', [], IPC.updateCheck],
+    ['update', 'download', [], IPC.updateDownload],
     ['update', 'install', [], IPC.updateInstall],
     ['obsidian', 'state', [], IPC.obsidianState],
     ['obsidian', 'setConfig', [{ mode: 'export' }], IPC.obsidianSetConfig],

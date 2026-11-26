@@ -72,7 +72,11 @@ export const IPC = {
   obsidianFixGitignore: 'obsidian:fixGitignore',
   obsidianOpen: 'obsidian:open',
   updateState: 'update:state',
-  updateInstall: 'update:install'
+  updateCheck: 'update:check',
+  updateDownload: 'update:download',
+  updateInstall: 'update:install',
+  /** main → 화면: 업데이트 상태가 바뀜 */
+  updateEvent: 'update:event'
 } as const
 
 /** not_found_path: 바로가기가 가리키는 파일·폴더가 없어졌다. secure_unavailable: 이 PC 에서 키를 암호화해 저장할 수 없다. forbidden: 앱 화면이 아닌 곳에서 보낸 요청이라 거부했다. */
