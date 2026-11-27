@@ -241,7 +241,7 @@ export const ko = {
       movedAway: '날짜 없는 곳으로 옮겼어요. 이 날짜 목록에서는 사라져요.',
       editFailed: '수정하지 못했어요. 입력한 내용은 그대로 있어요.',
       removeFailed: '지우지 못했어요. 다시 시도해 주세요.',
-      cancelFailed: '취소하지 못했어요. 다시 시도해 주세요.'
+      cancelFailed: '안 하기로 하지 못했어요. 다시 시도해 주세요.'
     },
     memo: {
       empty: '메모가 없어요.',
@@ -392,9 +392,13 @@ export const ko = {
       done: '끝낸 날짜별로 모아 두었어요.'
     } as Record<string, string>,
     doneAt: (time: string) => `${time} 완료`,
+    /** 완료 보기 안의 거르기: 끝낸 것 / 안 하기로 한 것 */
+    doneFilter: { label: '완료 보기 거르기', done: '완료', canceled: '안 하기로 함' },
+    reopen: '다시 열기',
+    reopenLabel: (title: string) => `다시 열기: ${title}`,
     undo: {
       done: (title: string) => `"${title}" 을(를) 끝냈어요.`,
-      canceled: (title: string) => `"${title}" 을(를) 취소했어요.`,
+      canceled: (title: string) => `"${title}" 을(를) 안 하기로 했어요.`,
       button: '되돌리기',
       dismiss: '닫기'
     },
@@ -454,7 +458,8 @@ export const ko = {
       today: "오늘 할 일이 없어요. 입력창에 '오늘 회의' 처럼 적어 추가해 보세요.",
       upcoming: "예정된 할 일이 없어요. '내일 …', '다음주 월 …' 처럼 날짜를 함께 적어 보세요.",
       someday: "나중에 할 일이 없어요. 언젠가 할 일은 상세 화면에서 보관함을 '나중에'로 바꿔 두세요.",
-      done: '완료한 할 일이 아직 없어요. 할 일을 체크하면 여기에 모여요.'
+      done: '완료한 할 일이 아직 없어요. 할 일을 체크하면 여기에 모여요.',
+      canceled: '안 하기로 한 할 일이 없어요.'
     },
 
     detail: {
@@ -480,8 +485,8 @@ export const ko = {
       linkedMemo: '연결된 메모',
       routineLocksDate: '루틴 항목은 날짜와 보관함을 바꿀 수 없어요. 체크리스트 화면에서 루틴 설정을 바꿔 주세요.',
       routineManage: '루틴 항목은 체크리스트에서 관리해요.',
-      cancelTask: '취소',
-      cancelHelp: '취소한 할 일은 목록에서 사라지지만 지워지지 않아요.',
+      cancelTask: '안 하기',
+      cancelHelp: '안 하기로 한 할 일은 완료 보기에서 다시 열 수 있어요.',
       repeatEdit: {
         kinds: { none: '없음', daily: '매일', weekdays: '평일', weekly: '매주', monthly: '매월', yearly: '매년' } as Record<string, string>,
         interval: '간격',

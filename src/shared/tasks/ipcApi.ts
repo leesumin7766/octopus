@@ -10,6 +10,8 @@ export interface TasksApi {
   list<V extends TaskView>(view: V): Promise<IpcResult<TaskListResult<V>>>
   /** from..to(YYYY-MM-DD, 양 끝 포함, 최대 62일) 사이 날짜를 가진 할 일(열린 것·끝난 것). 취소는 없다. */
   listRange(from: string, to: string): Promise<IpcResult<Task[]>>
+  /** 안 하기로 함(canceled) 할 일. 최근에 안 하기로 한 것부터. 완료 보기의 거르기에서만 쓴다. */
+  listCanceled(): Promise<IpcResult<Task[]>>
   quickAdd(text: string): Promise<IpcResult<Task>>
   create(input: TaskInput): Promise<IpcResult<Task>>
   update(id: string, patch: Partial<TaskFields>): Promise<IpcResult<Task>>

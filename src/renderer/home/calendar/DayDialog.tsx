@@ -254,7 +254,7 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
     notifyDataChanged()
   }
 
-  /** 편집 창의 '취소': 할 일을 취소 상태로 바꾼다(지우지 않는다). 날짜 목록에서는 취소한 항목이 빠진다. */
+  /** 편집 창의 '안 하기': 할 일을 안 하기 상태로 바꾼다(지우지 않는다). 날짜 목록에서는 그 항목이 빠진다. */
   async function cancelEdit(id: string): Promise<void> {
     const result = await safeInvoke(() => window.octopus.tasks.setStatus(id, 'canceled'))
     if (!mounted.current) return

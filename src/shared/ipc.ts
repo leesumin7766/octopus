@@ -3,6 +3,8 @@ export const IPC = {
   appVersion: 'app:version',
   tasksList: 'tasks:list',
   tasksListRange: 'tasks:listRange',
+  /** 안 하기로 함(canceled) 할 일. 완료 보기의 '안 하기로 함' 거르기에서만 쓴다. */
+  tasksListCanceled: 'tasks:listCanceled',
   tasksQuickAdd: 'tasks:quickAdd',
   tasksCreate: 'tasks:create',
   tasksUpdate: 'tasks:update',

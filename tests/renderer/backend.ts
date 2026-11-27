@@ -361,6 +361,7 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     moveToSomeday: vi.fn(async (ids: unknown) => taskHandlers.moveToSomeday(ids)),
     reschedule: vi.fn(async (ids: unknown, date: unknown) => taskHandlers.reschedule(ids, date)),
     listRange: vi.fn(async (from: unknown, to: unknown) => taskHandlers.listRange(from, to)),
+    listCanceled: vi.fn(async () => taskHandlers.listCanceled()),
     parsePreview: vi.fn(async (text: unknown) => taskHandlers.parsePreview(text))
   } as unknown as TaskSpies
 

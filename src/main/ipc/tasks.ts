@@ -32,6 +32,7 @@ export interface TaskHandlerDeps {
 export interface TaskHandlers {
   list(view: unknown): IpcResult<TodayView | Task[]>
   listRange(from: unknown, to: unknown): IpcResult<Task[]>
+  listCanceled(): IpcResult<Task[]>
   quickAdd(text: unknown): IpcResult<Task>
   create(input: unknown): IpcResult<Task>
   update(id: unknown, patch: unknown): IpcResult<Task>
@@ -73,6 +74,10 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
       const issues = dateRangeIssues(from, to)
       if (issues.length > 0) return invalidInput(...new Set(issues.map((issue) => issue.field)))
       return withRepository(IPC.tasksListRange, (repo) => repo.listRange(from as string, to as string))
+    },
+
+    listCanceled() {
+      return withRepository(IPC.tasksListCanceled, (repo) => repo.listCanceled())
     },
 
     quickAdd(text) {
@@ -164,6 +169,7 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
 export function registerTaskHandlers(ipc: IpcMainLike, handlers: TaskHandlers): void {
   ipc.handle(IPC.tasksList, (_event, view) => handlers.list(view))
   ipc.handle(IPC.tasksListRange, (_event, from, to) => handlers.listRange(from, to))
+  ipc.handle(IPC.tasksListCanceled, () => handlers.listCanceled())
   ipc.handle(IPC.tasksQuickAdd, (_event, text) => handlers.quickAdd(text))
   ipc.handle(IPC.tasksCreate, (_event, input) => handlers.create(input))
   ipc.handle(IPC.tasksUpdate, (_event, id, patch) => handlers.update(id, patch))

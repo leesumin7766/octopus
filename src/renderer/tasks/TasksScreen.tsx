@@ -28,6 +28,8 @@ interface Lists {
   upcoming: Task[]
   someday: Task[]
   done: Task[]
+  /** 안 하기로 함(canceled). 완료 보기의 거르기에서만 보인다. */
+  canceled: Task[]
 }
 
 interface Undo {
@@ -36,21 +38,30 @@ interface Undo {
 }
 
 async function loadLists(api: TasksApi): Promise<IpcResult<Lists>> {
-  const [inbox, today, upcoming, someday, done] = await Promise.all([
+  const [inbox, today, upcoming, someday, done, canceled] = await Promise.all([
     api.list('inbox'),
     api.list('today'),
     api.list('upcoming'),
     api.list('someday'),
-    api.list('done')
+    api.list('done'),
+    api.listCanceled()
   ])
   if (!inbox.ok) return inbox
   if (!today.ok) return today
   if (!upcoming.ok) return upcoming
   if (!someday.ok) return someday
   if (!done.ok) return done
+  if (!canceled.ok) return canceled
   return {
     ok: true,
-    data: { inbox: inbox.data, today: today.data, upcoming: upcoming.data, someday: someday.data, done: done.data }
+    data: {
+      inbox: inbox.data,
+      today: today.data,
+      upcoming: upcoming.data,
+      someday: someday.data,
+      done: done.data,
+      canceled: canceled.data
+    }
   }
 }
 
@@ -106,6 +117,8 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
   const [dayTick, setDayTick] = useState(0)
   const [linkedMemo, setLinkedMemo] = useState<Memo | null>(null)
   const [undo, setUndo] = useState<Undo | null>(null)
+  /** 완료 보기 안에서 끝낸 것을 볼지, 안 하기로 한 것을 볼지 */
+  const [doneFilter, setDoneFilter] = useState<'done' | 'canceled'>('done')
   /** 상세 패널에서 저장하지 않은 고침이 있는지(패널이 알려 준다). */
   const [detailDirty, setDetailDirty] = useState(false)
   /** 쓰던 상세 편집이 있을 때 다른 할 일로 옮기기 전에 묻는다. 값은 옮긴 뒤 할 일. */
@@ -250,13 +263,21 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     timers.current.add(timer)
   }
 
-  /** 취소: 목록에서만 사라지고 지워지지는 않는다. 되돌리면 다시 연다. */
+  /** 안 하기: 목록에서만 사라지고 지워지지는 않는다. 되돌리면 다시 연다. */
   async function cancelTask(task: Task): Promise<void> {
     const result = await api().setStatus(task.id, 'canceled')
     if (!result.ok) return fail(result.error)
     setError(null)
     setSelectedId(null)
     showUndo({ message: t.undo.canceled(task.title), restore: () => api().setStatus(task.id, 'open') })
+    await refresh()
+  }
+
+  /** 안 하기로 한 할 일을 다시 연다. 원래 보기(오늘·예정 등)에 나타난다. */
+  async function reopen(task: Task): Promise<void> {
+    const result = await api().setStatus(task.id, 'open')
+    if (!result.ok) return fail(result.error)
+    setError(null)
     await refresh()
   }
 
@@ -348,6 +369,43 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     })
   }
 
+  function renderDone() {
+    if (!lists) return null
+    if (lists.done.length === 0) return <p className="text-sm text-slate-500">{t.empty.done}</p>
+    const doneDay = (task: Task): string => (task.doneAt ? localDateString(new Date(task.doneAt)) : '')
+    const doneLabel = (task: Task): string | undefined => (task.doneAt ? t.doneAt(formatClock(task.doneAt)) : undefined)
+    return renderGrouped(lists.done, doneDay, doneLabel)
+  }
+
+  /** 안 하기로 함: 안 하기로 한 날짜별로 묶고, 행마다 [다시 열기]. */
+  function renderCanceled() {
+    if (!lists) return null
+    if (lists.canceled.length === 0) return <p className="text-sm text-slate-500">{t.empty.canceled}</p>
+    const canceledDay = (task: Task): string => localDateString(new Date(task.updatedAt))
+    return groupBy(lists.canceled, canceledDay).map((group) => (
+      <section key={group.key} aria-label={dayHeading(group.key, today)}>
+        <h2 className={GROUP_HEADING}>
+          {dayHeading(group.key, today)} <span className="font-normal text-[#5E5D58]">{group.items.length}</span>
+        </h2>
+        <ul aria-label={t.listLabel} className="flex flex-col gap-2">
+          {group.items.map((task) => (
+            <li key={task.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm">
+              <span className="min-w-0 truncate">{task.title}</span>
+              <button
+                type="button"
+                aria-label={t.reopenLabel(task.title)}
+                onClick={() => void reopen(task)}
+                className="shrink-0 rounded-md px-2 py-1 text-accent hover:bg-black/5"
+              >
+                {t.reopen}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+
   function renderContent() {
     if (!lists) return error ? null : <p className="text-sm text-slate-500">{t.loading}</p>
 
@@ -385,10 +443,26 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     }
 
     if (view === 'done') {
-      if (lists.done.length === 0) return <p className="text-sm text-slate-500">{t.empty.done}</p>
-      const doneDay = (task: Task): string => (task.doneAt ? localDateString(new Date(task.doneAt)) : '')
-      const doneLabel = (task: Task): string | undefined => (task.doneAt ? t.doneAt(formatClock(task.doneAt)) : undefined)
-      return renderGrouped(lists.done, doneDay, doneLabel)
+      return (
+        <>
+          <div role="group" aria-label={t.doneFilter.label} className="mb-3 flex gap-2">
+            {(['done', 'canceled'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                aria-pressed={doneFilter === filter}
+                onClick={() => setDoneFilter(filter)}
+                className={`min-h-9 rounded-full px-3 text-sm ${
+                  doneFilter === filter ? 'bg-white font-semibold text-accent' : 'text-[#5E5D58] hover:bg-black/5'
+                }`}
+              >
+                {t.doneFilter[filter]}
+              </button>
+            ))}
+          </div>
+          {doneFilter === 'done' ? renderDone() : renderCanceled()}
+        </>
+      )
     }
 
     const tasks = lists[view]
