@@ -340,6 +340,7 @@ it.each(['card', 'screen'] as const)('%s successful create preserves entire chan
   save(input, surface)
   await waitFor(() => expect(backend.memoRepo.list()).toHaveLength(2))
   expect(remaining).toBe('이미 저장된 부분 뒤 새 글')
-  expect(screen.queryByRole('alert')).toBeNull()
+  // The fake DB writes before the async success handler commits the UI.
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
   expect(backend.memoRepo.list().map(m => m.body).sort()).toEqual(['이미 저장된 부분 뒤 새 글', '이미 저장된 부분'].sort())
 })
