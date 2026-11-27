@@ -16,7 +16,9 @@ export const ko = {
       ready: (version: string) => `새 버전 ${version} 준비됨`,
       readyBody: '다시 시작하면 설치돼요.',
       download: '받기',
-      install: '다시 시작해서 설치'
+      install: '다시 시작해서 설치',
+      failed: { check: '확인하지 못했어요.', download: '받지 못했어요.', install: '설치를 시작하지 못했어요.' },
+      retry: '다시 시도'
     }
   },
   // 달력 화면(왼쪽 메뉴 '달력')
@@ -120,6 +122,8 @@ export const ko = {
       check: '업데이트 확인',
       download: '업데이트 받기',
       install: '다시 시작해서 설치',
+      failed: { check: '업데이트를 확인하지 못했어요.', download: '업데이트를 받지 못했어요.', install: '설치를 시작하지 못했어요.' },
+      retry: '다시 시도',
       installHelp: '누르면 앱이 닫히고 새 버전이 설치된 뒤 다시 켜져요. 할 일·메모·설정은 그대로 남아요.',
       progress: '업데이트 받는 중',
       notes: '바뀐 점'

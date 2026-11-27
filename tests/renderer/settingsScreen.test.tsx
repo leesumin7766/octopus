@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/App'
 import { ko } from '../../src/renderer/i18n/ko'
 import { DEFAULT_PIE_SLOTS, shortcutAction, type ActionId } from '../../src/shared/pie/actions'
+import type { IpcResult } from '../../src/shared/ipc'
+import type { UpdateState } from '../../src/shared/update/types'
 import { installBackend, type Backend } from './backend'
 
 const t = ko.settings
@@ -191,6 +193,70 @@ describe('settings screen', () => {
       show()
       const alert = await within(await screen.findByRole('region', { name: u.title })).findByRole('alert')
       expect(alert.textContent).toContain(u.errors.offline)
+    })
+
+    it('a failed check says so, [다시 시도] checks again, and success clears the message', async () => {
+      const user = userEvent.setup()
+      const backend = prepare()
+      show()
+      await screen.findByText(u.status.latest)
+      backend.update.check.mockResolvedValueOnce({ ok: false as const, error: { code: 'internal' } })
+
+      await user.click(within(section()).getByRole('button', { name: u.check }))
+      const alert = await within(section()).findByRole('alert')
+      expect(alert.textContent).toContain(u.failed.check)
+
+      await user.click(within(alert).getByRole('button', { name: u.retry }))
+      expect(backend.update.check).toHaveBeenCalledTimes(2)
+      await waitFor(() => expect(within(section()).queryByRole('alert')).toBeNull())
+    })
+
+    it('a rejected check is reported the same way', async () => {
+      const user = userEvent.setup()
+      const backend = prepare()
+      show()
+      await screen.findByText(u.status.latest)
+      backend.update.check.mockRejectedValueOnce(new Error('boom'))
+
+      await user.click(within(section()).getByRole('button', { name: u.check }))
+      expect(await within(section()).findByText(u.failed.check)).toBeTruthy()
+    })
+
+    it('a failed download shows in settings too, and [다시 시도] downloads again', async () => {
+      const user = userEvent.setup()
+      const backend = prepare()
+      Object.assign(backend.updateState, { status: 'available', version: '0.2.0' })
+      show()
+      backend.update.download.mockRejectedValueOnce(new Error('boom'))
+      await user.click(await screen.findByRole('button', { name: u.download }))
+
+      const alert = await within(section()).findByRole('alert')
+      expect(alert.textContent).toContain(u.failed.download)
+      await user.click(within(alert).getByRole('button', { name: u.retry }))
+      expect(backend.update.download).toHaveBeenCalledTimes(2)
+    })
+
+    it('a second check while one is running sends nothing new', async () => {
+      const user = userEvent.setup()
+      const backend = prepare()
+      show()
+      await screen.findByText(u.status.latest)
+      let finish: () => void = () => undefined
+      backend.update.check.mockImplementationOnce(
+        () =>
+          new Promise<IpcResult<UpdateState>>((resolve) => {
+            finish = () => resolve({ ok: true, data: { ...backend.updateState } })
+          })
+      )
+      const button = within(section()).getByRole('button', { name: u.check }) as HTMLButtonElement
+
+      await user.click(button)
+      await user.click(button)
+      expect(backend.update.check).toHaveBeenCalledTimes(1)
+      expect(button.disabled).toBe(true)
+
+      act(() => finish())
+      await waitFor(() => expect(button.disabled).toBe(false))
     })
 
     it('in development it explains that nothing is checked, and has no check button', async () => {

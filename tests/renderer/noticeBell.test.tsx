@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/App'
 import { ko } from '../../src/renderer/i18n/ko'
+import type { IpcResult } from '../../src/shared/ipc'
+import type { UpdateState } from '../../src/shared/update/types'
 import { installBackend, type Backend } from './backend'
 
 // ATDT 와 같은 제목 줄 알림 표시. 알림이 있을 때만 보이고, 누르면 그 안에서 업데이트를 받고 설치한다.
@@ -104,5 +106,103 @@ describe('notice bell in the title bar', () => {
     expect(bell()).toBeNull()
     act(() => b.emitUpdate({ status: 'error', current: '0.1.0', error: 'offline' }))
     expect(bell()).toBeNull()
+  })
+})
+
+describe('update action failures in the notice panel', () => {
+  let b: Backend
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 10, 26, 12, 0, 0))
+  })
+
+  afterEach(() => {
+    cleanup()
+    b?.t.db.close()
+    vi.useRealTimers()
+  })
+
+  const bell = (): HTMLElement | null => screen.queryByRole('button', { name: n.buttonLabel(1) })
+  const start = async (): Promise<void> => {
+    render(<App />)
+    await screen.findByRole('region', { name: ko.home.cards.todo })
+  }
+  const openPanel = async (user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> => {
+    await user.click((await screen.findByRole('button', { name: n.buttonLabel(1) })) as HTMLElement)
+    return screen.getByRole('dialog', { name: n.panel })
+  }
+
+  it('a failed download says so and [다시 시도] asks for the download again', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    Object.assign(b.updateState, { status: 'available', version: '0.2.0' })
+    b.update.download.mockResolvedValueOnce({ ok: false as const, error: { code: 'internal' } })
+    await start()
+    const panel = await openPanel(user)
+
+    await user.click(within(panel).getByRole('button', { name: n.update.download }))
+    const alert = await within(panel).findByRole('alert')
+    expect(alert.textContent).toContain(n.update.failed.download)
+    expect(b.update.download).toHaveBeenCalledTimes(1)
+
+    await user.click(within(alert).getByRole('button', { name: n.update.retry }))
+    expect(b.update.download).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(within(screen.getByRole('dialog', { name: n.panel })).queryByRole('alert')).toBeNull())
+  })
+
+  it('a rejected install says so, and [다시 시도] installs again', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    Object.assign(b.updateState, { status: 'ready', version: '0.2.0' })
+    b.update.install.mockRejectedValueOnce(new Error('boom'))
+    await start()
+    const panel = await openPanel(user)
+
+    await user.click(within(panel).getByRole('button', { name: n.update.install }))
+    const alert = await within(panel).findByRole('alert')
+    expect(alert.textContent).toContain(n.update.failed.install)
+
+    await user.click(within(alert).getByRole('button', { name: n.update.retry }))
+    expect(b.update.install).toHaveBeenCalledTimes(2)
+  })
+
+  it('a second press while the download is still running sends nothing new', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    Object.assign(b.updateState, { status: 'available', version: '0.2.0' })
+    let finish: () => void = () => undefined
+    b.update.download.mockImplementationOnce(
+      () =>
+        new Promise<IpcResult<UpdateState>>((resolve) => {
+          finish = () => resolve({ ok: true, data: { ...b.updateState } })
+        })
+    )
+    await start()
+    const panel = await openPanel(user)
+    const button = within(panel).getByRole('button', { name: n.update.download }) as HTMLButtonElement
+
+    await user.click(button)
+    await user.click(button)
+    expect(b.update.download).toHaveBeenCalledTimes(1)
+    expect(button.disabled).toBe(true)
+
+    act(() => finish())
+    await waitFor(() => expect(button.disabled).toBe(false))
+    expect(b.update.download).toHaveBeenCalledTimes(1)
+  })
+
+  it('a change of state clears the message', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    Object.assign(b.updateState, { status: 'available', version: '0.2.0' })
+    b.update.download.mockResolvedValueOnce({ ok: false as const, error: { code: 'internal' } })
+    await start()
+    const panel = await openPanel(user)
+    await user.click(within(panel).getByRole('button', { name: n.update.download }))
+    expect(await within(panel).findByRole('alert')).toBeTruthy()
+
+    act(() => b.emitUpdate({ status: 'ready', current: '0.1.0', version: '0.2.0' }))
+    expect(within(screen.getByRole('dialog', { name: n.panel })).queryByRole('alert')).toBeNull()
   })
 })

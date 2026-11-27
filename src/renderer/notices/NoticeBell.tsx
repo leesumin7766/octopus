@@ -80,6 +80,8 @@ function UpdateNotice({ state, controls, onLater }: { state: UpdateState; contro
   const u = t.update
   const version = state.version ?? ''
   const percent = state.percent ?? 0
+  // 받기·설치가 실패했을 때만 알림 안에 보여 준다(확인 실패는 설정 화면에서 본다)
+  const failed = controls.actionError === 'download' || controls.actionError === 'install' ? controls.actionError : null
   const primary = 'min-h-8 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-strong'
   const later = (
     <button type="button" onClick={onLater} className="min-h-8 rounded-lg px-2.5 text-sm text-[#5e5d58] hover:bg-black/5">
@@ -104,15 +106,29 @@ function UpdateNotice({ state, controls, onLater }: { state: UpdateState; contro
         </div>
       )}
 
+      {failed && (
+        <p role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#b3261e]">
+          <span>{u.failed[failed]}</span>
+          <button
+            type="button"
+            disabled={controls.pending.includes(failed)}
+            onClick={() => controls[failed]()}
+            className="min-h-7 rounded-lg border border-[#dad9d4] bg-white px-2 text-xs text-ink hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {u.retry}
+          </button>
+        </p>
+      )}
+
       {state.status !== 'downloading' && (
         <div className="mt-2 flex justify-end gap-1.5">
           {later}
           {state.status === 'available' ? (
-            <button type="button" onClick={controls.download} className={primary}>
+            <button type="button" disabled={controls.pending.includes('download')} onClick={controls.download} className={primary}>
               {u.download}
             </button>
           ) : (
-            <button type="button" onClick={controls.install} className={primary}>
+            <button type="button" disabled={controls.pending.includes('install')} onClick={controls.install} className={primary}>
               {u.install}
             </button>
           )}

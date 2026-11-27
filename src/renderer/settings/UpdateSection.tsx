@@ -22,8 +22,9 @@ function statusText(state: UpdateState): string {
 
 /** 설정 > 업데이트: 현재 버전, 지금 확인, 받기, 다시 시작해서 설치, 바뀐 점. */
 export function UpdateSection() {
-  const { state, check, download, install } = useUpdate()
-  const busy = state?.status === 'checking' || state?.status === 'downloading'
+  const { state, actionError, pending, check, download, install } = useUpdate()
+  const busy = state?.status === 'checking' || state?.status === 'downloading' || pending.includes('check')
+  const retry = actionError === 'check' ? check : actionError === 'download' ? download : install
   const canCheck = !!state && state.status !== 'disabled' && state.status !== 'ready'
   const showNotes = !!state?.notes && (state.status === 'available' || state.status === 'downloading' || state.status === 'ready')
   const primary = 'min-h-9 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-strong'
@@ -37,12 +38,12 @@ export function UpdateSection() {
         </span>
         <span className="flex-1" />
         {state?.status === 'available' && (
-          <button type="button" onClick={download} className={primary}>
+          <button type="button" disabled={pending.includes('download')} onClick={download} className={primary}>
             {t.download}
           </button>
         )}
         {state?.status === 'ready' && (
-          <button type="button" onClick={install} className={primary}>
+          <button type="button" disabled={pending.includes('install')} onClick={install} className={primary}>
             {t.install}
           </button>
         )}
@@ -67,6 +68,19 @@ export function UpdateSection() {
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#ecebe6]" role="progressbar" aria-label={t.progress} aria-valuenow={state.percent ?? 0} aria-valuemin={0} aria-valuemax={100}>
           <div className="h-full bg-accent transition-[width]" style={{ width: `${state.percent ?? 0}%` }} />
         </div>
+      )}
+      {actionError && (
+        <p role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[#b3261e]">
+          <span>{t.failed[actionError]}</span>
+          <button
+            type="button"
+            disabled={pending.includes(actionError)}
+            onClick={retry}
+            className="min-h-8 rounded-lg border border-[#dad9d4] bg-white px-2.5 text-sm text-ink hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t.retry}
+          </button>
+        </p>
       )}
       {state?.status === 'ready' && <p className="mt-1 text-xs text-[#5e5d58]">{t.installHelp}</p>}
       {showNotes && (
