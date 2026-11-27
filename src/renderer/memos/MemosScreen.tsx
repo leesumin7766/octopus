@@ -4,7 +4,9 @@ import type { Memo } from '../../shared/memos/types'
 import { MAX_MEMO_LENGTH } from '../../shared/validation/memo'
 import { MAX_SEARCH_LENGTH } from '../../shared/validation/memoIpc'
 import { ErrorBanner } from '../ErrorBanner'
+import { useDataChanged } from '../dataEvents'
 import { ko } from '../i18n/ko'
+import { useLeaveGuard, UnsavedStrip } from '../leaveGuard'
 import { formatTimestamp } from '../tasks/format'
 import { highlightMatches } from './highlight'
 import { leftoverAfterSave } from './leftoverAfterSave'
@@ -33,6 +35,8 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
   const [notice, setNotice] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string; invalid: boolean } | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  /** 쓰던 내용이 있을 때 다른 메모 편집을 시작하기 전에 묻는다. run 은 확인 뒤 실행할 일, editing 은 편집 중인 내용을 잃는지. */
+  const [askLeave, setAskLeave] = useState<{ run: () => void; editing: boolean } | null>(null)
   /** 저장 중인지(새 메모·편집 각각). 재요청 막기는 ref 로, 버튼 비활성은 state 로 한다. */
   const [savingNew, setSavingNew] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -42,6 +46,11 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
   const mounted = useRef(true)
   const queryRef = useRef(query)
   queryRef.current = query
+
+  // 새 메모 초안이나 편집 중인 메모에 저장하지 않은 글이 있는지.
+  const bodyDirty = body.trim() !== ''
+  const editDirty = editing !== null && editing.text !== (memos?.find((memo) => memo.id === editing.id)?.body ?? editing.text)
+  useLeaveGuard(bodyDirty || editDirty)
 
   /** 지금 검색어에 맞는 목록을 읽는다(검색어가 비어 있으면 전체). */
   const load = useCallback(async (): Promise<void> => {
@@ -71,6 +80,17 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [load])
+
+  // 데이터가 바뀌면 목록만 다시 읽는다. 초안·편집 중인 글은 그대로 둔다.
+  useDataChanged(() => void load())
+
+  /** 다른 메모 편집을 시작한다. 쓰던 글이 있으면 먼저 묻는다. */
+  function requestEdit(memo: Memo): void {
+    if (editing?.id === memo.id) return
+    const start = (): void => setEditing({ id: memo.id, text: memo.body, invalid: false })
+    if (bodyDirty || editDirty) setAskLeave({ run: start, editing: editDirty })
+    else start()
+  }
 
   /** 실패를 화면에 보인다(입력 오류는 칸 옆에서 따로 보여 주므로 여기서는 뺀다). */
   function reportFailure(failure: IpcError): void {
@@ -196,6 +216,22 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
       </header>
 
       {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
+      {askLeave && (
+        <div className="px-5 pt-3">
+          <UnsavedStrip
+            title={askLeave.editing ? ko.home.localCalendar.editDiscardTitle : ko.home.localCalendar.discardTitle}
+            onKeep={() => setAskLeave(null)}
+            onDiscard={() => {
+              const { run } = askLeave
+              setAskLeave(null)
+              // 버리기: 쓰던 초안과 편집 중인 글을 지우고 옮긴다.
+              setBody('')
+              setBodyError(false)
+              run()
+            }}
+          />
+        </div>
+      )}
       {notice && (
         <div role="status" className="flex items-start justify-between gap-3 bg-emerald-50 px-5 py-2 text-sm text-emerald-800">
           <span>{notice}</span>
@@ -268,7 +304,7 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
                     <button
                       type="button"
                       aria-label={`${t.edit}: ${memo.body.slice(0, 40)}`}
-                      onClick={() => setEditing({ id: memo.id, text: memo.body, invalid: false })}
+                      onClick={() => requestEdit(memo)}
                       className="block w-full text-left"
                     >
                       <p className="whitespace-pre-wrap break-words text-sm">{searching ? highlightMatches(memo.body, query) : memo.body}</p>

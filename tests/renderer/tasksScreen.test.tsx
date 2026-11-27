@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { notifyDataChanged } from '../../src/renderer/dataEvents'
 import { ko } from '../../src/renderer/i18n/ko'
 import { TasksScreen } from '../../src/renderer/tasks/TasksScreen'
 import type { RepeatRule } from '../../src/shared/tasks/types'
@@ -417,7 +418,12 @@ describe('tasks screen', () => {
       expect(within(panel()).getByRole('button', { name: '월', pressed: true })).toBeTruthy()
     })
 
-    it('Esc closes the panel without saving', async () => {
+    const discardStrip = (): HTMLElement => screen.getByRole('group', { name: ko.home.localCalendar.editDiscardTitle })
+    const keepWriting = { name: ko.home.localCalendar.discardNo }
+    const discard = { name: ko.home.localCalendar.discardYes }
+    const titleOf = (): string => (within(panel()).getByLabelText(t.detail.titleField) as HTMLInputElement).value
+
+    it('Esc asks first when there are unsaved edits; discarding closes without saving', async () => {
       const user = userEvent.setup()
       b.t.repo.create({ title: '그냥 둘 일', date: '2026-03-10' })
       renderScreen()
@@ -426,8 +432,93 @@ describe('tasks screen', () => {
       await user.type(within(panel()).getByLabelText(t.detail.titleField), ' 수정중')
       await user.keyboard('{Escape}')
 
+      expect(discardStrip()).toBeTruthy()
+      expect(panel()).toBeTruthy()
+      await user.click(within(discardStrip()).getByRole('button', discard))
+
       expect(screen.queryByRole('complementary', { name: t.detail.title })).toBeNull()
       expect(b.tasks.update).not.toHaveBeenCalled()
+    })
+
+    it('Esc closes at once when nothing was edited', async () => {
+      const user = userEvent.setup()
+      b.t.repo.create({ title: '안 고친 일', date: '2026-03-10' })
+      renderScreen()
+      await openPanel(user, '안 고친 일')
+
+      await user.click(within(panel()).getByLabelText(t.detail.titleField))
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('complementary', { name: t.detail.title })).toBeNull()
+      expect(screen.queryByRole('group', { name: ko.home.localCalendar.editDiscardTitle })).toBeNull()
+    })
+
+    it('a data change while editing keeps the typed text', async () => {
+      const user = userEvent.setup()
+      b.t.repo.create({ title: '바뀌어도 남을 일', date: '2026-03-10' })
+      renderScreen()
+      await openPanel(user, '바뀌어도 남을 일')
+      const input = within(panel()).getByLabelText(t.detail.titleField)
+      await user.type(input, ' 수정중')
+
+      const before = b.tasks.list.mock.calls.length
+      act(() => notifyDataChanged())
+      await waitFor(() => expect(b.tasks.list.mock.calls.length).toBeGreaterThan(before))
+
+      expect(within(panel()).getByLabelText(t.detail.titleField)).toBe(input)
+      expect(titleOf()).toBe('바뀌어도 남을 일 수정중')
+    })
+
+    it('opening another task while editing asks; keep writing stays, discard moves', async () => {
+      const user = userEvent.setup()
+      b.t.repo.create({ title: '첫 일', date: '2026-03-10' })
+      b.t.repo.create({ title: '둘째 일', date: '2026-03-10' })
+      renderScreen()
+      await openPanel(user, '첫 일')
+      await user.type(within(panel()).getByLabelText(t.detail.titleField), ' 고침')
+
+      await user.click(screen.getByText('둘째 일'))
+      expect(discardStrip()).toBeTruthy()
+      expect(titleOf()).toBe('첫 일 고침')
+
+      await user.click(within(discardStrip()).getByRole('button', keepWriting))
+      expect(screen.queryByRole('group', { name: ko.home.localCalendar.editDiscardTitle })).toBeNull()
+      expect(titleOf()).toBe('첫 일 고침')
+
+      await user.click(screen.getByText('둘째 일'))
+      await user.click(within(discardStrip()).getByRole('button', discard))
+      await waitFor(() => expect(titleOf()).toBe('둘째 일'))
+      expect(b.tasks.update).not.toHaveBeenCalled()
+    })
+
+    it('opening another task without edits moves at once', async () => {
+      const user = userEvent.setup()
+      b.t.repo.create({ title: '여기서 나갈 일', date: '2026-03-10' })
+      b.t.repo.create({ title: '다음 일', date: '2026-03-10' })
+      renderScreen()
+      await openPanel(user, '여기서 나갈 일')
+
+      await user.click(screen.getByText('다음 일'))
+
+      await waitFor(() => expect(titleOf()).toBe('다음 일'))
+      expect(screen.queryByRole('group', { name: ko.home.localCalendar.editDiscardTitle })).toBeNull()
+    })
+
+    it('closing with unsaved edits asks first', async () => {
+      const user = userEvent.setup()
+      b.t.repo.create({ title: '닫을 때 묻는 일', date: '2026-03-10' })
+      renderScreen()
+      await openPanel(user, '닫을 때 묻는 일')
+      await user.type(within(panel()).getByLabelText(t.detail.titleField), ' 고침')
+
+      await user.click(within(panel()).getByRole('button', { name: t.detail.close }))
+      expect(discardStrip()).toBeTruthy()
+      await user.click(within(discardStrip()).getByRole('button', keepWriting))
+      expect(panel()).toBeTruthy()
+
+      await user.click(within(panel()).getByRole('button', { name: t.detail.close }))
+      await user.click(within(discardStrip()).getByRole('button', discard))
+      expect(screen.queryByRole('complementary', { name: t.detail.title })).toBeNull()
     })
 
     it('"닫기" closes it too', async () => {

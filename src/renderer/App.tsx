@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import type { TaskView } from '../shared/tasks/types'
 import { CommandDialog } from './command/CommandDialog'
 import { useModelStatus } from './command/useModelStatus'
-import { useDataChanged } from './dataEvents'
 import { HomeScreen } from './home/HomeScreen'
+import { createLeaveGuardStore, LeaveGuardProvider, UnsavedStrip, type LeaveGuardStore } from './leaveGuard'
+import { ko } from './i18n/ko'
 import { MemosScreen } from './memos/MemosScreen'
 import { TitleBar } from './layout/TitleBar'
 import { NavMenu, type Screen } from './nav/NavMenu'
@@ -29,7 +30,17 @@ function initialScreen(initial: InitialView | null): Screen {
   return 'tasks'
 }
 
+/** 쓰던 내용을 확인하는 장치를 앱 전체에 한 개 둔다. 화면 안의 입력칸들이 여기에 등록한다. */
 export function App() {
+  const [guard] = useState<LeaveGuardStore>(createLeaveGuardStore)
+  return (
+    <LeaveGuardProvider value={guard}>
+      <AppBody guard={guard} />
+    </LeaveGuardProvider>
+  )
+}
+
+function AppBody({ guard }: { guard: LeaveGuardStore }) {
   const initial = window.octopus.initialView
   const [screen, setScreen] = useState<Screen>(() => initialScreen(initial))
   const [arranging, setArranging] = useState(initial === 'home-arrange')
@@ -41,9 +52,8 @@ export function App() {
   const [welcome, setWelcome] = useState<'checking' | 'show' | 'hide'>(typeof initial === 'string' && initial.startsWith('welcome-') ? 'show' : 'checking')
   const models = useModelStatus()
   const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey' || initial === 'command-streaming')
-  // 지시하기가 데이터를 바꾸면 뒤의 화면이 새로 읽도록 key 를 바꿔 다시 그린다.
-  const [dataVersion, setDataVersion] = useState(0)
-  useDataChanged(() => setDataVersion((v) => v + 1))
+  // 화면을 옮기려는데 쓰던 내용이 있으면 먼저 묻는다. 값은 옮길 화면.
+  const [leaveAsk, setLeaveAsk] = useState<Screen | null>(null)
 
   // 날짜 상세(큰 대화상자)가 열려 있는지. 열려 있으면 지시하기 단축키를 무시해 모달이 겹치지 않게 한다.
   const [dayDialogOpen, setDayDialogOpen] = useState(false)
@@ -62,10 +72,20 @@ export function App() {
   // 할 일 화면의 처음 보기. 상세 패널 캡처(task-detail)는 오늘 보기에서 연다.
   const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial === 'task-detail' ? 'today' : (initial as TaskView)) : undefined
 
-  function navigate(next: Screen): void {
+  /** 실제로 화면을 옮긴다(확인이 끝난 뒤이거나, 확인할 것이 없을 때). */
+  function go(next: Screen): void {
     setScreen(next)
     // 배치 모드는 홈에서만 의미가 있다.
     if (next !== 'home') setArranging(false)
+  }
+
+  /** 화면 옮기기 요청. 쓰던 내용이 있으면 확인 띠를 먼저 띄운다. */
+  function navigate(next: Screen): void {
+    if (next !== screen && guard.isDirty()) {
+      setLeaveAsk(next)
+      return
+    }
+    go(next)
   }
 
   // 안내를 보일지 정한다: 설정을 못 읽거나 끝냈다고 기록돼 있으면 안 보이고(앱을 막지 않는다),
@@ -103,7 +123,7 @@ export function App() {
   function finishWelcome(): void {
     void window.octopus.settings.set('onboarding.done', true)
     setWelcome('hide')
-    navigate('home')
+    go('home')
   }
 
   // 메뉴 접힘 상태를 읽어 오기 전에는 틀만 보여 준다(펼쳤다가 접히는 깜빡임을 막는다).
@@ -133,7 +153,7 @@ export function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-page text-ink">
+    <div className="relative flex h-screen flex-col bg-page text-ink">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <NavMenu
@@ -146,8 +166,8 @@ export function App() {
           onOpenCommand={() => setCommandOpen(true)}
           commandReady={models.connected}
         />
-        {/* 홈과 달력은 데이터 변경에 다시 그리지 않는다(입력 초안과 달력 선택을 지키기 위해 스스로 다시 읽는다). 다른 화면은 기존처럼 바뀔 때마다 새로 그린다. */}
-        <main key={screen === 'home' || screen === 'calendar' ? screen : dataVersion} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
+        {/* 화면이 바뀔 때만 새로 그린다. 데이터가 바뀌면 각 화면이 스스로 다시 읽는다(쓰던 입력은 그대로 둔다). */}
+        <main key={screen} className="min-h-0 min-w-0 flex-1 border-l border-[#dad9d4] bg-white">
           {screen === 'home' && (
             <HomeScreen
               arranging={arranging}
@@ -169,6 +189,20 @@ export function App() {
           {screen === 'settings' && <SettingsScreen />}
         </main>
       </div>
+      {leaveAsk !== null && (
+        <div className="pointer-events-none absolute inset-x-0 top-12 z-40 flex justify-center px-4">
+          <div className="pointer-events-auto w-full max-w-md">
+            <UnsavedStrip
+              title={ko.home.localCalendar.discardTitle}
+              onKeep={() => setLeaveAsk(null)}
+              onDiscard={() => {
+                setLeaveAsk(null)
+                go(leaveAsk)
+              }}
+            />
+          </div>
+        </div>
+      )}
       {commandOpen && (
         <CommandDialog
           openLatest={initial === 'command'}

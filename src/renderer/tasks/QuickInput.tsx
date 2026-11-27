@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 
 import type { QuickParseResult } from '../../shared/tasks/quickParse'
 import { MAX_TEXT_LENGTH } from '../../shared/validation/taskIpc'
 import { ko } from '../i18n/ko'
+import { useLeaveGuard } from '../leaveGuard'
 import { formatDate, formatRepeat, todayString } from './format'
 import { safeInvoke } from '../safeInvoke'
 
@@ -32,6 +33,8 @@ export function QuickInput({ inputRef, onSubmit, debounceMs, placeholder = t.qui
   const [preview, setPreview] = useState<QuickParseResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const requestId = useRef(0)
+  // 쓰던 글이 남아 있으면 화면을 옮기기 전에 묻는다.
+  useLeaveGuard(text.trim() !== '')
 
   // 입력이 멈추면 저장 없이 파서 결과만 받아 칩으로 보여 준다.
   useEffect(() => {

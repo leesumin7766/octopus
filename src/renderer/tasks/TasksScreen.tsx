@@ -5,6 +5,8 @@ import type { TasksApi } from '../../shared/tasks/ipcApi'
 import { localDateString } from '../../shared/tasks/dates'
 import type { Task, TaskFields, TaskView, TodayView } from '../../shared/tasks/types'
 import { ErrorBanner } from '../ErrorBanner'
+import { useDataChanged } from '../dataEvents'
+import { useLeaveGuard, UnsavedStrip } from '../leaveGuard'
 import { safeInvoke } from '../safeInvoke'
 import { ko } from '../i18n/ko'
 import { CandidatesSection } from './CandidatesSection'
@@ -104,6 +106,10 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
   const [dayTick, setDayTick] = useState(0)
   const [linkedMemo, setLinkedMemo] = useState<Memo | null>(null)
   const [undo, setUndo] = useState<Undo | null>(null)
+  /** 상세 패널에서 저장하지 않은 고침이 있는지(패널이 알려 준다). */
+  const [detailDirty, setDetailDirty] = useState(false)
+  /** 쓰던 상세 편집이 있을 때 다른 할 일로 옮기기 전에 묻는다. 값은 옮긴 뒤 할 일. */
+  const [askLeave, setAskLeave] = useState<{ run: () => void } | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const loadSeq = useRef(0)
@@ -155,6 +161,9 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     if (pick) setSelectedId(pick.id)
   }, [openFirst, lists])
 
+  // 데이터가 바뀌면(지시하기 등) 목록만 다시 읽는다. 상세 편집·입력 글은 그대로 둔다.
+  useDataChanged(() => void refresh())
+
   // 창이 다시 포커스될 때 목록을 새로고침한다.
   useEffect(() => {
     const onFocus = (): void => void refresh()
@@ -186,6 +195,17 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
+
+  /** 상세 패널을 다른 할 일로 바꾸거나 닫는다. 고친 내용이 있으면 먼저 묻는다(계속 쓰기 / 버리기). */
+  function requestSelect(id: string | null): void {
+    if (id === selectedId) return
+    const move = (): void => {
+      setDetailDirty(false)
+      setSelectedId(id)
+    }
+    if (detailDirty && selectedTask !== null) setAskLeave({ run: move })
+    else move()
+  }
 
   function fail(failure: IpcError): void {
     setError(failure)
@@ -286,6 +306,12 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
   const today = todayString()
   const selectedTask = findTask(lists, selectedId)
   const counts = lists ? countsOf(lists) : null
+  const detailShown = selectedTask !== null
+  // 패널이 사라지면(취소·삭제·목록에서 빠짐) 고침 표시도 함께 지운다. 패널이 보일 때만 떠나기 보호에 등록한다.
+  useEffect(() => {
+    if (!detailShown) setDetailDirty(false)
+  }, [detailShown])
+  useLeaveGuard(detailShown && detailDirty)
 
   function renderRows(tasks: Task[], doneLabelOf?: (task: Task) => string | undefined) {
     return (
@@ -299,7 +325,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
             fading={pending.has(task.id)}
             active={task.id === selectedId}
             onToggle={() => void toggle(task)}
-            onOpen={() => setSelectedId(task.id)}
+            onOpen={() => requestSelect(task.id)}
             doneLabel={doneLabelOf?.(task)}
           />
         ))}
@@ -337,7 +363,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
               activeId={selectedId}
               pending={pending}
               onToggle={(task) => void toggle(task)}
-              onOpen={(task) => setSelectedId(task.id)}
+              onOpen={(task) => requestSelect(task.id)}
               onMoveToToday={(ids) => moveTasks(() => api().moveToToday(ids))}
               onMoveToSomeday={(ids) => moveTasks(() => api().moveToSomeday(ids))}
               onReschedule={(ids, date) => moveTasks(() => api().reschedule(ids, date))}
@@ -383,6 +409,19 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
         </header>
 
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
+        {askLeave && (
+          <div className="px-8">
+            <UnsavedStrip
+              title={ko.home.localCalendar.editDiscardTitle}
+              onKeep={() => setAskLeave(null)}
+              onDiscard={() => {
+                const { run } = askLeave
+                setAskLeave(null)
+                run()
+              }}
+            />
+          </div>
+        )}
 
         <section aria-label={t.views[view]} className="flex-1 overflow-y-auto px-8 pb-8 pt-2">
           <div className="mb-1 flex flex-wrap items-baseline gap-3">
@@ -412,7 +451,8 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
           onSave={(patch) => saveDetail(selectedTask.id, patch)}
           onRemove={() => removeTask(selectedTask.id)}
           onCancel={() => cancelTask(selectedTask)}
-          onClose={() => setSelectedId(null)}
+          onClose={() => requestSelect(null)}
+          onDirtyChange={setDetailDirty}
         />
       )}
     </div>

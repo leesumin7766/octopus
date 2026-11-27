@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { notifyDataChanged } from '../../src/renderer/dataEvents'
 import { ko } from '../../src/renderer/i18n/ko'
 import { MemosScreen } from '../../src/renderer/memos/MemosScreen'
 import { installBackend, type Backend } from './backend'
@@ -327,5 +328,81 @@ describe('memos screen', () => {
     renderScreen()
 
     expect((await screen.findByRole('alert')).textContent).toContain(ko.tasks.errors.db_unavailable)
+  })
+
+  describe('keeping unsaved text', () => {
+    const leaveStrip = (title: string): HTMLElement => screen.getByRole('group', { name: title })
+    const keepWriting = { name: ko.home.localCalendar.discardNo }
+    const discard = { name: ko.home.localCalendar.discardYes }
+    const editBox = (): HTMLTextAreaElement => screen.getByLabelText(t.editLabel) as HTMLTextAreaElement
+    const editButton = (body: string): HTMLElement => screen.getByRole('button', { name: `${t.edit}: ${body}` })
+
+    it('a data change keeps the draft and the edit box', async () => {
+      const user = userEvent.setup()
+      seed('첫 메모')
+      renderScreen()
+      await within(list()).findByText('첫 메모')
+      await user.type(input(), '초안 글')
+      const draft = input()
+
+      const before = b.memos.list.mock.calls.length
+      act(() => notifyDataChanged())
+      await waitFor(() => expect(b.memos.list.mock.calls.length).toBeGreaterThan(before))
+
+      expect(input()).toBe(draft)
+      expect(input().value).toBe('초안 글')
+    })
+
+    it('opening another memo while the draft has text asks; keep writing stays, discard clears and opens', async () => {
+      const user = userEvent.setup()
+      seed('첫 메모', '둘째 메모')
+      renderScreen()
+      await within(list()).findByText('첫 메모')
+      await user.type(input(), '쓰던 초안')
+
+      await user.click(editButton('둘째 메모'))
+      expect(leaveStrip(ko.home.localCalendar.discardTitle)).toBeTruthy()
+      expect(screen.queryByLabelText(t.editLabel)).toBeNull()
+
+      await user.click(within(leaveStrip(ko.home.localCalendar.discardTitle)).getByRole('button', keepWriting))
+      expect(input().value).toBe('쓰던 초안')
+      expect(screen.queryByLabelText(t.editLabel)).toBeNull()
+
+      await user.click(editButton('둘째 메모'))
+      await user.click(within(leaveStrip(ko.home.localCalendar.discardTitle)).getByRole('button', discard))
+      expect(editBox().value).toBe('둘째 메모')
+      expect(input().value).toBe('')
+    })
+
+    it('opening another memo while an edit has changes asks; keep editing stays', async () => {
+      const user = userEvent.setup()
+      seed('첫 메모', '둘째 메모')
+      renderScreen()
+      await within(list()).findByText('첫 메모')
+      await user.click(editButton('첫 메모'))
+      await user.type(editBox(), ' 고침')
+
+      await user.click(editButton('둘째 메모'))
+      expect(leaveStrip(ko.home.localCalendar.editDiscardTitle)).toBeTruthy()
+      await user.click(within(leaveStrip(ko.home.localCalendar.editDiscardTitle)).getByRole('button', keepWriting))
+      expect(editBox().value).toBe('첫 메모 고침')
+
+      await user.click(editButton('둘째 메모'))
+      await user.click(within(leaveStrip(ko.home.localCalendar.editDiscardTitle)).getByRole('button', discard))
+      expect(editBox().value).toBe('둘째 메모')
+    })
+
+    it('opening another memo with nothing unsaved moves at once', async () => {
+      const user = userEvent.setup()
+      seed('첫 메모', '둘째 메모')
+      renderScreen()
+      await within(list()).findByText('첫 메모')
+      await user.click(editButton('첫 메모'))
+
+      await user.click(editButton('둘째 메모'))
+
+      expect(editBox().value).toBe('둘째 메모')
+      expect(screen.queryByRole('group', { name: ko.home.localCalendar.editDiscardTitle })).toBeNull()
+    })
   })
 })

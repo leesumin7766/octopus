@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { IpcError, IpcResult } from '../../shared/ipc'
 import type { Routine, RoutineHistory, RoutineInput, RoutineListData } from '../../shared/routines/types'
+import { useDataChanged } from '../dataEvents'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
 import { formatDate, formatDays, todayString } from '../tasks/format'
@@ -52,6 +53,9 @@ export function RoutinesScreen() {
       window.removeEventListener('focus', onFocus)
     }
   }, [refresh])
+
+  // 데이터가 바뀌면(지시하기 등) 다시 읽는다. 쓰던 폼 입력은 그대로 둔다.
+  useDataChanged(() => void refresh())
 
   /** 실패하면 알림을 띄우고 결과를 그대로 돌려준다(invalid_input 은 폼이 필드 옆에 보여 준다). */
   async function mutate<R>(run: () => Promise<IpcResult<R>>): Promise<IpcResult<R>> {

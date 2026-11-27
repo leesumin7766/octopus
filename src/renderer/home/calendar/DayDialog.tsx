@@ -6,6 +6,7 @@ import { addDays } from '../../../shared/tasks/dates'
 import type { Task, TaskFields } from '../../../shared/tasks/types'
 import { notifyDataChanged } from '../../dataEvents'
 import { ko } from '../../i18n/ko'
+import { useLeaveGuard } from '../../leaveGuard'
 import { safeInvoke } from '../../safeInvoke'
 import { DetailPanel } from '../../tasks/DetailPanel'
 import { errorMessage } from '../../tasks/errors'
@@ -99,6 +100,8 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
   const busy = addStatus === 'saving' || editSaving
   const addDirty = draftTitle.trim() !== '' || draftTime !== ''
   const dirty = addDirty || (editingId !== null && editDirty)
+  // 작성 중이거나 편집 중인 내용이 있으면 화면을 옮기기 전에 묻는다.
+  useLeaveGuard(dirty)
 
   useEffect(() => {
     mounted.current = true
