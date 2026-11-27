@@ -4,6 +4,8 @@ import type { Memo } from '../../../shared/memos/types'
 import { MAX_MEMO_LENGTH } from '../../../shared/validation/memo'
 import { ko } from '../../i18n/ko'
 import { errorMessage } from '../../tasks/errors'
+import { leftoverAfterSave } from '../../memos/leftoverAfterSave'
+import { safeInvoke } from '../../safeInvoke'
 
 const t = ko.home.memo
 
@@ -20,12 +22,14 @@ export function MemoCard({ refreshKey = 0 }: MemoCardProps) {
   const [memos, setMemos] = useState<Memo[] | null>(null)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<IpcError | null>(null)
+  /** 저장 중인지. 재요청을 막는 데 쓰는 ref 와 짝이다(ref 는 같은 순간의 두 번째 요청도 막는다). */
+  const savingRef = useRef(false)
   const loadSeq = useRef(0)
   const mounted = useRef(true)
 
   const refresh = useCallback(async (): Promise<void> => {
     const seq = ++loadSeq.current
-    const result = await window.octopus.memos.list()
+    const result = await safeInvoke(() => window.octopus.memos.list())
     if (!mounted.current || seq !== loadSeq.current) return
     if (result.ok) setMemos(result.data.slice(0, PREVIEW_COUNT))
     else setError(result.error)
@@ -43,14 +47,22 @@ export function MemoCard({ refreshKey = 0 }: MemoCardProps) {
   }, [refresh, refreshKey])
 
   async function save(): Promise<void> {
-    if (draft.trim() === '') return
-    const result = await window.octopus.memos.create(draft)
+    const sent = draft
+    if (savingRef.current || sent.trim() === '') return
+    savingRef.current = true
+    let result: Awaited<ReturnType<typeof window.octopus.memos.create>>
+    try {
+      result = await safeInvoke(() => window.octopus.memos.create(sent))
+    } finally {
+      savingRef.current = false
+    }
     if (!result.ok) {
       setError(result.error)
       return
     }
     setError(null)
-    setDraft('')
+    // 저장하는 사이 칸의 글이 바뀌었으면 전체를 그대로 남긴다(같으면 비운다).
+    setDraft((current) => leftoverAfterSave(current, sent))
     await refresh()
   }
 

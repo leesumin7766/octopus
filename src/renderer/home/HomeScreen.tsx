@@ -429,10 +429,10 @@ export function HomeScreen({
       {dialog === 'memo' && (
         <MemoQuickDialog
           onClose={() => setDialog(null)}
-          onSaved={() => {
-            setDialog(null)
+          onSaved={(remaining) => {
             setRefreshKey((key) => key + 1)
             showNotice({ kind: 'info', text: t.dialogs.memoSaved })
+            if (remaining === '') setDialog(null)
           }}
         />
       )}

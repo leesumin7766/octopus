@@ -7,6 +7,8 @@ import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
 import { formatTimestamp } from '../tasks/format'
 import { highlightMatches } from './highlight'
+import { leftoverAfterSave } from './leftoverAfterSave'
+import { safeInvoke } from '../safeInvoke'
 
 const t = ko.memos
 
@@ -31,6 +33,11 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
   const [notice, setNotice] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string; invalid: boolean } | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  /** 저장 중인지(새 메모·편집 각각). 재요청 막기는 ref 로, 버튼 비활성은 state 로 한다. */
+  const [savingNew, setSavingNew] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const savingNewRef = useRef(false)
+  const savingEditRef = useRef(false)
   const loadSeq = useRef(0)
   const mounted = useRef(true)
   const queryRef = useRef(query)
@@ -40,7 +47,7 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
   const load = useCallback(async (): Promise<void> => {
     const seq = ++loadSeq.current
     const text = queryRef.current.trim()
-    const result = text === '' ? await api().list() : await api().search(text)
+    const result = await safeInvoke(() => (text === '' ? api().list() : api().search(text)))
     if (!mounted.current || seq !== loadSeq.current) return
     if (result.ok) setMemos(result.data)
     else setError(result.error)
@@ -65,34 +72,68 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
     return () => window.removeEventListener('focus', onFocus)
   }, [load])
 
+  /** 실패를 화면에 보인다(입력 오류는 칸 옆에서 따로 보여 주므로 여기서는 뺀다). */
+  function reportFailure(failure: IpcError): void {
+    setError(failure)
+    if (failure.code === 'not_found') void load()
+  }
+
   async function mutate<R>(run: () => Promise<IpcResult<R>>): Promise<IpcResult<R>> {
-    const result = await run()
+    const result = await safeInvoke(run)
     if (result.ok) {
       setError(null)
       await load()
     } else if (result.error.code !== 'invalid_input') {
-      setError(result.error)
-      if (result.error.code === 'not_found') void load()
+      reportFailure(result.error)
     }
     return result
   }
 
   async function saveNew(): Promise<void> {
-    if (body.trim() === '') return
-    const result = await mutate(() => api().create(body))
-    if (result.ok) {
-      setBody('')
-      setBodyError(false)
-    } else if (result.error.code === 'invalid_input') {
-      setBodyError(true)
+    const sent = body
+    if (savingNewRef.current || sent.trim() === '') return
+    savingNewRef.current = true
+    setSavingNew(true)
+    try {
+      const result = await safeInvoke(() => api().create(sent))
+      if (result.ok) {
+        // 저장이 성공한 순간 칸을 정리한다. 목록 다시 읽기가 실패해도 저장한 부분을 또 보내지 않게.
+        setError(null)
+        setBody((current) => leftoverAfterSave(current, sent))
+        setBodyError(false)
+        await load()
+      } else if (result.error.code === 'invalid_input') {
+        setBodyError(true)
+      } else {
+        reportFailure(result.error)
+      }
+    } finally {
+      savingNewRef.current = false
+      setSavingNew(false)
     }
   }
 
   async function saveEdit(): Promise<void> {
-    if (!editing) return
-    const result = await mutate(() => api().update(editing.id, editing.text))
-    if (result.ok) setEditing(null)
-    else if (result.error.code === 'invalid_input') setEditing({ ...editing, invalid: true })
+    if (!editing || savingEditRef.current) return
+    const { id, text } = editing
+    savingEditRef.current = true
+    setSavingEdit(true)
+    try {
+      const result = await safeInvoke(() => api().update(id, text))
+      if (result.ok) {
+        // 저장하는 사이 더 고친 글이 있으면 편집을 닫지 않는다.
+        setError(null)
+        setEditing((current) => (current?.id === id && current.text === text ? null : current))
+        await load()
+      } else if (result.error.code === 'invalid_input') {
+        setEditing((current) => (current?.id === id ? { ...current, invalid: true } : current))
+      } else {
+        reportFailure(result.error)
+      }
+    } finally {
+      savingEditRef.current = false
+      setSavingEdit(false)
+    }
   }
 
   async function makeTask(memo: Memo): Promise<void> {
@@ -135,7 +176,7 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            disabled={body.trim() === ''}
+            disabled={body.trim() === '' || savingNew}
             onClick={() => void saveNew()}
             title={t.hint}
             className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
@@ -201,8 +242,9 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
                     <div className="flex gap-2">
                       <button
                         type="button"
+                        disabled={savingEdit}
                         onClick={() => void saveEdit()}
-                        className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700"
+                        className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
                       >
                         {t.save}
                       </button>
