@@ -10,7 +10,7 @@
 | `id` | string (ULID) | |
 | `title` | string | 비어 있을 수 없다 |
 | `notes` | string | 마크다운, 빈 문자열 가능 |
-| `status` | `'open' \| 'done' \| 'canceled'` | 취소한 할 일은 어느 보기에도 나오지 않지만 지워지지 않는다. 되돌리면 `open` |
+| `status` | `'open' \| 'done' \| 'canceled'` | `canceled` = 화면 이름 '안 하기로 함'. 열린·끝난 보기와 달력·완료 수에는 나오지 않고 지워지지도 않는다. 완료 보기의 '안 하기로 함'(별도 조회 `tasks:listCanceled`)에서만 보이고, 거기서 다시 열면 `open` |
 | `bucket` | `'inbox' \| 'scheduled' \| 'someday'` | 날짜 없음 / 날짜 있음 / 언젠가 |
 | `date` | `YYYY-MM-DD \| null` | 할 날. `bucket === 'scheduled'` 일 때만 있고, 그때는 반드시 있다 |
 | `time` | `HH:mm \| null` | |
