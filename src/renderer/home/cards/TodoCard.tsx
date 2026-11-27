@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { IpcError } from '../../../shared/ipc'
+import type { IpcError, IpcResult } from '../../../shared/ipc'
 import type { Task, TodayView } from '../../../shared/tasks/types'
 import { ko } from '../../i18n/ko'
 import { errorMessage } from '../../tasks/errors'
@@ -7,6 +7,14 @@ import { QuickInput } from '../../tasks/QuickInput'
 import { Checkbox } from '../../ui/Checkbox'
 
 const t = ko.home.todo
+
+/** 되돌리기 알림이 떠 있는 시간(ms). 할 일 탭과 같다. */
+const UNDO_MS = 6000
+
+interface UndoNotice {
+  id: string
+  title: string
+}
 
 interface TodoCardProps {
   /** 날짜가 바뀌면(자정) 목록을 다시 읽는다. */
@@ -27,6 +35,9 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
   const loadSeq = useRef(0)
   const mounted = useRef(true)
   const timers = useRef(new Set<number>())
+  const [undo, setUndo] = useState<UndoNotice | null>(null)
+  const undoTimer = useRef<number | undefined>(undefined)
+  const undoing = useRef(false)
 
   const refresh = useCallback(async (): Promise<void> => {
     const seq = ++loadSeq.current
@@ -42,6 +53,7 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
     return () => {
       mounted.current = false
       pending.forEach((timer) => window.clearTimeout(timer))
+      window.clearTimeout(undoTimer.current)
     }
   }, [])
 
@@ -74,6 +86,7 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
       return
     }
     // 잠깐 흐려진 채로 보여 준 뒤 목록을 새로 읽어 사라지게 한다.
+    showUndo({ id: task.id, title: task.title })
     setFading((previous) => new Set(previous).add(task.id))
     const timer = window.setTimeout(() => {
       timers.current.delete(timer)
@@ -85,6 +98,38 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
       void refresh()
     }, fadeMs)
     timers.current.add(timer)
+  }
+
+  /** 되돌리기 알림을 띄운다. 몇 초 뒤 저절로 사라진다. 새 알림이 오면 이전 알림은 밀려난다. */
+  function showUndo(next: UndoNotice): void {
+    setUndo(next)
+    window.clearTimeout(undoTimer.current)
+    undoTimer.current = window.setTimeout(() => setUndo(null), UNDO_MS)
+  }
+
+  /** 체크를 되돌려 다시 미완료로 만든다. 연타해도 요청은 한 번만 나간다. */
+  async function runUndo(): Promise<void> {
+    if (!undo || undoing.current) return
+    undoing.current = true
+    const { id } = undo
+    window.clearTimeout(undoTimer.current)
+    setUndo(null)
+    const result: IpcResult<Task> = await window.octopus.tasks
+      .setStatus(id, 'open')
+      .catch((): IpcResult<Task> => ({ ok: false, error: { code: 'internal' } }))
+    undoing.current = false
+    if (!mounted.current) return
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+    setError(null)
+    setFading((previous) => {
+      const next = new Set(previous)
+      next.delete(id)
+      return next
+    })
+    await refresh()
   }
 
   const overdue = view?.overdue.length ?? 0
@@ -134,6 +179,17 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
         </ul>
       )}
 
+      {undo && (
+        <div
+          role="status"
+          className="mt-auto flex max-w-full items-center gap-2.5 self-start rounded-[8px] bg-[#1f1f1d] px-3 py-1.5 text-xs text-[#f6f6f3]"
+        >
+          <span className="min-w-0 truncate">{ko.tasks.undo.done(undo.title)}</span>
+          <button type="button" onClick={() => void runUndo()} className="shrink-0 font-semibold text-[#c9cdf7] hover:underline">
+            {ko.tasks.undo.button}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
