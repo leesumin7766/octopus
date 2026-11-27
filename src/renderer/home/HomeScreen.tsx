@@ -30,6 +30,7 @@ import { TodoCard } from './cards/TodoCard'
 import { MemoQuickDialog, TaskQuickDialog } from './QuickDialogs'
 import { ResizeSeparator } from './ResizeSeparator'
 import { useNarrowWindow } from '../layout/useNarrowWindow'
+import { SaveFailedNotice } from '../settings/SaveFailedNotice'
 
 /** 좁은 창에서 오늘 할 일 카드가 보여야 하는 최소 높이(px): 할 일 다섯 개 정도 */
 const NARROW_TODO_MIN_PX = 440
@@ -88,7 +89,7 @@ export function HomeScreen({
   dayDemo = false,
   onDayDialogChange
 }: HomeScreenProps) {
-  const { value: layout, setLocal, persist } = useSetting('home.layout')
+  const { value: layout, setLocal, persist, saveFailed: layoutSaveFailed, saving: layoutSaving, retry: retryLayout } = useSetting('home.layout')
   const pie = useSetting('pie.slots')
   const narrow = useNarrowWindow()
   const gridRef = useRef<HTMLDivElement>(null)
@@ -341,6 +342,8 @@ export function HomeScreen({
           </button>
         </div>
       )}
+
+      {layoutSaveFailed && <SaveFailedNotice onRetry={retryLayout} saving={layoutSaving} className="mb-2" />}
 
       {!layout ? (
         <div aria-busy="true" className="flex-1" />

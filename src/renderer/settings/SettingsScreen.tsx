@@ -4,6 +4,7 @@ import type { Shortcut } from '../../shared/shortcuts/types'
 import { ko } from '../i18n/ko'
 import { longLabel } from '../pie/actions'
 import { ModelSection } from './ModelSection'
+import { SaveFailedNotice } from './SaveFailedNotice'
 import { UpdateSection } from './UpdateSection'
 import { useSetting } from './useSetting'
 import { safeInvoke } from '../safeInvoke'
@@ -15,7 +16,7 @@ const t = ko.settings
  * 바꾸면 곧바로 저장되고, 홈의 원형 메뉴에 그대로 반영된다.
  */
 export function SettingsScreen() {
-  const { value: slots, setLocal, persist } = useSetting('pie.slots')
+  const { value: slots, setLocal, persist, saveFailed, saving, retry } = useSetting('pie.slots')
   const [shortcuts, setShortcuts] = useState<Shortcut[]>([])
 
   useEffect(() => {
@@ -86,6 +87,8 @@ export function SettingsScreen() {
             ))}
           </ol>
         )}
+
+        {saveFailed && <SaveFailedNotice onRetry={retry} saving={saving} className="mt-3" />}
 
         <button
           type="button"

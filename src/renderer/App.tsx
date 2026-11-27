@@ -33,7 +33,8 @@ export function App() {
   const initial = window.octopus.initialView
   const [screen, setScreen] = useState<Screen>(() => initialScreen(initial))
   const [arranging, setArranging] = useState(initial === 'home-arrange')
-  const nav = useSetting('nav.collapsed')
+  // 메뉴 접힘은 알림 자리가 마땅치 않아, 저장에 실패하면 저장된 상태로 되돌린다.
+  const nav = useSetting('nav.collapsed', { revertOnFailure: true })
   const narrow = useNarrowWindow()
   const [narrowExpanded, setNarrowExpanded] = useState(false)
   // 첫 실행 안내: 'checking'(아직 모름) → 'show' | 'hide'
