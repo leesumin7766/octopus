@@ -2,6 +2,8 @@
 
 근거: [usability-proposal.md](usability-proposal.md) 2.1·3.3·4장 1단계. 작성 2026-11-27 / Claude Code (Opus).
 
+> **상태(2026-11-27): 7개 항목 모두 완료·검증 통과.** 결과와 남은 사항은 [usability-proposal.md](usability-proposal.md) 4장 '1단계 결과'.
+
 ## 모든 항목 공통 규칙
 
 **개발자(Haiku):**
