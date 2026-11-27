@@ -107,8 +107,10 @@ export function CalendarScreen() {
           <button
             type="button"
             onClick={() => {
-              setShown(monthOf(today))
-              pick(today)
+              // 달은 패널이 실제로 옮겨질 때(onDateChange) 따라간다. 작성 중이라 묻고 [계속 쓰기]면 달·선택·초안이 그대로다.
+              // 이미 오늘을 고르고 있으면 옮길 날짜가 없으니 달만 이번 달로 돌린다.
+              if (selected === today) setShown(monthOf(today))
+              else pick(today)
             }}
             className="ml-1 min-h-8 rounded-lg px-2.5 text-sm text-[#5e5d58] hover:bg-black/5"
           >

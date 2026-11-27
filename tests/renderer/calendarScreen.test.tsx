@@ -113,6 +113,60 @@ describe('calendar screen', () => {
     expect(within(grid()).getByText('2026년 11월')).toBeTruthy()
   })
 
+  it('while viewing another month with a draft, 오늘 → [계속 쓰기] keeps the month, the selected day and the draft', async () => {
+    b = installBackend('home')
+    const user = await open()
+    await user.click(cell('2026-11-30'))
+    await panel('2026년 11월 30일 (월)')
+    await user.click(within(grid()).getByRole('button', { name: m.nextMonth }))
+    expect(within(grid()).getByText('2026년 12월')).toBeTruthy()
+
+    const day = await panel('2026년 11월 30일 (월)')
+    await user.type(within(day).getByLabelText(m.addLabel), '초안')
+    await user.click(within(grid()).getByRole('button', { name: m.today }))
+
+    expect(within(day).getByText(m.discardTitle)).toBeTruthy()
+    await user.click(within(day).getByRole('button', { name: m.discardNo }))
+    expect(within(grid()).getByText('2026년 12월')).toBeTruthy()
+    expect(cell('2026-11-30').getAttribute('aria-pressed')).toBe('true')
+    expect(within(day).getByRole('heading', { name: '2026년 11월 30일 (월)' })).toBeTruthy()
+    expect((within(day).getByLabelText(m.addLabel) as HTMLInputElement).value).toBe('초안')
+  })
+
+  it('오늘 → [버리기] moves the panel to today and the month follows', async () => {
+    b = installBackend('home')
+    const user = await open()
+    await user.click(cell('2026-11-30'))
+    await panel('2026년 11월 30일 (월)')
+    await user.click(within(grid()).getByRole('button', { name: m.nextMonth }))
+    const day = await panel('2026년 11월 30일 (월)')
+    await user.type(within(day).getByLabelText(m.addLabel), '초안')
+    await user.click(within(grid()).getByRole('button', { name: m.today }))
+    await user.click(within(day).getByRole('button', { name: m.discardYes }))
+
+    await panel('2026년 11월 26일 (목) · 오늘')
+    expect(within(grid()).getByText('2026년 11월')).toBeTruthy()
+    expect(cell(T).getAttribute('aria-pressed')).toBe('true')
+    expect((within(day).getByLabelText(m.addLabel) as HTMLInputElement).value).toBe('')
+  })
+
+  it('after paging with ‹ › while drafting, a cell click in that month asks first and [계속 쓰기] keeps everything', async () => {
+    b = installBackend('home')
+    const user = await open()
+    const day = await panel('2026년 11월 26일 (목) · 오늘')
+    await user.type(within(day).getByLabelText(m.addLabel), '쓰는 중')
+    await user.click(within(grid()).getByRole('button', { name: m.prevMonth }))
+    expect(within(grid()).getByText('2026년 10월')).toBeTruthy()
+
+    await user.click(cell('2026-10-03'))
+    expect(within(day).getByText(m.discardTitle)).toBeTruthy()
+    await user.click(within(day).getByRole('button', { name: m.discardNo }))
+    expect(within(grid()).getByText('2026년 10월')).toBeTruthy()
+    expect(within(day).getByRole('heading', { name: '2026년 11월 26일 (목) · 오늘' })).toBeTruthy()
+    expect(cell('2026-10-03').getAttribute('aria-pressed')).toBe('false')
+    expect((within(day).getByLabelText(m.addLabel) as HTMLInputElement).value).toBe('쓰는 중')
+  })
+
   it('the panel is part of the page, not a modal: no close button, no dialog role', async () => {
     b = installBackend('home')
     await open()
