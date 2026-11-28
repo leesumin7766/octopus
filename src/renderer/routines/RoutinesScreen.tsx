@@ -5,6 +5,7 @@ import { useDataChanged } from '../dataEvents'
 import { ErrorBanner } from '../ErrorBanner'
 import { ko } from '../i18n/ko'
 import { formatDate, formatDays, todayString } from '../tasks/format'
+import { useCompleteWithUndo } from '../tasks/useCompleteWithUndo'
 import { Checkbox } from '../ui/Checkbox'
 import { RoutineForm } from './RoutineForm'
 
@@ -70,8 +71,17 @@ export function RoutinesScreen() {
     return result
   }
 
-  const toggleToday = (taskId: string, done: boolean): Promise<unknown> =>
-    mutate(() => api().tasks.setStatus(taskId, done ? 'open' : 'done'))
+  // 체크·되돌리기는 공용 훅이 맡는다: 바로 줄 긋기, 목록에 남음, 되돌리기 알림(다시 눌러 해제해도 된다).
+  const completion = useCompleteWithUndo({
+    onSaved: async () => {
+      setError(null)
+      await refresh()
+    },
+    onFailed: (failure) => {
+      setError(failure)
+      if (failure.code === 'not_found') void refresh()
+    }
+  })
 
   const createRoutine = (input: RoutineInput) => mutate(() => api().routines.create(input))
 
@@ -106,10 +116,10 @@ export function RoutinesScreen() {
           ) : (
             <ul className="rounded-lg border border-slate-200 bg-white">
               {data.todayItems.map((task) => {
-                const done = task.status === 'done'
+                const done = completion.marks.get(task.id) ?? task.status === 'done'
                 return (
                   <li key={task.id} className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 last:border-b-0">
-                    <Checkbox checked={done} onChange={() => void toggleToday(task.id, done)} aria-label={`${ko.tasks.complete}: ${task.title}`} />
+                    <Checkbox checked={done} onChange={() => void completion.setChecked(task, !done)} aria-label={`${ko.tasks.complete}: ${task.title}`} />
                     <span className={done ? 'text-slate-400 line-through' : 'text-slate-900'}>{task.title}</span>
                   </li>
                 )
@@ -117,6 +127,8 @@ export function RoutinesScreen() {
             </ul>
           )}
         </section>
+
+        {completion.undoNotice('self-start')}
 
         <section aria-label={historyTitle}>
           <h2 className="mb-2 text-base font-semibold">{historyTitle}</h2>

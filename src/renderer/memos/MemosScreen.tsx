@@ -277,7 +277,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
               setMadeTask(null)
               onOpenTask?.(task)
             }}
-            onExpire={() => setMadeTask(null)}
+            onExpire={() => setMadeTask((current) => (current?.id === madeTask.id ? null : current))}
             className="self-start"
           />
         </div>

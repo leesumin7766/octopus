@@ -8,7 +8,7 @@ import { ErrorBanner } from '../ErrorBanner'
 import { useDataChanged } from '../dataEvents'
 import { useLeaveGuard, UnsavedStrip } from '../leaveGuard'
 import { safeInvoke } from '../safeInvoke'
-import { ActionNotice, NOTICE_MS } from '../ui/ActionNotice'
+import { ActionNotice } from '../ui/ActionNotice'
 import { viewOf } from '../../shared/tasks/viewOf'
 import { ko } from '../i18n/ko'
 import { CandidatesSection } from './CandidatesSection'
@@ -18,11 +18,9 @@ import { OverdueSection } from './OverdueSection'
 import { QuickInput } from './QuickInput'
 import { Sidebar } from './Sidebar'
 import { TaskRow } from './TaskRow'
+import { useCompleteWithUndo } from './useCompleteWithUndo'
 
 const t = ko.tasks
-
-/** 되돌리기 알림이 떠 있는 시간(ms) */
-const UNDO_MS = NOTICE_MS
 
 interface Lists {
   inbox: Task[]
@@ -32,11 +30,6 @@ interface Lists {
   done: Task[]
   /** 안 하기로 함(canceled). 완료 보기의 거르기에서만 보인다. */
   canceled: Task[]
-}
-
-interface Undo {
-  message: string
-  restore: () => Promise<IpcResult<Task>>
 }
 
 async function loadLists(api: TasksApi): Promise<IpcResult<Lists>> {
@@ -124,10 +117,8 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
   const [lists, setLists] = useState<Lists | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [pending, setPending] = useState<ReadonlyMap<string, boolean>>(new Map())
   const [dayTick, setDayTick] = useState(0)
   const [linkedMemo, setLinkedMemo] = useState<Memo | null>(null)
-  const [undo, setUndo] = useState<Undo | null>(null)
   /** 지금 보기에 안 나오는 곳으로 추가된 할 일의 안내 */
   const [added, setAdded] = useState<Task | null>(null)
   /** 완료 보기 안에서 끝낸 것을 볼지, 안 하기로 한 것을 볼지 */
@@ -140,8 +131,6 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
   const inputRef = useRef<HTMLInputElement>(null)
   const loadSeq = useRef(0)
   const mounted = useRef(true)
-  const timers = useRef(new Set<number>())
-  const undoTimer = useRef<number | undefined>(undefined)
   const autoOpened = useRef(false)
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -154,12 +143,9 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
 
   useEffect(() => {
     mounted.current = true
-    const pendingTimers = timers.current
     void refresh()
     return () => {
       mounted.current = false
-      pendingTimers.forEach((timer) => window.clearTimeout(timer))
-      window.clearTimeout(undoTimer.current)
     }
   }, [refresh])
 
@@ -248,43 +234,18 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
     if (failure.code === 'not_found') void refresh()
   }
 
-  /** 되돌리기 알림을 띄운다. 몇 초 뒤 저절로 사라진다. */
-  function showUndo(next: Undo): void {
-    setAdded(null)
-    setUndo(next)
-    window.clearTimeout(undoTimer.current)
-    undoTimer.current = window.setTimeout(() => setUndo(null), UNDO_MS)
-  }
-
-  async function runUndo(): Promise<void> {
-    if (!undo) return
-    const { restore } = undo
-    setUndo(null)
-    window.clearTimeout(undoTimer.current)
-    const result = await restore()
-    if (!result.ok) return fail(result.error)
-    setError(null)
-    await refresh()
-  }
+  // 체크·되돌리기는 공용 훅이 맡는다: 바로 줄 긋기 → 흐려진 뒤 목록을 새로 읽어 사라짐, 되돌리기 알림.
+  const completion = useCompleteWithUndo({
+    settleMs: fadeMs,
+    onSaved: refresh,
+    onFailed: (failure) => fail(failure),
+    onNotice: () => setAdded(null)
+  })
+  const pending = completion.marks
 
   async function toggle(task: Task): Promise<void> {
     const nextChecked = !(pending.get(task.id) ?? task.status === 'done')
-    const result = await api().setStatus(task.id, nextChecked ? 'done' : 'open')
-    if (!result.ok) return fail(result.error)
-    if (nextChecked) showUndo({ message: t.undo.done(task.title), restore: () => api().setStatus(task.id, 'open') })
-
-    // 잠깐 흐려진 채로 보여 준 뒤 목록을 새로고침해 사라지게 한다.
-    setPending((previous) => new Map(previous).set(task.id, nextChecked))
-    const timer = window.setTimeout(() => {
-      timers.current.delete(timer)
-      setPending((previous) => {
-        const next = new Map(previous)
-        next.delete(task.id)
-        return next
-      })
-      void refresh()
-    }, fadeMs)
-    timers.current.add(timer)
+    await completion.setChecked(task, nextChecked)
   }
 
   /** 안 하기: 목록에서만 사라지고 지워지지는 않는다. 되돌리면 다시 연다. */
@@ -293,7 +254,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
     if (!result.ok) return fail(result.error)
     setError(null)
     setSelectedId(null)
-    showUndo({ message: t.undo.canceled(task.title), restore: () => api().setStatus(task.id, 'open') })
+    completion.showUndo(t.undo.canceled(task.title), () => api().setStatus(task.id, 'open'))
     await refresh()
   }
 
@@ -314,8 +275,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
     setError(null)
     await refresh()
     if (mounted.current && viewOf(result.data, todayString()) !== view) {
-      window.clearTimeout(undoTimer.current)
-      setUndo(null)
+      completion.dismiss()
       setAdded(result.data)
     } else setAdded(null)
     return true
@@ -552,19 +512,12 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
               setAdded(null)
               openTask(task)
             }}
-            onExpire={() => setAdded(null)}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 !rounded-[10px] !px-4 !py-3 !text-sm"
+            onExpire={() => setAdded((current) => (current?.id === added.id ? null : current))}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2"
           />
         )}
 
-        {undo && (
-          <div role="status" className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-[10px] bg-[#1f1f1d] px-4 py-3 text-sm text-[#f6f6f3]">
-            <span>{undo.message}</span>
-            <button type="button" onClick={() => void runUndo()} className="font-semibold text-[#c9cdf7] hover:underline">
-              {t.undo.button}
-            </button>
-          </div>
-        )}
+        {completion.undoNotice('absolute bottom-6 left-1/2 -translate-x-1/2')}
       </main>
 
       {selectedTask && (

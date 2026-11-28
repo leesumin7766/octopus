@@ -9,6 +9,8 @@ interface ActionNoticeProps {
   onAction: () => void
   /** 시간이 지나 저절로 사라질 때 */
   onExpire: () => void
+  /** 알림이 만들어진 시각(ms). 화면에 그려지는 것이 늦어도 6초는 만들어진 때부터 센다. 없으면 그려진 때부터. */
+  startedAt?: number
   /** 위치·크기를 정하는 클래스(색과 모양은 이 부품이 정한다) */
   className?: string
 }
@@ -17,9 +19,10 @@ interface ActionNoticeProps {
  * 글 하나와 버튼 하나가 있는 짧은 알림(되돌리기·[보기] 등). 6초 뒤 저절로 사라진다.
  * 새 알림으로 바꿀 때는 부모가 key 를 바꿔 시간을 다시 센다.
  */
-export function ActionNotice({ message, actionLabel, onAction, onExpire, className = '' }: ActionNoticeProps) {
+export function ActionNotice({ message, actionLabel, onAction, onExpire, startedAt, className = '' }: ActionNoticeProps) {
   useEffect(() => {
-    const timer = window.setTimeout(onExpire, NOTICE_MS)
+    const left = startedAt === undefined ? NOTICE_MS : Math.max(0, NOTICE_MS - (Date.now() - startedAt))
+    const timer = window.setTimeout(onExpire, left)
     return () => window.clearTimeout(timer)
     // 시간은 알림이 뜰 때 한 번만 센다(부모가 다시 그려도 늘어나지 않는다).
     // eslint-disable-next-line react-hooks/exhaustive-deps

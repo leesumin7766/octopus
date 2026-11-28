@@ -12,6 +12,7 @@ import { safeInvoke } from '../../safeInvoke'
 import { DetailPanel } from '../../tasks/DetailPanel'
 import { errorMessage } from '../../tasks/errors'
 import { QuickInput } from '../../tasks/QuickInput'
+import { useCompleteWithUndo } from '../../tasks/useCompleteWithUndo'
 import { Checkbox } from '../../ui/Checkbox'
 import { Icon } from '../../ui/Icon'
 import { formatDayTitle } from './format'
@@ -89,7 +90,6 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
 
   // 완료 표시
   const [rowError, setRowError] = useState<{ id: string; text: string } | null>(null)
-  const rowInFlight = useRef(new Set<string>())
 
   // 편집
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -121,6 +121,23 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
   useEffect(() => {
     if (leaving !== null) keepWritingRef.current?.focus()
   }, [leaving])
+
+  // 체크·되돌리기는 공용 훅이 맡는다: 바로 줄 긋기, 목록에 남음, 되돌리기 알림(다시 눌러 해제해도 된다).
+  const completion = useCompleteWithUndo({
+    autoClear: false, // 목록을 다시 읽은 뒤(아래 reconcile) 표시를 거둔다
+    onSaved: () => notifyDataChanged(),
+    onFailed: (failure, task) => {
+      if (task !== null) setRowError({ id: task.id, text: m.rowFailed })
+      else setNotice(m.rowFailed)
+    }
+  })
+
+  // 목록을 다시 읽으면 줄 긋기 표시를 거둔다(목록이 이미 같은 상태를 보이거나, 읽지 못했을 때).
+  const { reconcile } = completion
+  useEffect(() => {
+    if (state.status === 'ready') reconcile(state.tasks)
+    else if (state.status === 'error') reconcile(null)
+  }, [state, reconcile])
 
   // 편집 중인 할 일이 목록에서 사라졌으면(다른 곳에서 바뀌었거나 날짜가 옮겨졌으면) 편집을 닫는다.
   useEffect(() => {
@@ -212,15 +229,11 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
     return false
   }
 
-  async function toggle(task: Task): Promise<void> {
-    if (rowInFlight.current.has(task.id) || busy) return
-    rowInFlight.current.add(task.id)
+  function toggle(task: Task): void {
+    if (busy) return
     setRowError(null)
-    const result = await safeInvoke(() => window.octopus.tasks.setStatus(task.id, task.status === 'done' ? 'open' : 'done'))
-    rowInFlight.current.delete(task.id)
-    if (!mounted.current) return
-    if (result.ok) notifyDataChanged()
-    else setRowError({ id: task.id, text: m.rowFailed })
+    const shown = completion.marks.get(task.id) ?? task.status === 'done'
+    void completion.setChecked(task, !shown)
   }
 
   async function saveEdit(id: string, patch: Partial<TaskFields>): Promise<IpcResult<Task>> {
@@ -381,7 +394,9 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
                   {notice}
                 </p>
               )}
+              {completion.undoNotice('mb-2 self-start')}
               <LocalTasks
+                marks={completion.marks}
                 state={state}
                 today={today}
                 onRetry={retry}
@@ -471,6 +486,7 @@ function AddForm({
 type RangeStateView = { status: 'loading' } | { status: 'ready'; tasks: Task[] } | { status: 'error' }
 
 function LocalTasks({
+  marks,
   state,
   today,
   onRetry,
@@ -478,6 +494,7 @@ function LocalTasks({
   onEdit,
   rowError
 }: {
+  marks: ReadonlyMap<string, boolean>
   state: RangeStateView
   today: string
   onRetry: () => void
@@ -505,7 +522,7 @@ function LocalTasks({
     <section>
       <ul aria-label={label} className="flex flex-col gap-0.5">
         {tasks.map((task) => {
-          const done = task.status === 'done'
+          const done = marks.get(task.id) ?? task.status === 'done'
           const overdue = !done && task.date !== null && task.date < today
           return (
             <li key={task.id} className="group flex flex-wrap items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-black/[0.03]">
