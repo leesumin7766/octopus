@@ -10,11 +10,12 @@ import { useLeaveGuard, UnsavedStrip } from '../leaveGuard'
 import { safeInvoke } from '../safeInvoke'
 import { ActionNotice } from '../ui/ActionNotice'
 import { RowMenu, type RowMenuItem } from '../ui/RowMenu'
+import { highlightMatches } from '../memos/highlight'
 import { viewOf } from '../../shared/tasks/viewOf'
 import { ko } from '../i18n/ko'
 import { CandidatesSection } from './CandidatesSection'
 import { DetailPanel } from './DetailPanel'
-import { addedMessage, dayHeading, formatClock, formatHomeDate, msUntilNextMidnight, todayString } from './format'
+import { addedMessage, dayHeading, formatClock, formatDate, formatHomeDate, msUntilNextMidnight, todayString } from './format'
 import { OverdueSection } from './OverdueSection'
 import { QuickInput } from './QuickInput'
 import { Sidebar } from './Sidebar'
@@ -73,7 +74,7 @@ function countsOf(lists: Lists): Record<TaskView, number> {
 
 function findTask(lists: Lists | null, id: string | null): Task | null {
   if (!lists || id === null) return null
-  const all = [...lists.inbox, ...lists.today.overdue, ...lists.today.today, ...lists.upcoming, ...lists.someday, ...lists.done]
+  const all = [...lists.inbox, ...lists.today.overdue, ...lists.today.today, ...lists.upcoming, ...lists.someday, ...lists.done, ...lists.canceled]
   return all.find((task) => task.id === id) ?? null
 }
 
@@ -90,6 +91,44 @@ function groupBy(tasks: Task[], keyOf: (task: Task) => string): { key: string; i
 }
 
 const api = (): TasksApi => window.octopus.tasks
+
+/** 검색 결과 묶음: 보기 이름(안 하기로 함은 따로)과 거기서 찾은 할 일 */
+interface SearchGroup {
+  key: string
+  heading: string
+  view: TaskView
+  tasks: Task[]
+}
+
+function includesText(text: string, needle: string): boolean {
+  return text.toLowerCase().includes(needle)
+}
+
+/** 제목·설명에서 찾는다(대소문자·앞뒤 공백 무시). 모든 보기와 안 하기로 함에서 보기별로 묶는다. */
+function searchGroups(lists: Lists, query: string): SearchGroup[] {
+  const needle = query.trim().toLowerCase()
+  if (needle === '') return []
+  const hit = (task: Task): boolean => includesText(task.title, needle) || includesText(task.notes, needle)
+  const sources: { key: string; heading: string; view: TaskView; tasks: Task[] }[] = [
+    { key: 'inbox', heading: t.views.inbox, view: 'inbox', tasks: lists.inbox },
+    { key: 'today', heading: t.views.today, view: 'today', tasks: [...lists.today.overdue, ...lists.today.today] },
+    { key: 'upcoming', heading: t.views.upcoming, view: 'upcoming', tasks: lists.upcoming },
+    { key: 'someday', heading: t.views.someday, view: 'someday', tasks: lists.someday },
+    { key: 'done', heading: t.views.done, view: 'done', tasks: lists.done },
+    { key: 'canceled', heading: t.doneFilter.canceled, view: 'done', tasks: lists.canceled }
+  ]
+  return sources.map((group) => ({ ...group, tasks: group.tasks.filter(hit) })).filter((group) => group.tasks.length > 0)
+}
+
+/** 설명에서만 찾았을 때 보여 줄 짧은 발췌(찾은 곳 둘레) */
+function noteSnippet(notes: string, query: string): string | null {
+  const needle = query.trim().toLowerCase()
+  const index = notes.toLowerCase().indexOf(needle)
+  if (index < 0) return null
+  const start = Math.max(0, index - 20)
+  const end = Math.min(notes.length, index + needle.length + 40)
+  return `${start > 0 ? '…' : ''}${notes.slice(start, end).replace(/\s+/g, ' ')}${end < notes.length ? '…' : ''}`
+}
 
 const GROUP_HEADING = 'mb-1 mt-2 text-[13px] font-semibold text-[#4A4945]'
 
@@ -130,6 +169,10 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
   const [askLeave, setAskLeave] = useState<{ run: () => void } | null>(null)
   /** 행 메뉴의 [삭제]를 눌렀을 때 확인을 기다리는 할 일 */
   const [confirmRemove, setConfirmRemove] = useState<Task | null>(null)
+  /** 검색칸의 글과, 짧게 기다린 뒤 실제로 찾는 글 */
+  const [searchText, setSearchText] = useState('')
+  const [activeQuery, setActiveQuery] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const loadSeq = useRef(0)
@@ -231,6 +274,38 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
     requestSelect(focus.taskId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus])
+
+  // 검색칸에 글을 쓰면 잠깐 기다렸다가 찾는다. 비우면 바로 끝낸다.
+  useEffect(() => {
+    if (searchText.trim() === '') {
+      setActiveQuery('')
+      return
+    }
+    const timer = window.setTimeout(() => setActiveQuery(searchText.trim()), previewDebounceMs)
+    return () => window.clearTimeout(timer)
+  }, [searchText, previewDebounceMs])
+
+  /** 검색을 끝낸다: 검색 전 보기가 그대로 보인다. */
+  function endSearch(focus = true): void {
+    setSearchText('')
+    setActiveQuery('')
+    if (focus) searchRef.current?.focus()
+  }
+
+  /** 결과 한 건을 연다: 그 할 일이 보이는 보기로 가서 선택한다(쓰던 상세 편집이 있으면 먼저 묻는다). */
+  function openFound(task: Task): void {
+    const go = (): void => {
+      setSearchText('')
+      setActiveQuery('')
+      setView(viewOf(task, todayString()))
+      if (task.status === 'canceled') setDoneFilter('canceled')
+      else if (task.status === 'done') setDoneFilter('done')
+      setDetailDirty(false)
+      setSelectedId(task.id)
+    }
+    if (detailDirty && selectedTask !== null) setAskLeave({ run: go })
+    else go()
+  }
 
   function fail(failure: IpcError): void {
     setError(failure)
@@ -494,9 +569,32 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
     <div className="relative flex h-full bg-[#F6F6F3] text-ink">
       <Sidebar view={view} counts={counts} onSelect={setView} />
 
-      <main className="relative flex min-w-0 flex-1 flex-col">
+      <main
+        className="relative flex min-w-0 flex-1 flex-col"
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape' || searchText === '' || event.defaultPrevented) return
+          event.preventDefault()
+          endSearch()
+        }}
+      >
         <header className="px-8 pb-2 pt-6">
           <QuickInput inputRef={inputRef} onSubmit={quickAdd} debounceMs={previewDebounceMs} />
+          <div className="mt-2 flex items-center gap-1.5">
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchText}
+              aria-label={t.search.label}
+              placeholder={t.search.placeholder}
+              onChange={(event) => setSearchText(event.target.value)}
+              className="min-w-0 flex-1 rounded-lg border border-[#dad9d4] bg-white px-3 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+            />
+            {searchText !== '' && (
+              <button type="button" onClick={() => endSearch()} className="min-h-8 shrink-0 rounded-lg px-2.5 text-sm text-[#5e5d58] hover:bg-black/5">
+                {t.search.clear}
+              </button>
+            )}
+          </div>
         </header>
 
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
@@ -537,6 +635,14 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
           </div>
         )}
 
+        {activeQuery !== '' && lists ? (
+          <SearchResults
+            query={activeQuery}
+            groups={searchGroups(lists, activeQuery)}
+            today={today}
+            onOpen={openFound}
+          />
+        ) : (
         <section aria-label={t.views[view]} className="flex-1 overflow-y-auto px-8 pb-8 pt-2">
           <div className="mb-1 flex flex-wrap items-baseline gap-3">
             <h1 className="text-[28px] font-bold leading-tight">{t.views[view]}</h1>
@@ -546,6 +652,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
           {view === 'inbox' && <CandidatesSection onChanged={() => void refresh()} />}
           {renderContent()}
         </section>
+        )}
 
         {added && (
           <ActionNotice
@@ -578,5 +685,51 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
         />
       )}
     </div>
+  )
+}
+
+function SearchResults({ query, groups, today, onOpen }: { query: string; groups: SearchGroup[]; today: string; onOpen: (task: Task) => void }) {
+  const total = groups.reduce((sum, group) => sum + group.tasks.length, 0)
+  return (
+    <section aria-label={t.search.title} className="flex-1 overflow-y-auto px-8 pb-8 pt-2">
+      <div className="mb-2 flex flex-wrap items-baseline gap-3">
+        <h1 className="text-[28px] font-bold leading-tight">{t.search.title}</h1>
+        <span role="status" className="text-sm text-[#5E5D58]">
+          {total > 0 ? t.search.summary(total) : ''}
+        </span>
+      </div>
+      {total === 0 ? (
+        <p className="text-sm text-[#5e5d58]">{t.search.empty(query)}</p>
+      ) : (
+        groups.map((group) => (
+          <section key={group.key} aria-label={group.heading}>
+            <h2 className={GROUP_HEADING}>
+              {group.heading} <span className="font-normal text-[#5E5D58]">{group.tasks.length}</span>
+            </h2>
+            <ul aria-label={t.listLabel} className="flex flex-col gap-2">
+              {group.tasks.map((task) => {
+                const snippet = noteSnippet(task.notes, query)
+                const inTitle = task.title.toLowerCase().includes(query.trim().toLowerCase())
+                return (
+                  <li key={task.id}>
+                    <button
+                      type="button"
+                      aria-label={t.search.resultLabel(group.heading, task.title)}
+                      onClick={() => onOpen(task)}
+                      className="block w-full rounded-[10px] border border-[#E4E3DE] bg-white px-3 py-2.5 text-left hover:border-[#c9c7c0]"
+                    >
+                      <span className="block text-[15px] leading-snug text-ink">{highlightMatches(task.title, query)}</span>
+                      {snippet !== null && !inTitle && <span className="mt-1 block text-xs text-[#4A4945]">{highlightMatches(snippet, query)}</span>}
+                      {snippet !== null && inTitle && <span className="mt-1 block truncate text-xs text-[#5E5D58]">{highlightMatches(snippet, query)}</span>}
+                      {task.date && <span className="mt-1 block text-xs text-[#5E5D58]">{formatDate(task.date, today)}</span>}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        ))
+      )}
+    </section>
   )
 }

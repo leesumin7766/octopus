@@ -371,6 +371,15 @@ export const ko = {
       openLabel: (title: string) => `원본 열기: ${title}`
     },
     viewsNavLabel: '보기',
+    search: {
+      label: '할 일 검색',
+      placeholder: '제목·설명으로 찾기',
+      clear: '검색 끝',
+      title: '검색 결과',
+      summary: (n: number) => `${n}개 찾았어요`,
+      empty: (text: string) => `"${text}" 에 맞는 할 일이 없어요. 다른 낱말로 찾아 보세요.`,
+      resultLabel: (view: string, title: string) => `${view}: ${title}`
+    },
     rowMenu: { edit: '편집' },
     routineBadge: '체크리스트',
     views: {
