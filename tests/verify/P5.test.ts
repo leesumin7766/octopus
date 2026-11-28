@@ -240,9 +240,9 @@ it.each(['card', 'screen'] as const)('%s ignores stale list response after saved
   const input = screen.getByRole<HTMLInputElement>('textbox', { name: surface === 'card' ? '빠른 메모' : '새 메모' })
   change(input, '새 목록에 남을 메모')
   save(input, surface)
-  await screen.findByText('새 목록에 남을 메모', { selector: surface === 'card' ? 'span' : 'p' })
+  await screen.findByText('새 목록에 남을 메모', { selector: surface === 'card' ? 'button' : 'p' })
   await act(async () => old.resolve({ ok: true, data: [] }))
-  expect(screen.getByText('새 목록에 남을 메모', { selector: surface === 'card' ? 'span' : 'p' })).toBeTruthy()
+  expect(screen.getByText('새 목록에 남을 메모', { selector: surface === 'card' ? 'button' : 'p' })).toBeTruthy()
 })
 
 async function home() {
@@ -264,7 +264,7 @@ it.each([false, true])('home success refreshes list and notifies; appended=%s co
   if (appended) change(input, '원형 저장\n 다음 메모')
   await finish(pending, '원형 저장')
   await screen.findByText('메모를 저장했어요.')
-  await screen.findByText('원형 저장', { selector: 'span' })
+  await screen.findByText('원형 저장', { selector: 'button' })
   if (appended) expect(input.value).toBe('원형 저장\n 다음 메모')
   else expect(screen.queryByRole('dialog')).toBeNull()
 })
