@@ -1,4 +1,4 @@
-import { useEffect, useId, useImperativeHandle, useRef, useState, type KeyboardEvent, type Ref, type RefObject } from 'react'
+import { useEffect, useId, useImperativeHandle, useRef, useState, type KeyboardEvent, type ReactNode, type Ref, type RefObject } from 'react'
 import { groupDayTasks } from '../../../shared/calendar/day'
 import type { CalendarEvent, CalendarToday } from '../../../shared/calendar/types'
 import type { IpcResult } from '../../../shared/ipc'
@@ -54,6 +54,11 @@ interface DayDialogProps {
   onOpenEvent: (id: string) => void
   /** dialog: 홈의 큰 대화상자(기본). panel: 달력 화면 오른쪽에 붙어 있는 날짜 상세(닫기·포커스 가두기 없음) */
   variant?: 'dialog' | 'panel'
+  /**
+   * 달력 화면(panel)이 Google 일정의 상태를 더 자세히 보여 달라고 할 때만 준다. 없으면(홈) 연결하지 않았거나 읽는 중이면 아무것도 쓰지 않는다.
+   * loading: 처음 읽는 중 / readFailed: 읽지 못함([다시 시도]) / showDisconnected: 연결 안 됨([연결하기])
+   */
+  google?: { loading: boolean; readFailed: boolean; onRetry: () => void; showDisconnected: boolean }
   /** panel 에서 달력 칸을 눌렀을 때 날짜를 옮긴다(작성 중이면 먼저 묻는다) */
   handleRef?: Ref<DayViewHandle>
 }
@@ -70,7 +75,7 @@ export interface DayViewHandle {
  * - 저장한 결과는 알림으로 홈 전체에 알려 달력·오늘 카드·목록이 같은 값을 보게 한다. 홈은 다시 그리지 않는다.
  * 열 때 누른 칸으로 포커스를 돌려주고, 대화상자 안에서만 Tab 이 돈다.
  */
-export function DayDialog({ startDate, onDateChange, today, now, calendar, refreshKey, onClose, onReconnect, onOpenEvent, variant = 'dialog', handleRef }: DayDialogProps) {
+export function DayDialog({ startDate, onDateChange, today, now, calendar, refreshKey, onClose, onReconnect, onOpenEvent, google, variant = 'dialog', handleRef }: DayDialogProps) {
   const isPanel = variant === 'panel'
   const [date, setDate] = useState(startDate)
   const titleId = useId()
@@ -407,7 +412,7 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
             </>
           )}
 
-          {isToday && <GoogleToday calendar={calendar} now={now} onReconnect={onReconnect} onOpenEvent={onOpenEvent} />}
+          {isToday && <GoogleToday calendar={calendar} now={now} onReconnect={onReconnect} onOpenEvent={onOpenEvent} google={google} />}
         </div>
   )
 
@@ -566,32 +571,64 @@ function GoogleToday({
   calendar,
   now,
   onReconnect,
-  onOpenEvent
+  onOpenEvent,
+  google
 }: {
   calendar: CalendarToday | null
   now: Date
   onReconnect: () => void
   onOpenEvent: (id: string) => void
+  google?: DayDialogProps['google']
 }) {
-  if (calendar === null || !calendar.configured) return null
-  const state = calendar.status.state
-  if (state !== 'error' && state !== 'on') return null
-  return (
+  const section = (body: ReactNode) => (
     <section aria-label={m.googleSection} className="mt-4 border-t border-line pt-3">
       <h3 className="mb-2 text-xs font-semibold text-[#5e5d58]">{m.googleSection}</h3>
-      {calendar.status.state === 'error' ? (
-        <div className="flex flex-col items-start gap-2">
-          <p role="alert" className="text-sm text-[#7d2a21]">
-            {calendar.status.reason}
-          </p>
-          <button type="button" onClick={onReconnect} className="min-h-8 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-strong">
-            {c.reconnect}
-          </button>
-        </div>
-      ) : (
-        <GoogleEvents events={calendar.events} now={now} onOpenEvent={onOpenEvent} />
-      )}
+      {body}
     </section>
+  )
+  const button = 'min-h-8 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-strong'
+
+  // 달력 화면: 읽는 중·읽지 못함·연결 안 됨도 구분해 보인다.
+  if (google?.loading && calendar === null) return section(<p className="text-sm text-[#5e5d58]">{c.loading}</p>)
+  if (calendar === null || !calendar.configured) return null
+  if (google?.readFailed) {
+    return section(
+      <div className="flex flex-col items-start gap-2">
+        <p role="alert" className="text-sm text-[#7d2a21]">
+          {c.loadFailed}
+        </p>
+        <button type="button" onClick={google.onRetry} className={button}>
+          {c.retry}
+        </button>
+      </div>
+    )
+  }
+  const state = calendar.status.state
+  if (google?.showDisconnected && state === 'off') {
+    return section(
+      <div className="flex flex-col items-start gap-2">
+        <p className="text-sm text-[#5e5d58]">{c.notConnected}</p>
+        <button type="button" onClick={onReconnect} className={button}>
+          {c.connect}
+        </button>
+      </div>
+    )
+  }
+  if (google?.showDisconnected && state === 'connecting') return section(<p className="text-sm text-[#5e5d58]">{c.connecting}</p>)
+  if (state !== 'error' && state !== 'on') return null
+  return section(
+    calendar.status.state === 'error' ? (
+      <div className="flex flex-col items-start gap-2">
+        <p role="alert" className="text-sm text-[#7d2a21]">
+          {calendar.status.reason}
+        </p>
+        <button type="button" onClick={onReconnect} className={button}>
+          {c.reconnect}
+        </button>
+      </div>
+    ) : (
+      <GoogleEvents events={calendar.events} now={now} onOpenEvent={onOpenEvent} />
+    )
   )
 }
 

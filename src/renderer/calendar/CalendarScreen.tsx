@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { countByDate, type DayCount } from '../../shared/calendar/day'
 import { gridRange, monthGridDates, monthOf, shiftMonth, type MonthRef } from '../../shared/calendar/month'
-import type { CalendarToday } from '../../shared/calendar/types'
 import { useDataChanged } from '../dataEvents'
 import { DayDialog, type DayViewHandle } from '../home/calendar/DayDialog'
 import { formatDayTitle, formatMonthTitle } from '../home/calendar/format'
+import { useGoogleToday } from '../home/calendar/useGoogleToday'
 import { useTasksInRange } from '../home/calendar/useTasksInRange'
 import { ko } from '../i18n/ko'
 import { safeInvoke } from '../safeInvoke'
@@ -32,8 +32,8 @@ export function CalendarScreen() {
   const [shown, setShown] = useState<MonthRef>(() => monthOf(todayString()))
   const [selected, setSelected] = useState(todayString)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [calendar, setCalendar] = useState<CalendarToday | null>(null)
-  const [now, setNow] = useState(() => new Date())
+  /** 원본 열기에 실패했을 때 잠깐 알린다 */
+  const [notice, setNotice] = useState<string | null>(null)
   const panel = useRef<DayViewHandle>(null)
   const mounted = useRef(true)
 
@@ -52,16 +52,14 @@ export function CalendarScreen() {
     return () => window.clearTimeout(timer)
   }, [today])
 
-  const loadCalendar = useCallback(async (): Promise<void> => {
-    const result = await safeInvoke(() => window.octopus.calendar.today())
-    if (!mounted.current) return
-    setNow(new Date())
-    setCalendar(result.ok ? result.data : null)
-  }, [])
+  // Google 일정은 홈과 같은 주기로(처음·데이터 변경·1분·창 포커스·자정) 다시 읽는다.
+  const { calendar, now, readFailed, loading, reload: loadCalendar } = useGoogleToday(refreshKey)
 
   useEffect(() => {
-    void loadCalendar()
-  }, [loadCalendar, refreshKey])
+    if (notice === null) return
+    const timer = window.setTimeout(() => setNotice(null), 6000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
 
   const cells = useMemo(() => monthGridDates(shown), [shown])
   const range = gridRange(shown)
@@ -190,8 +188,18 @@ export function CalendarScreen() {
         onReconnect={() => {
           void safeInvoke(() => window.octopus.arms.connect('google-calendar')).then(() => loadCalendar())
         }}
-        onOpenEvent={(id) => void safeInvoke(() => window.octopus.calendar.openEvent(id))}
+        google={{ loading, readFailed, onRetry: () => void loadCalendar(), showDisconnected: true }}
+        onOpenEvent={(id) =>
+          void safeInvoke(() => window.octopus.calendar.openEvent(id)).then((result) => {
+            if (!result.ok && mounted.current) setNotice(ko.home.calendar.openFailed)
+          })
+        }
       />
+      {notice && (
+        <p role="alert" className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-[8px] bg-[#1f1f1d] px-3 py-1.5 text-xs text-[#f6f6f3]">
+          {notice}
+        </p>
+      )}
     </div>
   )
 }

@@ -26,6 +26,7 @@ import { MemoCard } from './cards/MemoCard'
 import type { CalendarToday } from '../../shared/calendar/types'
 import { CalendarCard } from './cards/CalendarCard'
 import { DayDialog } from './calendar/DayDialog'
+import { useGoogleToday } from './calendar/useGoogleToday'
 import { ShortcutsCard } from './cards/ShortcutsCard'
 import { TodoCard } from './cards/TodoCard'
 import { MemoQuickDialog, TaskQuickDialog } from './QuickDialogs'
@@ -112,7 +113,6 @@ export function HomeScreen({
     void loadShortcuts()
   })
   const [notice, setNotice] = useState<Notice | null>(null)
-  const [calendar, setCalendar] = useState<CalendarToday | null>(null)
   /** 날짜 상세에서 보는 날짜(YYYY-MM-DD). null 이면 상세를 닫은 상태. */
   /** 달력에서 마지막으로 고른 날짜. 상세를 닫아도 남아 칸에 표시된다. */
   const [selectedDay, setSelectedDay] = useState<string | null>(() => (dayDemo ? todayString() : null))
@@ -131,7 +131,6 @@ export function HomeScreen({
     setDayTarget(date)
     setDayOpening((n) => n + 1)
   }
-  const [now, setNow] = useState(() => new Date())
   const [obsidianOn, setObsidianOn] = useState(false)
   const mounted = useRef(true)
   const noticeTimer = useRef<number | undefined>(undefined)
@@ -162,23 +161,12 @@ export function HomeScreen({
     void loadShortcuts()
   }, [loadShortcuts])
 
-  const loadCalendar = useCallback(async (): Promise<void> => {
-    const result = await safeInvoke(() => window.octopus.calendar.today())
-    if (!mounted.current) return
-    setNow(new Date())
+  // 일정은 처음, 데이터가 바뀔 때, 1분마다, 창 포커스·자정에 다시 읽는다(달력 화면과 같은 훅). 옵시디언 상태도 함께 읽는다.
+  const { calendar, now, reload: loadCalendar } = useGoogleToday(refreshKey, async () => {
     const armList = await safeInvoke(() => window.octopus.arms.list())
     if (!mounted.current) return
     setObsidianOn(armList.ok && armList.data.some((arm) => arm.id === 'obsidian' && arm.status.state === 'on'))
-    // 못 읽으면(main 이 응답하지 않음·저장소 문제 등) 오류 상태로 보여 주고(다음 주기에 다시 읽는다) 앱은 계속 쓴다.
-    setCalendar(result.ok ? result.data : { configured: true, status: { state: 'error', reason: t.calendar.loadFailed }, events: [] })
-  }, [])
-
-  // 일정은 처음, 데이터가 바뀔 때, 그리고 1분마다 다시 읽는다(진행 중·지난 일정 표시도 함께 갱신).
-  useEffect(() => {
-    void loadCalendar()
-    const timer = window.setInterval(() => void loadCalendar(), 60_000)
-    return () => window.clearInterval(timer)
-  }, [loadCalendar, refreshKey])
+  })
 
   async function reconnectCalendar(): Promise<void> {
     await safeInvoke(() => window.octopus.arms.connect('google-calendar'))

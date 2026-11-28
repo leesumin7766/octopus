@@ -184,6 +184,8 @@ export const ko = {
       connect: 'Google 캘린더 연결하기',
       loading: '일정을 불러오는 중…',
       connecting: '연결 중…',
+      notConnected: 'Google 캘린더가 연결되어 있지 않아요.',
+      retry: '다시 시도',
       noEvents: '오늘 일정이 없어요.',
       allDay: '종일',
       now: '진행 중',
