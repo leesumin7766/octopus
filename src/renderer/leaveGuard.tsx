@@ -29,6 +29,11 @@ const LeaveGuardContext = createContext<LeaveGuardStore | null>(null)
 
 export const LeaveGuardProvider = LeaveGuardContext.Provider
 
+/** 떠나기 보호 장치 자체(업데이트 설치처럼 화면 밖 동작이 쓰던 내용을 확인할 때). 공급자가 없으면 null. */
+export function useLeaveGuardStore(): LeaveGuardStore | null {
+  return useContext(LeaveGuardContext)
+}
+
 /** 이 자리에 저장하지 않은 내용이 있으면 dirty 를 true 로 둔다. 자리가 사라지면 등록도 저절로 빠진다. 공급자가 없으면 아무 일도 하지 않는다. */
 export function useLeaveGuard(dirty: boolean): void {
   const store = useContext(LeaveGuardContext)

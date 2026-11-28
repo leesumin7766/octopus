@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { UpdateState, UpdateStatus } from '../../shared/update/types'
 import { ko } from '../i18n/ko'
+import { UnsavedStrip } from '../leaveGuard'
 import { Icon } from '../ui/Icon'
+import { useGuardedInstall } from '../update/useGuardedInstall'
 import { useUpdate, type UpdateControls } from '../update/useUpdate'
 
 const t = ko.notices
@@ -78,6 +80,7 @@ export function NoticeBell() {
 
 function UpdateNotice({ state, controls, onLater }: { state: UpdateState; controls: UpdateControls; onLater: () => void }) {
   const u = t.update
+  const guarded = useGuardedInstall(controls.install)
   const version = state.version ?? ''
   const percent = state.percent ?? 0
   // 받기·설치가 실패했을 때만 알림 안에 보여 준다(확인 실패는 설정 화면에서 본다)
@@ -120,6 +123,12 @@ function UpdateNotice({ state, controls, onLater }: { state: UpdateState; contro
         </p>
       )}
 
+      {guarded.asking && (
+        <div className="mt-2">
+          <UnsavedStrip title={ko.home.localCalendar.discardTitle} onKeep={guarded.keep} onDiscard={guarded.discard} />
+        </div>
+      )}
+
       {state.status !== 'downloading' && (
         <div className="mt-2 flex justify-end gap-1.5">
           {later}
@@ -128,7 +137,7 @@ function UpdateNotice({ state, controls, onLater }: { state: UpdateState; contro
               {u.download}
             </button>
           ) : (
-            <button type="button" disabled={controls.pending.includes('install')} onClick={controls.install} className={primary}>
+            <button type="button" disabled={controls.pending.includes('install')} onClick={guarded.requestInstall} className={primary}>
               {u.install}
             </button>
           )}

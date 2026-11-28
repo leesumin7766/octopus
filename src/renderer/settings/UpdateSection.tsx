@@ -1,5 +1,7 @@
 import type { UpdateState } from '../../shared/update/types'
 import { ko } from '../i18n/ko'
+import { UnsavedStrip } from '../leaveGuard'
+import { useGuardedInstall } from '../update/useGuardedInstall'
 import { useUpdate } from '../update/useUpdate'
 
 const t = ko.settings.update
@@ -24,6 +26,7 @@ function statusText(state: UpdateState): string {
 export function UpdateSection() {
   const { state, actionError, pending, check, download, install } = useUpdate()
   const busy = state?.status === 'checking' || state?.status === 'downloading' || pending.includes('check')
+  const guarded = useGuardedInstall(install)
   const retry = actionError === 'check' ? check : actionError === 'download' ? download : install
   const canCheck = !!state && state.status !== 'disabled' && state.status !== 'ready'
   const showNotes = !!state?.notes && (state.status === 'available' || state.status === 'downloading' || state.status === 'ready')
@@ -43,7 +46,7 @@ export function UpdateSection() {
           </button>
         )}
         {state?.status === 'ready' && (
-          <button type="button" disabled={pending.includes('install')} onClick={install} className={primary}>
+          <button type="button" disabled={pending.includes('install')} onClick={guarded.requestInstall} className={primary}>
             {t.install}
           </button>
         )}
@@ -58,6 +61,12 @@ export function UpdateSection() {
           </button>
         )}
       </div>
+
+      {guarded.asking && (
+        <div className="mt-3">
+          <UnsavedStrip title={ko.home.localCalendar.discardTitle} onKeep={guarded.keep} onDiscard={guarded.discard} />
+        </div>
+      )}
 
       {state && (
         <p role={state.status === 'error' ? 'alert' : 'status'} className={`mt-2 text-[13px] ${state.status === 'error' ? 'text-[#b3261e]' : 'text-[#4a4945]'}`}>
