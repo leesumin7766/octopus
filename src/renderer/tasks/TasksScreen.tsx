@@ -9,6 +9,7 @@ import { useDataChanged } from '../dataEvents'
 import { useLeaveGuard, UnsavedStrip } from '../leaveGuard'
 import { safeInvoke } from '../safeInvoke'
 import { ActionNotice } from '../ui/ActionNotice'
+import { RowMenu, type RowMenuItem } from '../ui/RowMenu'
 import { viewOf } from '../../shared/tasks/viewOf'
 import { ko } from '../i18n/ko'
 import { CandidatesSection } from './CandidatesSection'
@@ -127,6 +128,8 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
   const [detailDirty, setDetailDirty] = useState(false)
   /** 쓰던 상세 편집이 있을 때 다른 할 일로 옮기기 전에 묻는다. 값은 옮긴 뒤 할 일. */
   const [askLeave, setAskLeave] = useState<{ run: () => void } | null>(null)
+  /** 행 메뉴의 [삭제]를 눌렀을 때 확인을 기다리는 할 일 */
+  const [confirmRemove, setConfirmRemove] = useState<Task | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const loadSeq = useRef(0)
@@ -329,6 +332,19 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
   }, [detailShown])
   useLeaveGuard(detailShown && detailDirty)
 
+  /** 행의 더보기 메뉴: 그 행에서 할 수 있는 동작만 담는다(체크리스트 항목·반복 할 일은 안 되는 동작을 뺀다). */
+  function taskMenu(task: Task) {
+    const open = task.status === 'open'
+    const fromRoutine = task.routineId !== null
+    const items: RowMenuItem[] = [{ label: t.rowMenu.edit, onSelect: () => requestSelect(task.id) }]
+    if (open && !fromRoutine && task.repeat === null && task.bucket !== 'someday') {
+      items.push({ label: t.detail.moveToSomeday, onSelect: () => void moveTasks(() => api().moveToSomeday([task.id])) })
+    }
+    if (open && !fromRoutine) items.push({ label: t.detail.cancelTask, onSelect: () => void cancelTask(task) })
+    if (!fromRoutine) items.push({ label: t.detail.remove, danger: true, onSelect: () => setConfirmRemove(task) })
+    return <RowMenu title={task.title} items={items} />
+  }
+
   function renderRows(tasks: Task[], doneLabelOf?: (task: Task) => string | undefined) {
     return (
       <ul aria-label={t.listLabel} className="flex flex-col gap-2">
@@ -343,6 +359,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
             onToggle={() => void toggle(task)}
             onOpen={() => requestSelect(task.id)}
             doneLabel={doneLabelOf?.(task)}
+            menu={taskMenu(task)}
           />
         ))}
       </ul>
@@ -384,16 +401,20 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
         </h2>
         <ul aria-label={t.listLabel} className="flex flex-col gap-2">
           {group.items.map((task) => (
-            <li key={task.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm">
+            <li key={task.id} className="group flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm">
               <span className="min-w-0 truncate">{task.title}</span>
-              <button
-                type="button"
-                aria-label={t.reopenLabel(task.title)}
-                onClick={() => void reopen(task)}
-                className="shrink-0 rounded-md px-2 py-1 text-accent hover:bg-black/5"
-              >
-                {t.reopen}
-              </button>
+              <span className="flex shrink-0 items-center gap-1">
+                {/* 마우스를 올리거나 키보드로 들어갔을 때 보인다. 늘 보이는 길은 ⋯ 메뉴. */}
+                <button
+                  type="button"
+                  aria-label={t.reopenLabel(task.title)}
+                  onClick={() => void reopen(task)}
+                  className="rounded-md px-2 py-1 text-accent opacity-0 hover:bg-black/5 focus:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
+                >
+                  {t.reopen}
+                </button>
+                <RowMenu title={task.title} items={[{ label: t.reopen, onSelect: () => void reopen(task) }]} />
+              </span>
             </li>
           ))}
         </ul>
@@ -420,6 +441,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
               onMoveToToday={(ids) => moveTasks(() => api().moveToToday(ids))}
               onMoveToSomeday={(ids) => moveTasks(() => api().moveToSomeday(ids))}
               onReschedule={(ids, date) => moveTasks(() => api().reschedule(ids, date))}
+              renderMenu={taskMenu}
             />
           )}
           {dueToday.length > 0 && (
@@ -478,6 +500,29 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
         </header>
 
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
+        {confirmRemove && (
+          <div className="px-8">
+            <div role="alertdialog" aria-label={t.detail.confirmRemove} className="mb-3 rounded-md border border-red-200 bg-red-50 p-3">
+              <p className="text-sm text-red-800">{t.detail.confirmRemove}</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const task = confirmRemove
+                    setConfirmRemove(null)
+                    void removeTask(task.id)
+                  }}
+                  className="rounded-md bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700"
+                >
+                  {t.detail.confirmRemoveYes}
+                </button>
+                <button type="button" onClick={() => setConfirmRemove(null)} className="rounded-md border border-[#dad9d4] bg-white px-3 py-1 text-sm text-[#4a4945]">
+                  {t.detail.cancel}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {askLeave && (
           <div className="px-8">
             <UnsavedStrip

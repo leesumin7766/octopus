@@ -244,7 +244,7 @@ describe('continuing from the home screen (F4)', () => {
     expect(await screen.findByText(ko.memos.madeTask)).toBeTruthy()
 
     // 다른 메모를 고치는 중이면 먼저 묻는다
-    await user.click(within(list).getByRole('button', { name: new RegExp('쓰는 중 메모') }))
+    await user.click(within(list).getByRole('button', { name: new RegExp('^' + ko.memos.edit + ': 쓰는 중 메모') }))
     await user.type(await screen.findByLabelText(ko.memos.editLabel), ' 추가')
     await user.click(screen.getByRole('button', { name: ko.memos.madeTaskView }))
     expect(screen.getByText(ko.home.localCalendar.discardTitle)).toBeTruthy()

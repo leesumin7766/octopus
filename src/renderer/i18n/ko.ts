@@ -317,6 +317,12 @@ export const ko = {
     }
   },
 
+  // 행의 더보기(⋯) 버튼과 메뉴
+  rowMenu: {
+    more: (title: string) => `${title} 더보기`,
+    menu: (title: string) => `${title} 동작`
+  },
+
   // 여러 줄 입력 공통(메모 화면·원형 메뉴의 메모 추가)
   multiline: {
     save: '저장',
@@ -364,6 +370,7 @@ export const ko = {
       openLabel: (title: string) => `원본 열기: ${title}`
     },
     viewsNavLabel: '보기',
+    rowMenu: { edit: '편집' },
     routineBadge: '체크리스트',
     views: {
       inbox: '수신함',

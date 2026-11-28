@@ -14,6 +14,7 @@ import { leftoverAfterSave } from './leftoverAfterSave'
 import { safeInvoke } from '../safeInvoke'
 import { ActionNotice } from '../ui/ActionNotice'
 import { MultilineInput } from '../ui/MultilineInput'
+import { RowMenu, type RowMenuItem } from '../ui/RowMenu'
 
 const t = ko.memos
 
@@ -196,6 +197,17 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
     if (result.ok || result.error.code === 'not_found') setConfirmingId(null)
   }
 
+  /** 행의 더보기 메뉴: 편집·고정·할 일로 만들기(아직 없을 때)·삭제(확인 후). */
+  function memoMenu(memo: Memo): RowMenuItem[] {
+    const items: RowMenuItem[] = [
+      { label: t.edit, onSelect: () => requestEdit(memo) },
+      { label: memo.pinned ? t.unpin : t.pin, onSelect: () => void mutate(() => api().togglePin(memo.id)) }
+    ]
+    if (memo.taskId === null) items.push({ label: t.toTask, onSelect: () => void makeTask(memo) })
+    items.push({ label: t.remove, danger: true, onSelect: () => setConfirmingId(memo.id) })
+    return items
+  }
+
   const searching = query.trim() !== ''
 
   return (
@@ -340,6 +352,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
                           {t.remove}
                         </button>
                       </span>
+                      <RowMenu title={memo.body.split('\n')[0].slice(0, 40)} items={memoMenu(memo)} />
                     </div>
                     {confirmingId === memo.id && (
                       <div

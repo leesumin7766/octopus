@@ -27,11 +27,13 @@ interface TaskRowProps {
   onOpen: () => void
   /** 행 오른쪽 끝의 작은 버튼들(예: 지난 할 일의 [오늘로] [나중에]) */
   trailing?: ReactNode
+  /** 행 맨 오른쪽의 늘 보이는 더보기(⋯) */
+  menu?: ReactNode
   /** 완료 보기에서 쓰는 완료 시각 표시(예: "15:20 완료") */
   doneLabel?: string
 }
 
-export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen, trailing, doneLabel }: TaskRowProps) {
+export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen, trailing, menu, doneLabel }: TaskRowProps) {
   const deadlinePast = task.status === 'open' && task.deadline !== null && isPastDate(task.deadline, today)
 
   return (
@@ -69,6 +71,7 @@ export function TaskRow({ task, today, checked, fading, active, onToggle, onOpen
         </span>
       </button>
       {trailing}
+      {menu}
     </li>
   )
 }

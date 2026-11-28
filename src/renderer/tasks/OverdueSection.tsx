@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Task } from '../../shared/tasks/types'
 import { ko } from '../i18n/ko'
 import { TaskRow } from './TaskRow'
@@ -16,6 +16,8 @@ interface OverdueSectionProps {
   onMoveToToday: (ids: string[]) => Promise<boolean>
   onMoveToSomeday: (ids: string[]) => Promise<boolean>
   onReschedule: (ids: string[], date: string) => Promise<boolean>
+  /** 행 맨 오른쪽의 더보기(⋯) */
+  renderMenu?: (task: Task) => ReactNode
 }
 
 /** '나중에'로 보낼 수 없는 항목이면 그 이유(없으면 null). 루틴 항목과 반복 할 일이 해당한다. */
@@ -78,6 +80,7 @@ export function OverdueSection(props: OverdueSectionProps) {
               active={task.id === activeId}
               onToggle={() => props.onToggle(task)}
               onOpen={() => props.onOpen(task)}
+              menu={props.renderMenu?.(task)}
               trailing={
                 // 행 동작은 마우스를 올리거나 키보드로 들어갔을 때만 보인다(ATDT 와 같게). 날짜 칸을 연 동안은 계속 보인다.
                 <div className={`flex shrink-0 flex-wrap items-center justify-end gap-1.5 ${dateOpen ? '' : 'opacity-0 focus-within:opacity-100 group-hover:opacity-100'}`}>
