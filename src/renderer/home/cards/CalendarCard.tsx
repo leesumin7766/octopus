@@ -4,7 +4,9 @@ import { gridRange, monthGridDates, monthOf, shiftMonth, type MonthRef } from '.
 import type { CalendarToday } from '../../../shared/calendar/types'
 import { ko } from '../../i18n/ko'
 import { formatDayTitle, formatMonthTitle } from '../calendar/format'
+import { useGhosts } from '../calendar/useGhosts'
 import { useTasksInRange } from '../calendar/useTasksInRange'
+import { countGhosts } from '../../../shared/calendar/ghosts'
 import { Icon } from '../../ui/Icon'
 
 const c = ko.home.calendar
@@ -37,6 +39,9 @@ export function CalendarCard({ calendar, refreshKey, today, selectedDay, onOpenD
   // 갱신 신호나 오늘 날짜가 바뀌면 같은 달의 개수를 다시 읽는다(자정 경과 포함).
   const { state, retry } = useTasksInRange(range.from, range.to, `${refreshKey}|${today}`)
   const counts = useMemo(() => (state.status === 'ready' ? countByDate(state.tasks) : null), [state])
+  // 앞으로의 반복 회차(저장하지 않고 계산만 한 것)는 흐린 점으로만 보인다.
+  const ghosts = useGhosts(range.from, range.to, `${refreshKey}|${today}`, state.status === 'ready' ? state.tasks : null)
+  const ghostCounts = useMemo(() => countGhosts(ghosts), [ghosts])
   const monthKey = `${shown.year}-${pad2(shown.month)}`
 
   return (
@@ -81,7 +86,9 @@ export function CalendarCard({ calendar, refreshKey, today, selectedDay, onOpenD
           const isToday = date === today
           const isSelected = date === selectedDay
           const count = counts?.get(date)
-          const base = count ? `${formatDayTitle(date, today)}, ${m.dayCount(count.total, count.done)}` : formatDayTitle(date, today)
+          const ghostCount = ghostCounts.get(date) ?? 0
+          const real = count ? `${formatDayTitle(date, today)}, ${m.dayCount(count.total, count.done)}` : formatDayTitle(date, today)
+          const base = ghostCount > 0 ? `${real}, ${m.ghostCount(ghostCount)}` : real
           const label = isSelected ? `${base}, ${m.selectedMark}` : base
           return (
             <button
@@ -97,6 +104,7 @@ export function CalendarCard({ calendar, refreshKey, today, selectedDay, onOpenD
               } ${isToday ? 'border-accent font-bold text-accent-strong' : 'border-transparent'} ${inMonth ? 'text-ink' : 'text-[#a8a7a1]'}`}
             >
               <span>{Number(date.slice(8))}</span>
+              {ghostCount > 0 && <span aria-hidden="true" className="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-accent/30" />}
               {count && (
                 <span aria-hidden="true" className="absolute right-0.5 top-0 text-[9px] leading-none text-accent-strong">
                   {count.total}

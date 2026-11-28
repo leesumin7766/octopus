@@ -207,3 +207,24 @@ export function nextOccurrenceFrom(rule: RepeatRule, previousDate: string, notBe
   }
   return date
 }
+
+/**
+ * afterDate 뒤의 회차 중 from..to(양 끝 포함)에 드는 날짜들. 저장하지 않고 보기만 하는 데 쓴다(달력의 '예정(반복)').
+ * afterDate 가 from 보다 한참 앞이어도(오래 밀린 반복) 첫 회차를 from 근처로 바로 건너뛴 뒤(nextOccurrenceFrom) to 까지 걷는다.
+ * limit 은 from..to 안에서 걷는 걸음 수 상한이다. 건너뛰다 너무 많은 회차를 만나면(규칙이 비정상) 빈 목록을 돌려준다.
+ */
+export function futureOccurrences(rule: RepeatRule, afterDate: string, from: string, to: string, limit = 200): string[] {
+  let current: string
+  try {
+    current = nextOccurrenceFrom(rule, afterDate, from)
+  } catch (error) {
+    if (error instanceof RangeError) return []
+    throw error
+  }
+  const dates: string[] = []
+  for (let step = 0; step < limit && current <= to; step++) {
+    dates.push(current)
+    current = nextOccurrence(rule, current)
+  }
+  return dates
+}

@@ -13,6 +13,8 @@ import { DetailPanel } from '../../tasks/DetailPanel'
 import { errorMessage } from '../../tasks/errors'
 import { QuickInput } from '../../tasks/QuickInput'
 import { useCompleteWithUndo } from '../../tasks/useCompleteWithUndo'
+import type { Ghost } from '../../../shared/calendar/ghosts'
+import { useGhosts } from './useGhosts'
 import { Checkbox } from '../../ui/Checkbox'
 import { Icon } from '../../ui/Icon'
 import { formatDayTitle } from './format'
@@ -83,6 +85,10 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
   const titleRef = useRef<HTMLHeadingElement>(null)
   const mounted = useRef(true)
   const { state, retry } = useTasksInRange(date, date, `${refreshKey}|${today}`)
+  // 앞으로의 반복 회차(저장하지 않고 계산만 한 것): 이 날짜에 오는 것을 흐린 줄로 보인다.
+  const ghosts = useGhosts(date, date, `${refreshKey}|${today}`, state.status === 'ready' ? state.tasks : null)
+  /** 흐린 줄을 눌러 실제 회차로 옮긴 뒤 열 할 일(그 날짜의 목록이 오면 편집을 연다) */
+  const [pendingEdit, setPendingEdit] = useState<{ id: string; date: string } | null>(null)
 
   // 추가 입력
   // 입력칸(QuickInput)이 글·시각을 들고 있다. 여기서는 쓰던 내용이 있는지만 안다. resetKey 를 바꾸면 입력칸이 비워진다.
@@ -144,6 +150,17 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
     else if (state.status === 'error') reconcile(null)
   }, [state, reconcile])
 
+  // 흐린 줄에서 옮겨 온 날짜의 목록이 오면 그 실제 회차의 편집을 연다.
+  useEffect(() => {
+    if (pendingEdit === null || pendingEdit.date !== date || state.status !== 'ready') return
+    // 날짜를 옮긴 직후에는 아직 옛 날짜의 목록일 수 있다. 그 할 일이 보일 때까지 기다린다(다른 날로 가면 moveTo 가 비운다).
+    if (!state.tasks.some((task) => task.id === pendingEdit.id)) return
+    setPendingEdit(null)
+    setEditingId(pendingEdit.id)
+    setEditDirty(false)
+    setEditError(null)
+  }, [pendingEdit, date, state])
+
   // 편집 중인 할 일이 목록에서 사라졌으면(다른 곳에서 바뀌었거나 날짜가 옮겨졌으면) 편집을 닫는다.
   useEffect(() => {
     if (editingId === null || state.status !== 'ready') return
@@ -159,6 +176,7 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
   }
 
   function moveTo(next: string): void {
+    setPendingEdit((current) => (current !== null && current.date === next ? current : null))
     setDate(next)
     onDateChange(next)
     setEditingId(null)
@@ -185,6 +203,14 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
         setEditError(null)
         return
     }
+  }
+
+  /** 흐린 '예정(반복)' 줄을 눌렀을 때: 실제 회차(저장된 할 일)의 날짜로 가서 그 편집을 연다. 쓰던 내용이 있으면 먼저 묻는다. */
+  function openGhost(ghost: Ghost): void {
+    if (ghost.openTaskId === null || ghost.openDate === null) return
+    if (ghost.openDate === date) return request({ kind: 'edit', id: ghost.openTaskId })
+    setPendingEdit({ id: ghost.openTaskId, date: ghost.openDate })
+    request({ kind: 'move', to: ghost.openDate })
   }
 
   /** 나가기·옮기기·편집 열기 요청. 작성 중이면 먼저 묻는다. 저장 중이면 막는다. */
@@ -350,7 +376,7 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
             <div role="group" aria-label={leaving.kind === 'leaveEdit' || editingId !== null ? m.editDiscardTitle : m.discardTitle} className="mb-4 rounded-lg border border-[#e7c9bf] bg-[#fbeee9] p-3">
               <p className="mb-2 text-sm text-[#7d2a21]">{leaving.kind === 'leaveEdit' || editingId !== null ? m.editDiscardTitle : m.discardTitle}</p>
               <div className="flex flex-wrap gap-2">
-                <button ref={keepWritingRef} type="button" onClick={() => setLeaving(null)} className="min-h-8 rounded-lg border border-line bg-white px-3 text-sm hover:bg-black/5">
+                <button ref={keepWritingRef} type="button" onClick={() => { setLeaving(null); setPendingEdit(null) }} className="min-h-8 rounded-lg border border-line bg-white px-3 text-sm hover:bg-black/5">
                   {m.discardNo}
                 </button>
                 <button type="button" onClick={() => discardAndLeave(leaving)} className="min-h-8 rounded-lg bg-[#7d2a21] px-3 text-sm font-semibold text-white">
@@ -409,6 +435,7 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
                 onEdit={(task) => request({ kind: 'edit', id: task.id })}
                 rowError={rowError}
               />
+              <GhostLines ghosts={ghosts} onOpen={openGhost} />
             </>
           )}
 
@@ -489,6 +516,39 @@ function AddForm({
 }
 
 type RangeStateView = { status: 'loading' } | { status: 'ready'; tasks: Task[] } | { status: 'error' }
+
+/** 이 날짜에 올 '예정(반복)': 흐린 줄. 체크·편집은 안 되고, 반복 할 일은 누르면 실제 회차의 상세로 간다. */
+function GhostLines({ ghosts, onOpen }: { ghosts: Ghost[]; onOpen: (ghost: Ghost) => void }) {
+  if (ghosts.length === 0) return null
+  return (
+    <section aria-label={m.ghostHeading} className="mt-3">
+      <h3 className="mb-1 text-xs font-semibold text-[#8a8983]">{m.ghostHeading}</h3>
+      <ul className="flex flex-col gap-0.5">
+        {ghosts.map((ghost) => {
+          const row = (
+            <>
+              {ghost.time && <span className="w-12 shrink-0 text-xs tabular-nums">{ghost.time}</span>}
+              <span className="min-w-0 flex-1 whitespace-normal [overflow-wrap:anywhere]">{ghost.title}</span>
+              {ghost.kind === 'checklist' && <span className="shrink-0 rounded-full bg-[#ecebe6] px-2 py-0.5 text-[11px]">{ko.tasks.routineBadge}</span>}
+            </>
+          )
+          const cls = 'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-[#8a8983]'
+          return (
+            <li key={ghost.id} data-ghost={ghost.kind} className="opacity-70">
+              {ghost.openTaskId !== null ? (
+                <button type="button" aria-label={m.ghostOpen(ghost.title)} onClick={() => onOpen(ghost)} className={`${cls} hover:bg-black/5`}>
+                  {row}
+                </button>
+              ) : (
+                <div className={cls}>{row}</div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
 
 function LocalTasks({
   marks,

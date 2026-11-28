@@ -4,7 +4,9 @@ import { gridRange, monthGridDates, monthOf, shiftMonth, type MonthRef } from '.
 import { useDataChanged } from '../dataEvents'
 import { DayDialog, type DayViewHandle } from '../home/calendar/DayDialog'
 import { formatDayTitle, formatMonthTitle } from '../home/calendar/format'
+import { useGhosts } from '../home/calendar/useGhosts'
 import { useGoogleToday } from '../home/calendar/useGoogleToday'
+import { countGhosts } from '../../shared/calendar/ghosts'
 import { useTasksInRange } from '../home/calendar/useTasksInRange'
 import { ko } from '../i18n/ko'
 import { safeInvoke } from '../safeInvoke'
@@ -65,6 +67,8 @@ export function CalendarScreen() {
   const range = gridRange(shown)
   const { state, retry } = useTasksInRange(range.from, range.to, `${refreshKey}|${today}`)
   const counts = useMemo(() => (state.status === 'ready' ? countByDate(state.tasks) : null), [state])
+  const ghosts = useGhosts(range.from, range.to, `${refreshKey}|${today}`, state.status === 'ready' ? state.tasks : null)
+  const ghostCounts = useMemo(() => countGhosts(ghosts), [ghosts])
   const monthKey = `${shown.year}-${pad2(shown.month)}`
   const monthTotal = useMemo(() => {
     let total = 0
@@ -141,7 +145,9 @@ export function CalendarScreen() {
             const isSelected = date === selected
             const count = counts?.get(date)
             const dayMark = count ? mark(count) : null
-            const label = count ? `${formatDayTitle(date, today)}, ${m.dayCount(count.total, count.done)}` : formatDayTitle(date, today)
+            const ghostCount = ghostCounts.get(date) ?? 0
+            const real = count ? `${formatDayTitle(date, today)}, ${m.dayCount(count.total, count.done)}` : formatDayTitle(date, today)
+            const label = ghostCount > 0 ? `${real}, ${m.ghostCount(ghostCount)}` : real
             return (
               <button
                 key={date}
@@ -163,6 +169,12 @@ export function CalendarScreen() {
                 >
                   {Number(date.slice(8))}
                 </span>
+                {ghostCount > 0 && (
+                  <span aria-hidden="true" className={`flex items-center gap-1 text-[11px] leading-none text-[#a8a7a1] ${count ? 'mt-0.5' : 'mt-auto'}`}>
+                    <span>◌</span>
+                    <span>{ghostCount}</span>
+                  </span>
+                )}
                 {count && dayMark && (
                   <span aria-hidden="true" className="mt-auto flex items-center gap-1 text-[11px] leading-none">
                     <span className={dayMark.className}>{dayMark.symbol}</span>
