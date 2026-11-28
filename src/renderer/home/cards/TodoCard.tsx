@@ -180,9 +180,13 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
                 checked={fading.has(task.id)}
                 onChange={() => void complete(task)}
               />
-              <span className={`min-w-0 flex-1 truncate text-sm ${fading.has(task.id) ? 'text-[#66655f] line-through' : 'text-ink'}`}>
+              <button
+                type="button"
+                onClick={() => onOpenTask?.(task)}
+                className={`min-w-0 flex-1 truncate text-left text-sm hover:underline ${fading.has(task.id) ? 'text-[#66655f] line-through' : 'text-ink'}`}
+              >
                 {task.title}
-              </span>
+              </button>
               {task.time && <span className="text-xs text-[#5e5d58]">{task.time}</span>}
               {task.routineId !== null && (
                 <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">{ko.tasks.routineBadge}</span>

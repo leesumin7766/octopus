@@ -351,7 +351,8 @@ export const ko = {
     confirmRemoveYes: '삭제',
     cancel: '취소',
     updated: (when: string) => `수정 ${when}`,
-    madeTask: (title: string) => `"${title}" 할 일을 만들었어요. 할 일 탭에서 확인해 보세요.`,
+    madeTask: '할 일로 만들었어요',
+    madeTaskView: '보기',
     fieldErrors: { body: '메모 내용을 입력해 주세요.' }
   },
 

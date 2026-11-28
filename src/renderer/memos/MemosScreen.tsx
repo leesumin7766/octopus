@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { IpcError, IpcResult } from '../../shared/ipc'
 import type { Memo } from '../../shared/memos/types'
+import type { Task } from '../../shared/tasks/types'
 import { MAX_MEMO_LENGTH } from '../../shared/validation/memo'
 import { MAX_SEARCH_LENGTH } from '../../shared/validation/memoIpc'
 import { ErrorBanner } from '../ErrorBanner'
@@ -11,12 +12,22 @@ import { formatTimestamp } from '../tasks/format'
 import { highlightMatches } from './highlight'
 import { leftoverAfterSave } from './leftoverAfterSave'
 import { safeInvoke } from '../safeInvoke'
+import { ActionNotice } from '../ui/ActionNotice'
 
 const t = ko.memos
 
 const api = () => window.octopus.memos
 
+/** 다른 화면(홈 메모 카드)에서 온 요청: 그 메모를 보이게 하고 편집을 시작한다. nonce 가 바뀔 때마다 한 번씩 처리한다. */
+export interface MemosFocus {
+  memoId: string
+  nonce: number
+}
+
 interface MemosScreenProps {
+  focus?: MemosFocus
+  /** '할 일로 만들기' 뒤 알림의 [보기]: 만든 할 일을 할 일 화면에서 연다. */
+  onOpenTask?: (task: Task) => void
   /** 검색어 입력을 멈춘 뒤 검색하기까지의 대기 시간 */
   searchDebounceMs?: number
 }
@@ -26,13 +37,17 @@ function isSaveShortcut(event: KeyboardEvent): boolean {
   return event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing
 }
 
-export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
+export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: MemosScreenProps) {
   const [memos, setMemos] = useState<Memo[] | null>(null)
   const [query, setQuery] = useState('')
   const [body, setBody] = useState('')
   const [bodyError, setBodyError] = useState(false)
   const [error, setError] = useState<IpcError | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  /** 할 일로 만든 직후의 안내 */
+  const [madeTask, setMadeTask] = useState<Task | null>(null)
+  /** 홈에서 눌러 온 메모(잠깐 강조한다) */
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const handledFocus = useRef<number | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string; invalid: boolean } | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   /** 쓰던 내용이 있을 때 다른 메모 편집을 시작하기 전에 묻는다. run 은 확인 뒤 실행할 일, editing 은 편집 중인 내용을 잃는지. */
@@ -91,6 +106,25 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
     if (bodyDirty || editDirty) setAskLeave({ run: start, editing: editDirty })
     else start()
   }
+
+  // 홈에서 메모를 눌러 왔으면: 목록이 오면 그 메모를 보이게 하고 편집을 시작한다(요청마다 한 번).
+  useEffect(() => {
+    if (!focus || !memos || handledFocus.current === focus.nonce) return
+    handledFocus.current = focus.nonce
+    const memo = memos.find((m) => m.id === focus.memoId)
+    if (!memo) return
+    setHighlightId(memo.id)
+    requestEdit(memo)
+    window.requestAnimationFrame(() => document.querySelector(`[data-memo-id="${memo.id}"]`)?.scrollIntoView?.({ block: 'nearest' }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, memos])
+
+  // 강조는 3초 뒤 꺼진다. 목록을 다시 읽어도 타이머가 지워지지 않게, 강조 대상에만 묶는다.
+  useEffect(() => {
+    if (highlightId === null) return
+    const timer = window.setTimeout(() => setHighlightId(null), 3000)
+    return () => window.clearTimeout(timer)
+  }, [highlightId])
 
   /** 실패를 화면에 보인다(입력 오류는 칸 옆에서 따로 보여 주므로 여기서는 뺀다). */
   function reportFailure(failure: IpcError): void {
@@ -158,7 +192,7 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
 
   async function makeTask(memo: Memo): Promise<void> {
     const result = await mutate(() => api().toTask(memo.id))
-    setNotice(result.ok ? t.madeTask(result.data.task.title) : null)
+    setMadeTask(result.ok ? result.data.task : null)
   }
 
   async function remove(memo: Memo): Promise<void> {
@@ -232,12 +266,20 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
           />
         </div>
       )}
-      {notice && (
-        <div role="status" className="flex items-start justify-between gap-3 bg-emerald-50 px-5 py-2 text-sm text-emerald-800">
-          <span>{notice}</span>
-          <button type="button" onClick={() => setNotice(null)} className="shrink-0 text-xs underline">
-            {ko.tasks.errors.dismiss}
-          </button>
+      {madeTask && (
+        <div className="px-5 pt-3">
+          <ActionNotice
+            key={madeTask.id}
+            message={t.madeTask}
+            actionLabel={t.madeTaskView}
+            onAction={() => {
+              const task = madeTask
+              setMadeTask(null)
+              onOpenTask?.(task)
+            }}
+            onExpire={() => setMadeTask(null)}
+            className="self-start"
+          />
         </div>
       )}
 
@@ -249,7 +291,11 @@ export function MemosScreen({ searchDebounceMs = 250 }: MemosScreenProps) {
         ) : (
           <ul className="space-y-3">
             {memos.map((memo) => (
-              <li key={memo.id} className={`group rounded-lg border bg-white p-3 ${memo.pinned ? 'border-amber-300' : 'border-slate-200'}`}>
+              <li
+                key={memo.id}
+                data-memo-id={memo.id}
+                className={`group rounded-lg border bg-white p-3 ${memo.pinned ? 'border-amber-300' : 'border-slate-200'} ${highlightId === memo.id ? 'ring-2 ring-accent' : ''}`}
+              >
                 {editing?.id === memo.id ? (
                   <div className="space-y-2">
                     <textarea

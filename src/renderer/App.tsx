@@ -5,7 +5,7 @@ import { useModelStatus } from './command/useModelStatus'
 import { HomeScreen } from './home/HomeScreen'
 import { createLeaveGuardStore, LeaveGuardProvider, UnsavedStrip, type LeaveGuardStore } from './leaveGuard'
 import { ko } from './i18n/ko'
-import { MemosScreen } from './memos/MemosScreen'
+import { MemosScreen, type MemosFocus } from './memos/MemosScreen'
 import { TitleBar } from './layout/TitleBar'
 import { NavMenu, type Screen } from './nav/NavMenu'
 import { Welcome } from './onboarding/Welcome'
@@ -55,9 +55,10 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
   const models = useModelStatus()
   const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey' || initial === 'command-streaming')
   // 화면을 옮기려는데 쓰던 내용이 있으면 먼저 묻는다. 값은 옮길 화면.
-  const [leaveAsk, setLeaveAsk] = useState<{ screen: Screen; focus: TasksFocus | null } | null>(null)
+  const [leaveAsk, setLeaveAsk] = useState<{ screen: Screen; focus: TasksFocus | null; memoFocus: MemosFocus | null } | null>(null)
   // 다른 화면에서 할 일 하나를 찾아 열라는 요청(할 일 화면이 받는다)
   const [focus, setFocus] = useState<TasksFocus | null>(null)
+  const [memoFocus, setMemoFocus] = useState<MemosFocus | null>(null)
   const focusSeq = useRef(0)
 
   // 날짜 상세(큰 대화상자)가 열려 있는지. 열려 있으면 지시하기 단축키를 무시해 모달이 겹치지 않게 한다.
@@ -78,9 +79,10 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
   const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial === 'task-detail' ? 'today' : (initial as TaskView)) : undefined
 
   /** 실제로 화면을 옮긴다(확인이 끝난 뒤이거나, 확인할 것이 없을 때). */
-  function go(next: Screen, nextFocus: TasksFocus | null = null): void {
+  function go(next: Screen, nextFocus: TasksFocus | null = null, nextMemoFocus: MemosFocus | null = null): void {
     setScreen(next)
     setFocus(nextFocus)
+    setMemoFocus(nextMemoFocus)
     // 배치 모드는 홈에서만 의미가 있다.
     if (next !== 'home') setArranging(false)
   }
@@ -88,7 +90,7 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
   /** 화면 옮기기 요청. 쓰던 내용이 있으면 확인 띠를 먼저 띄운다. */
   function navigate(next: Screen): void {
     if (next !== screen && guard.isDirty()) {
-      setLeaveAsk({ screen: next, focus: null })
+      setLeaveAsk({ screen: next, focus: null, memoFocus: null })
       return
     }
     go(next)
@@ -99,10 +101,21 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
     const request: TasksFocus = { taskId: task.id, view: viewOf(task, todayString()), nonce: ++focusSeq.current }
     if (screen === 'tasks') return setFocus(request)
     if (guard.isDirty()) {
-      setLeaveAsk({ screen: 'tasks', focus: request })
+      setLeaveAsk({ screen: 'tasks', focus: request, memoFocus: null })
       return
     }
     go('tasks', request)
+  }
+
+  /** 메모 하나를 메모 화면에서 보이게 하고 편집을 시작한다. 다른 화면에서 오면 쓰던 내용을 먼저 묻는다. 메모 화면 안에서는 화면이 직접 처리한다. */
+  function openMemo(id: string): void {
+    const request: MemosFocus = { memoId: id, nonce: ++focusSeq.current }
+    if (screen === 'memos') return setMemoFocus(request)
+    if (guard.isDirty()) {
+      setLeaveAsk({ screen: 'memos', focus: null, memoFocus: request })
+      return
+    }
+    go('memos', null, request)
   }
 
   // 안내를 보일지 정한다: 설정을 못 읽거나 끝냈다고 기록돼 있으면 안 보이고(앱을 막지 않는다),
@@ -196,12 +209,13 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
               dayDemo={initial === 'home-day'}
               onDayDialogChange={setDayDialogOpen}
               onOpenTask={openTask}
+              onOpenMemo={openMemo}
             />
           )}
           {screen === 'calendar' && <CalendarScreen />}
           {screen === 'tasks' && <TasksScreen focus={focus ?? undefined} initialView={taskView} openFirst={initial === 'task-detail'} />}
           {screen === 'routines' && <RoutinesScreen />}
-          {screen === 'memos' && <MemosScreen />}
+          {screen === 'memos' && <MemosScreen focus={memoFocus ?? undefined} onOpenTask={openTask} />}
           {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} onOpenSettings={(name) => name === 'obsidian' && navigate('obsidian')} />}
           {screen === 'obsidian' && <ObsidianScreen onBack={() => navigate('arms')} />}
           {screen === 'settings' && <SettingsScreen />}
@@ -215,7 +229,7 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
               onKeep={() => setLeaveAsk(null)}
               onDiscard={() => {
                 setLeaveAsk(null)
-                go(leaveAsk.screen, leaveAsk.focus)
+                go(leaveAsk.screen, leaveAsk.focus, leaveAsk.memoFocus)
               }}
             />
           </div>

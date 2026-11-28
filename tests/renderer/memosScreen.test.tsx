@@ -266,7 +266,7 @@ describe('memos screen', () => {
       await user.click(within(card).getByRole('button', { name: t.toTask }))
 
       await waitFor(() => expect(b.memos.toTask).toHaveBeenCalledWith(memo.id))
-      expect((await screen.findByRole('status')).textContent).toContain(t.madeTask('치과 예약'))
+      expect((await screen.findByRole('status')).textContent).toContain(t.madeTask)
       await waitFor(() => expect(within(card).queryByRole('button', { name: t.toTask })).toBeNull())
       expect(within(card).getByText(t.hasTask)).toBeTruthy()
 

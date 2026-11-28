@@ -15,10 +15,12 @@ const PREVIEW_COUNT = 5
 interface MemoCardProps {
   /** 값이 바뀌면 목록을 다시 읽는다(대화상자에서 메모를 저장했을 때). */
   refreshKey?: number
+  /** 메모 줄을 누르면 그 메모를 메모 화면에서 편집하러 간다. */
+  onOpenMemo?: (id: string) => void
 }
 
 /** 메모: 고정한 것 먼저 최근 5개의 첫 줄 미리보기, 한 줄 빠른 메모 입력. "전체 보기"는 카드 아래 고정 영역(HomeScreen)에 있다. */
-export function MemoCard({ refreshKey = 0 }: MemoCardProps) {
+export function MemoCard({ refreshKey = 0, onOpenMemo }: MemoCardProps) {
   const [memos, setMemos] = useState<Memo[] | null>(null)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<IpcError | null>(null)
@@ -85,7 +87,9 @@ export function MemoCard({ refreshKey = 0 }: MemoCardProps) {
                 <span className="shrink-0 rounded bg-amber-100 px-1.5 text-[11px] font-medium text-amber-700">{ko.memos.pinned}</span>
               )}
               {/* 본문은 글자 그대로(HTML 로 해석하지 않음), 첫 줄만 */}
-              <span className="min-w-0 flex-1 truncate">{memo.body.split('\n')[0]}</span>
+              <button type="button" onClick={() => onOpenMemo?.(memo.id)} className="min-w-0 flex-1 truncate text-left hover:underline">
+                {memo.body.split('\n')[0]}
+              </button>
             </li>
           ))}
         </ul>

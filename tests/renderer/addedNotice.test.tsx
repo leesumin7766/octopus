@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/App'
@@ -132,5 +132,145 @@ describe('ActionNotice', () => {
     expect(onExpire).not.toHaveBeenCalled()
     act(() => void vi.advanceTimersByTime(1))
     expect(onExpire).toHaveBeenCalledTimes(1)
+  })
+})
+
+// F4: 홈에서 눌러서 이어 가기
+describe('continuing from the home screen (F4)', () => {
+  let b: Backend
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 10, 25, 12, 0, 0))
+  })
+
+  afterEach(() => {
+    cleanup()
+    b?.t.db.close()
+    vi.useRealTimers()
+  })
+
+  const detail = (): Promise<HTMLElement> => screen.findByRole('complementary', { name: t.detail.title })
+  const titleOf = (panel: HTMLElement): string => (within(panel).getByLabelText(t.detail.titleField) as HTMLInputElement).value
+
+  it('clicking a home 오늘 할 일 title opens its detail panel (a routine item too); the checkbox still checks', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    b.t.repo.create({ title: '보고서', date: '2026-11-25' })
+    b.routineRepo.create({ title: '아침 스트레칭', days: [0, 1, 2, 3, 4, 5, 6] }, '2026-11-25')
+    render(<App />)
+    const card = await screen.findByRole('region', { name: ko.home.cards.todo })
+    await user.click(await within(card).findByRole('button', { name: '보고서' }))
+    expect(await detail().then(titleOf)).toBe('보고서')
+    expect(screen.getByRole('heading', { level: 1, name: t.views.today })).toBeTruthy()
+  })
+
+  it('a routine item opens the same way', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    b.routineRepo.create({ title: '아침 스트레칭', days: [0, 1, 2, 3, 4, 5, 6] }, '2026-11-25')
+    render(<App />)
+    const card = await screen.findByRole('region', { name: ko.home.cards.todo })
+    await user.click(await within(card).findByRole('button', { name: '아침 스트레칭' }))
+    expect(await detail().then(titleOf)).toBe('아침 스트레칭')
+  })
+
+  it('pressing the title with the keyboard (Enter) opens it too', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    b.t.repo.create({ title: '보고서', date: '2026-11-25' })
+    render(<App />)
+    const card = await screen.findByRole('region', { name: ko.home.cards.todo })
+    const button = await within(card).findByRole('button', { name: '보고서' })
+    button.focus()
+    await user.keyboard('{Enter}')
+    expect(await detail().then(titleOf)).toBe('보고서')
+  })
+
+  it('clicking a home memo opens the memo screen with that memo in edit mode', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    b.memoRepo.create('첫 메모')
+    const target = b.memoRepo.create('찾을 메모\n둘째 줄')
+    render(<App />)
+    const card = await screen.findByRole('region', { name: ko.home.cards.memo })
+    await user.click(await within(card).findByRole('button', { name: '찾을 메모' }))
+
+    const editor = (await screen.findByLabelText(ko.memos.editLabel)) as HTMLTextAreaElement
+    expect(editor.value).toBe('찾을 메모\n둘째 줄')
+    expect(document.querySelector(`[data-memo-id="${target.id}"]`)?.className).toContain('ring-2')
+  })
+
+  it('home memo click asks first when the home input has unsaved text', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    b.memoRepo.create('찾을 메모')
+    b.t.repo.create({ title: '보고서', date: '2026-11-25' })
+    render(<App />)
+    const todo = await screen.findByRole('region', { name: ko.home.cards.todo })
+    await user.type(within(todo).getByLabelText(t.quickInputLabel), '쓰던 글')
+    const card = screen.getByRole('region', { name: ko.home.cards.memo })
+    await user.click(await within(card).findByRole('button', { name: '찾을 메모' }))
+
+    expect(screen.getByText(ko.home.localCalendar.discardTitle)).toBeTruthy()
+    expect(screen.queryByLabelText(ko.memos.editLabel)).toBeNull()
+    await user.click(screen.getByRole('button', { name: ko.home.localCalendar.discardYes }))
+    expect(await screen.findByLabelText(ko.memos.editLabel)).toBeTruthy()
+  })
+
+  it('home task title click asks first when something is unsaved', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    b.t.repo.create({ title: '보고서', date: '2026-11-25' })
+    render(<App />)
+    const card = await screen.findByRole('region', { name: ko.home.cards.todo })
+    await user.type(within(card).getByLabelText(t.quickInputLabel), '쓰던 글')
+    await user.click(await within(card).findByRole('button', { name: '보고서' }))
+    expect(screen.getByText(ko.home.localCalendar.discardTitle)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: ko.home.localCalendar.discardYes }))
+    expect(await detail().then(titleOf)).toBe('보고서')
+  })
+
+  it('memo → 할 일로 만들기 → [보기] opens that task; asks first if a memo is being edited', async () => {
+    const user = userEvent.setup()
+    b = installBackend('home')
+    b.memoRepo.create('치과 예약')
+    b.memoRepo.create('쓰는 중 메모')
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: ko.nav.memos }))
+    const list = await screen.findByRole('region', { name: ko.memos.listLabel })
+    const row = (await within(list).findByText('치과 예약')).closest('li') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: ko.memos.toTask }))
+    expect(await screen.findByText(ko.memos.madeTask)).toBeTruthy()
+
+    // 다른 메모를 고치는 중이면 먼저 묻는다
+    await user.click(within(list).getByRole('button', { name: new RegExp('쓰는 중 메모') }))
+    await user.type(await screen.findByLabelText(ko.memos.editLabel), ' 추가')
+    await user.click(screen.getByRole('button', { name: ko.memos.madeTaskView }))
+    expect(screen.getByText(ko.home.localCalendar.discardTitle)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: ko.home.localCalendar.discardYes }))
+
+    expect(await detail().then(titleOf)).toBe('치과 예약')
+  })
+
+  it('the memo highlight still goes away after 3s when the list reloads in between', async () => {
+    vi.useRealTimers()
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'], shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 10, 25, 12, 0, 0))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    b = installBackend('home')
+    const target = b.memoRepo.create('강조될 메모')
+    render(<App />)
+    const card = await screen.findByRole('region', { name: ko.home.cards.memo })
+    await user.click(await within(card).findByRole('button', { name: '강조될 메모' }))
+    await screen.findByLabelText(ko.memos.editLabel)
+    const row = (): Element | null => document.querySelector(`[data-memo-id="${target.id}"]`)
+    expect(row()?.className).toContain('ring-2')
+
+    const before = b.memos.list.mock.calls.length
+    await act(async () => void fireEvent.focus(window)) // 창 포커스 → 목록 다시 읽기
+    await waitFor(() => expect(b.memos.list.mock.calls.length).toBeGreaterThan(before))
+    await act(async () => void vi.advanceTimersByTime(3500))
+    expect(row()?.className ?? '').not.toContain('ring-2')
   })
 })

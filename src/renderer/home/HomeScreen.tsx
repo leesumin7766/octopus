@@ -73,6 +73,8 @@ interface HomeScreenProps {
   onDayDialogChange?: (open: boolean) => void
   /** 추가 안내의 [보기]: 할 일 하나를 그 보기에서 연다. */
   onOpenTask?: (task: Task) => void
+  /** 메모 줄을 눌렀을 때: 그 메모를 메모 화면에서 편집한다. */
+  onOpenMemo?: (id: string) => void
 }
 
 interface Notice {
@@ -91,7 +93,8 @@ export function HomeScreen({
   pieDemo,
   dayDemo = false,
   onDayDialogChange,
-  onOpenTask
+  onOpenTask,
+  onOpenMemo
 }: HomeScreenProps) {
   const { value: layout, setLocal, persist, saveFailed: layoutSaveFailed, saving: layoutSaving, retry: retryLayout } = useSetting('home.layout')
   const pie = useSetting('pie.slots')
@@ -280,7 +283,7 @@ export function HomeScreen({
           />
         )
       case 'memo':
-        return <MemoCard refreshKey={refreshKey} />
+        return <MemoCard refreshKey={refreshKey} onOpenMemo={onOpenMemo} />
       case 'shortcuts':
         return (
           <ShortcutsCard
