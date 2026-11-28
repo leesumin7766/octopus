@@ -26,7 +26,7 @@ function somedayBlockedReason(task: Task): string | null {
 }
 
 const buttonClass =
-  'rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40'
+  'rounded-md border border-[#dad9d4] bg-white px-2.5 py-1 text-xs font-medium text-[#4a4945] hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40'
 
 export function OverdueSection(props: OverdueSectionProps) {
   const { tasks, today, activeId, pending } = props
@@ -113,7 +113,7 @@ export function OverdueSection(props: OverdueSectionProps) {
                           if (ok) setOpenDateId(null)
                         })
                       }}
-                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+                      className="rounded-md border border-[#dad9d4] bg-white px-2 py-1 text-xs"
                     />
                   )}
                 </div>

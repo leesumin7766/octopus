@@ -26,7 +26,7 @@ interface DetailPanelProps {
 }
 
 const inputClass =
-  'w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
+  'w-full rounded-md border border-[#dad9d4] bg-white px-2.5 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20'
 
 /** 반복 종류: 없음 · 매일 · 평일 · 매주(요일 여러 개) · 매월(일) · 매년 */
 type RepeatKind = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly'
@@ -88,7 +88,7 @@ function finalizeRule(rule: RepeatRule | null, existing: RepeatRule | null, date
 function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: ReactNode }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-xs font-medium text-slate-600">
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-[#5e5d58]">
         {label}
       </label>
       {children}
@@ -226,7 +226,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
     <aside
       aria-label={t.title}
       onKeyDown={handleKeyDown}
-      className="absolute inset-y-0 right-0 z-20 w-80 overflow-y-auto border-l border-slate-200 bg-white p-4 shadow-xl"
+      className="absolute inset-y-0 right-0 z-20 w-80 overflow-y-auto border-l border-line bg-white p-4 shadow-xl"
     >
       <form onSubmit={(event) => void handleSave(event)} className="space-y-3">
         {errors.general && (
@@ -265,7 +265,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
           </Field>
         </div>
 
-        {fromRoutine && <p className="text-xs text-slate-500">{t.routineLocksDate}</p>}
+        {fromRoutine && <p className="text-xs text-[#5e5d58]">{t.routineLocksDate}</p>}
 
         <Field id="task-repeat" label={t.repeat} error={errors.repeat ?? (!fromRoutine ? built.error?.message : undefined)}>
           <select
@@ -281,11 +281,11 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
               </option>
             ))}
           </select>
-          {fromRoutine && <p className="mt-1 text-xs text-slate-500">{R.routineLocked}</p>}
+          {fromRoutine && <p className="mt-1 text-xs text-[#5e5d58]">{R.routineLocked}</p>}
 
           {!fromRoutine && (kind === 'daily' || kind === 'weekly' || kind === 'monthly' || kind === 'yearly') && (
             <div className="mt-2 flex items-center gap-2">
-              <label htmlFor="task-interval" className="shrink-0 text-xs text-slate-600">
+              <label htmlFor="task-interval" className="shrink-0 text-xs text-[#5e5d58]">
                 {R.interval}
               </label>
               <input
@@ -295,9 +295,9 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
                 max={99}
                 value={everyN}
                 onChange={(e) => setEveryN(e.target.value)}
-                className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
+                className="w-20 rounded-md border border-[#dad9d4] bg-white px-2 py-1 text-sm"
               />
-              <span className="text-sm text-slate-700">{R.every[kind]}</span>
+              <span className="text-sm text-[#4a4945]">{R.every[kind]}</span>
             </div>
           )}
 
@@ -311,7 +311,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
                     type="button"
                     aria-pressed={on}
                     onClick={() => toggleWeekday(day)}
-                    className={`size-8 rounded-full border text-xs ${on ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white text-slate-700'}`}
+                    className={`size-8 rounded-full border text-xs ${on ? 'border-accent bg-accent text-white' : 'border-[#dad9d4] bg-white text-[#4a4945]'}`}
                   >
                     {ko.tasks.weekdays[day]}
                   </button>
@@ -322,7 +322,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
 
           {!fromRoutine && kind === 'monthly' && (
             <div className="mt-2 flex items-center gap-2">
-              <label htmlFor="task-month-day" className="shrink-0 text-xs text-slate-600">
+              <label htmlFor="task-month-day" className="shrink-0 text-xs text-[#5e5d58]">
                 {R.monthDayLabel}
               </label>
               <input
@@ -332,12 +332,12 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
                 max={31}
                 value={monthDay}
                 onChange={(e) => setMonthDay(e.target.value)}
-                className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
+                className="w-20 rounded-md border border-[#dad9d4] bg-white px-2 py-1 text-sm"
               />
             </div>
           )}
 
-          {!fromRoutine && repeatPreview && <p className="mt-1 text-xs text-slate-500">{repeatPreview}</p>}
+          {!fromRoutine && repeatPreview && <p className="mt-1 text-xs text-[#5e5d58]">{repeatPreview}</p>}
         </Field>
 
         <Field id="task-priority" label={t.priority} error={errors.priority}>
@@ -369,10 +369,10 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
         </Field>
 
         {linkedMemo && (
-          <section aria-label={t.linkedMemo} className="rounded-md border border-slate-200 bg-slate-50 p-2">
-            <h3 className="mb-1 text-xs font-medium text-slate-500">{t.linkedMemo}</h3>
+          <section aria-label={t.linkedMemo} className="rounded-md border border-line bg-page p-2">
+            <h3 className="mb-1 text-xs font-medium text-[#5e5d58]">{t.linkedMemo}</h3>
             {/* 메모 본문은 HTML 로 해석하지 않고 글자 그대로, 줄바꿈만 보존해 보여 준다. */}
-            <p className="whitespace-pre-wrap break-words text-sm text-slate-700">{linkedMemo.body}</p>
+            <p className="whitespace-pre-wrap break-words text-sm text-[#4a4945]">{linkedMemo.body}</p>
           </section>
         )}
 
@@ -380,14 +380,14 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
           <button
             type="submit"
             disabled={saving}
-            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-strong disabled:opacity-50"
           >
             {t.save}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+            className="rounded-md border border-[#dad9d4] px-3 py-1.5 text-sm text-[#4a4945] hover:bg-black/5"
           >
             {t.close}
           </button>
@@ -396,7 +396,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
               type="button"
               title={t.cancelHelp}
               onClick={() => void onCancel()}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+              className="rounded-md border border-[#dad9d4] px-3 py-1.5 text-sm text-[#4a4945] hover:bg-black/5"
             >
               {t.cancelTask}
             </button>
@@ -406,14 +406,14 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
               type="button"
               disabled={saving}
               onClick={() => void handleSomeday()}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+              className="rounded-md border border-[#dad9d4] px-3 py-1.5 text-sm text-[#4a4945] hover:bg-black/5"
             >
               {t.moveToSomeday}
             </button>
           )}
           {fromRoutine ? (
             // 루틴 항목은 지울 수 없다(지워도 다음에 다시 생김). 루틴 설정에서 끄거나 지운다.
-            <span className="ml-auto text-xs text-slate-500">{t.routineManage}</span>
+            <span className="ml-auto text-xs text-[#5e5d58]">{t.routineManage}</span>
           ) : (
             <button
               type="button"
@@ -424,7 +424,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
             </button>
           )}
         </div>
-        {!fromRoutine && <p className="text-xs text-slate-500">{t.cancelHelp}</p>}
+        {!fromRoutine && <p className="text-xs text-[#5e5d58]">{t.cancelHelp}</p>}
 
         {confirmingRemove && (
           <div role="alertdialog" aria-label={t.confirmRemove} className="rounded-md border border-red-200 bg-red-50 p-3">
@@ -440,7 +440,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
               <button
                 type="button"
                 onClick={() => setConfirmingRemove(false)}
-                className="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700"
+                className="rounded-md border border-[#dad9d4] bg-white px-3 py-1 text-sm text-[#4a4945]"
               >
                 {ko.tasks.detail.cancel}
               </button>

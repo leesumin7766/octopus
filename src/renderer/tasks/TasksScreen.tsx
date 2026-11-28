@@ -366,7 +366,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
 
   function renderDone() {
     if (!lists) return null
-    if (lists.done.length === 0) return <p className="text-sm text-slate-500">{t.empty.done}</p>
+    if (lists.done.length === 0) return <p className="text-sm text-[#5e5d58]">{t.empty.done}</p>
     const doneDay = (task: Task): string => (task.doneAt ? localDateString(new Date(task.doneAt)) : '')
     const doneLabel = (task: Task): string | undefined => (task.doneAt ? t.doneAt(formatClock(task.doneAt)) : undefined)
     return renderGrouped(lists.done, doneDay, doneLabel)
@@ -375,7 +375,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
   /** 안 하기로 함: 안 하기로 한 날짜별로 묶고, 행마다 [다시 열기]. */
   function renderCanceled() {
     if (!lists) return null
-    if (lists.canceled.length === 0) return <p className="text-sm text-slate-500">{t.empty.canceled}</p>
+    if (lists.canceled.length === 0) return <p className="text-sm text-[#5e5d58]">{t.empty.canceled}</p>
     const canceledDay = (task: Task): string => localDateString(new Date(task.updatedAt))
     return groupBy(lists.canceled, canceledDay).map((group) => (
       <section key={group.key} aria-label={dayHeading(group.key, today)}>
@@ -402,11 +402,11 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
   }
 
   function renderContent() {
-    if (!lists) return error ? null : <p className="text-sm text-slate-500">{t.loading}</p>
+    if (!lists) return error ? null : <p className="text-sm text-[#5e5d58]">{t.loading}</p>
 
     if (view === 'today') {
       const { overdue, today: dueToday } = lists.today
-      if (overdue.length === 0 && dueToday.length === 0) return <p className="text-sm text-slate-500">{t.empty.today}</p>
+      if (overdue.length === 0 && dueToday.length === 0) return <p className="text-sm text-[#5e5d58]">{t.empty.today}</p>
       return (
         <>
           {overdue.length > 0 && (
@@ -433,7 +433,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
     }
 
     if (view === 'upcoming') {
-      if (lists.upcoming.length === 0) return <p className="text-sm text-slate-500">{t.empty.upcoming}</p>
+      if (lists.upcoming.length === 0) return <p className="text-sm text-[#5e5d58]">{t.empty.upcoming}</p>
       return renderGrouped(lists.upcoming, (task) => task.date ?? '')
     }
 
@@ -461,7 +461,7 @@ export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceM
     }
 
     const tasks = lists[view]
-    if (tasks.length === 0) return <p className="text-sm text-slate-500">{t.empty[view]}</p>
+    if (tasks.length === 0) return <p className="text-sm text-[#5e5d58]">{t.empty[view]}</p>
     return renderRows(tasks)
   }
 

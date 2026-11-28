@@ -11,18 +11,6 @@
   --color-nav: #dcdcd9;
   --color-line: #e4e3de;
   --color-ink: #1b1b19;
-
-  /* 이미 만든 화면이 쓰는 indigo·slate 도 같은 계열로 맞춘다. */
-  --color-indigo-50: #eef0fb;
-  --color-indigo-100: #dde1f6;
-  --color-indigo-200: #bcc4ec;
-  --color-indigo-400: #7a88dc;
-  --color-indigo-500: #3346c8;
-  --color-indigo-600: #3346c8;
-  --color-indigo-700: #2937a3;
-  --color-slate-50: #f6f6f3;
-  --color-slate-200: #e4e3de;
-  --color-slate-300: #dad9d4;
 }
 
 /* 원형 메뉴가 펼쳐질 때 */

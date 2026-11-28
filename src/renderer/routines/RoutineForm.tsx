@@ -62,7 +62,7 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel, resetOnS
       type="button"
       onClick={() => setDays(set)}
       aria-pressed={same(days, set)}
-      className="rounded-full border border-slate-300 px-2.5 py-0.5 text-xs text-slate-700 hover:bg-slate-100 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50"
+      className="rounded-full border border-[#dad9d4] px-2.5 py-0.5 text-xs text-[#4a4945] hover:bg-black/5 aria-pressed:border-accent aria-pressed:bg-accent-soft"
     >
       {label}
     </button>
@@ -75,7 +75,7 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel, resetOnS
         aria-label={t.nameLabel}
         placeholder={t.namePlaceholder}
         onChange={(event) => setTitle(event.target.value)}
-        className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+        className="w-full rounded-md border border-[#dad9d4] bg-white px-3 py-1.5 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
       />
       {errors.title && (
         <p role="alert" className="text-xs text-red-600">
@@ -91,12 +91,12 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel, resetOnS
             aria-pressed={days.includes(day)}
             aria-label={t.weekdayLong[day]}
             onClick={() => toggleDay(day)}
-            className="size-7 rounded-full border border-slate-300 text-xs text-slate-600 aria-pressed:border-indigo-600 aria-pressed:bg-indigo-600 aria-pressed:text-white"
+            className="size-7 rounded-full border border-[#dad9d4] text-xs text-[#5e5d58] aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-white"
           >
             {t.weekdayNames[day]}
           </button>
         ))}
-        <span className="mx-1 text-slate-300">|</span>
+        <span className="mx-1 text-[#b4b3ad]">|</span>
         {quick(t.everyDay, ALL_DAYS)}
         {quick(t.weekdays, WEEKDAYS)}
       </div>
@@ -115,7 +115,7 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel, resetOnS
         <button
           type="submit"
           disabled={busy}
-          className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-white hover:bg-accent-strong disabled:opacity-50"
         >
           {submitLabel}
         </button>
@@ -123,7 +123,7 @@ export function RoutineForm({ initial, submitLabel, onSubmit, onCancel, resetOnS
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100"
+            className="rounded-md border border-[#dad9d4] px-3 py-1 text-sm text-[#4a4945] hover:bg-black/5"
           >
             {t.cancel}
           </button>

@@ -203,8 +203,8 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
   const searching = query.trim() !== ''
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-slate-50 text-slate-900">
-      <header className="space-y-2 border-b border-slate-200 bg-white px-5 py-3">
+    <div className="flex h-full min-w-0 flex-col bg-page text-ink">
+      <header className="space-y-2 border-b border-line bg-white px-5 py-3">
         <textarea
           value={body}
           rows={3}
@@ -220,7 +220,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
             event.preventDefault()
             void saveNew()
           }}
-          className="w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          className="w-full resize-y rounded-md border border-[#dad9d4] bg-white px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
         {bodyError && (
           <p role="alert" className="text-xs text-red-600">
@@ -233,7 +233,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
             disabled={body.trim() === '' || savingNew}
             onClick={() => void saveNew()}
             title={t.hint}
-            className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
+            className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-white hover:bg-accent-strong disabled:opacity-40"
           >
             {t.save}
           </button>
@@ -244,7 +244,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
             aria-label={t.searchLabel}
             placeholder={t.searchPlaceholder}
             onChange={(event) => setQuery(event.target.value)}
-            className="ml-auto w-56 rounded-md border border-slate-300 bg-white px-3 py-1 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+            className="ml-auto w-56 rounded-md border border-[#dad9d4] bg-white px-3 py-1 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
         </div>
       </header>
@@ -285,16 +285,16 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
 
       <section aria-label={t.listLabel} className="flex-1 overflow-y-auto px-5 py-4">
         {!memos ? (
-          error ? null : <p className="text-sm text-slate-500">{ko.tasks.loading}</p>
+          error ? null : <p className="text-sm text-[#5e5d58]">{ko.tasks.loading}</p>
         ) : memos.length === 0 ? (
-          <p className="text-sm text-slate-500">{searching ? t.noResults : t.empty}</p>
+          <p className="text-sm text-[#5e5d58]">{searching ? t.noResults : t.empty}</p>
         ) : (
           <ul className="space-y-3">
             {memos.map((memo) => (
               <li
                 key={memo.id}
                 data-memo-id={memo.id}
-                className={`group rounded-lg border bg-white p-3 ${memo.pinned ? 'border-amber-300' : 'border-slate-200'} ${highlightId === memo.id ? 'ring-2 ring-accent' : ''}`}
+                className={`group rounded-lg border bg-white p-3 ${memo.pinned ? 'border-amber-300' : 'border-line'} ${highlightId === memo.id ? 'ring-2 ring-accent' : ''}`}
               >
                 {editing?.id === memo.id ? (
                   <div className="space-y-2">
@@ -314,7 +314,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
                           setEditing(null)
                         }
                       }}
-                      className="w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                      className="w-full resize-y rounded-md border border-[#dad9d4] px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                     />
                     {editing.invalid && (
                       <p role="alert" className="text-xs text-red-600">
@@ -326,14 +326,14 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
                         type="button"
                         disabled={savingEdit}
                         onClick={() => void saveEdit()}
-                        className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-40"
+                        className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-white hover:bg-accent-strong disabled:opacity-40"
                       >
                         {t.save}
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditing(null)}
-                        className="rounded-md border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100"
+                        className="rounded-md border border-[#dad9d4] px-3 py-1 text-sm text-[#4a4945] hover:bg-black/5"
                       >
                         {t.cancel}
                       </button>
@@ -356,13 +356,13 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
                       <p className="whitespace-pre-wrap break-words text-sm">{searching ? highlightMatches(memo.body, query) : memo.body}</p>
                     </button>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className="text-slate-400">{t.updated(formatTimestamp(memo.updatedAt))}</span>
+                      <span className="text-[#8a8983]">{t.updated(formatTimestamp(memo.updatedAt))}</span>
                       {/* 동작은 마우스를 올리거나 키보드로 들어갔을 때만 보인다 */}
                       <span className="ml-auto flex flex-wrap gap-1.5 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
                         <button
                           type="button"
                           onClick={() => void mutate(() => api().togglePin(memo.id))}
-                          className="rounded px-2 py-1 text-slate-700 hover:bg-slate-100"
+                          className="rounded px-2 py-1 text-[#4a4945] hover:bg-black/5"
                         >
                           {memo.pinned ? t.unpin : t.pin}
                         </button>
@@ -370,7 +370,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
                           <button
                             type="button"
                             onClick={() => void makeTask(memo)}
-                            className="rounded px-2 py-1 text-indigo-700 hover:bg-indigo-50"
+                            className="rounded px-2 py-1 text-accent-strong hover:bg-accent-soft"
                           >
                             {t.toTask}
                           </button>
@@ -404,7 +404,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
                           <button
                             type="button"
                             onClick={() => setConfirmingId(null)}
-                            className="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700"
+                            className="rounded-md border border-[#dad9d4] bg-white px-3 py-1 text-sm text-[#4a4945]"
                           >
                             {t.cancel}
                           </button>
