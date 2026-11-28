@@ -322,12 +322,11 @@ describe('app shell (left menu)', () => {
 
       const panel = await screen.findByRole('complementary', { name: ko.tasks.detail.title })
       expect((within(panel).getByLabelText(ko.tasks.detail.date) as HTMLInputElement).disabled).toBe(true)
-      expect((within(panel).getByLabelText(ko.tasks.detail.bucket) as HTMLSelectElement).disabled).toBe(true)
       expect(within(panel).getByText(ko.tasks.detail.routineLocksDate)).toBeTruthy()
       expect(within(panel).queryByRole('button', { name: ko.tasks.detail.remove })).toBeNull()
     })
 
-    it('an ordinary task keeps its date and bucket editable', async () => {
+    it('an ordinary task keeps its date editable', async () => {
       const user = userEvent.setup()
       const backend = prepare('today')
       backend.t.repo.create({ title: '일반 할 일', date: TODAY })
@@ -337,7 +336,6 @@ describe('app shell (left menu)', () => {
 
       const panel = await screen.findByRole('complementary', { name: ko.tasks.detail.title })
       expect((within(panel).getByLabelText(ko.tasks.detail.date) as HTMLInputElement).disabled).toBe(false)
-      expect((within(panel).getByLabelText(ko.tasks.detail.bucket) as HTMLSelectElement).disabled).toBe(false)
     })
 
     it('shows the memo a task was made from, as plain text', async () => {

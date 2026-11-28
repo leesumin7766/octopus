@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { notifyDataChanged } from '../../src/renderer/dataEvents'
 import { ko } from '../../src/renderer/i18n/ko'
 import { TasksScreen } from '../../src/renderer/tasks/TasksScreen'
-import type { RepeatRule } from '../../src/shared/tasks/types'
+import type { RepeatRule, Task } from '../../src/shared/tasks/types'
 import { installBackend, type Backend } from './backend'
 
 const t = ko.tasks
@@ -376,44 +376,77 @@ describe('tasks screen', () => {
       expect(b.t.repo.listView('today', '2026-03-10').today[0].title).toBe('제목 비울 일')
     })
 
-    it('shows the date message when the bucket and date do not fit', async () => {
+    const saveBtn = (): HTMLElement => within(panel()).getByRole('button', { name: t.detail.save })
+    const bucketOf = (title: string): string | undefined =>
+      (['inbox', 'upcoming', 'someday'] as const).map((v) => b.t.repo.listView(v, '2026-03-10')).flatMap((r) => Object.values(r).flat() as Task[]).find((x) => x.title === title)?.bucket
+
+    it('has no 보관함 field', async () => {
       const user = userEvent.setup()
-      b.t.repo.create({ title: '보관함 바꿀 일' })
+      b.t.repo.create({ title: '칸 없는 일' })
       renderScreen()
       await goTo(user, 'inbox')
-      await openPanel(user, '보관함 바꿀 일')
-
-      fireEvent.change(within(panel()).getByLabelText(t.detail.bucket), { target: { value: 'scheduled' } })
-      await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
-
-      const message = await within(panel()).findByText(t.fieldErrors.date)
-      expect(message.closest('div')?.querySelector('#task-date')).not.toBeNull()
+      await openPanel(user, '칸 없는 일')
+      expect(panel().querySelector('#task-bucket')).toBeNull()
     })
 
-    it('setting a date moves the bucket to 예정, clearing it goes back to 수신함', async () => {
+    it('saving with a date makes it 예정; clearing the date saves to 수신함 without an error', async () => {
       const user = userEvent.setup()
       b.t.repo.create({ title: '날짜 붙일 일' })
       renderScreen()
       await goTo(user, 'inbox')
       await openPanel(user, '날짜 붙일 일')
-      const bucket = within(panel()).getByLabelText(t.detail.bucket) as HTMLSelectElement
-      const date = within(panel()).getByLabelText(t.detail.date)
 
-      fireEvent.change(date, { target: { value: '2026-03-20' } })
-      expect(bucket.value).toBe('scheduled')
+      fireEvent.change(within(panel()).getByLabelText(t.detail.date), { target: { value: '2026-03-20' } })
+      await user.click(saveBtn())
+      await waitFor(() => expect(bucketOf('날짜 붙일 일')).toBe('scheduled'))
 
-      fireEvent.change(date, { target: { value: '' } })
-      expect(bucket.value).toBe('inbox')
+      await goTo(user, 'upcoming')
+      await openPanel(user, '날짜 붙일 일')
+      fireEvent.change(within(panel()).getByLabelText(t.detail.date), { target: { value: '' } })
+      await user.click(saveBtn())
+      await waitFor(() => expect(bucketOf('날짜 붙일 일')).toBe('inbox'))
+      expect(screen.queryByText(t.fieldErrors.date)).toBeNull()
     })
 
-    it('a repeating task has a locked bucket and shows its repeat', async () => {
+    it('[나중에로] clears date and time and saves as 나중에; hidden once already 나중에', async () => {
+      const user = userEvent.setup()
+      b.t.repo.create({ title: '미룰 일', date: '2026-03-12', time: '09:00' })
+      renderScreen()
+      await goTo(user, 'upcoming')
+      await openPanel(user, '미룰 일')
+      await user.click(within(panel()).getByRole('button', { name: t.detail.moveToSomeday }))
+      await waitFor(() => expect(bucketOf('미룰 일')).toBe('someday'))
+
+      await goTo(user, 'someday')
+      await openPanel(user, '미룰 일')
+      expect(within(panel()).queryByRole('button', { name: t.detail.moveToSomeday })).toBeNull()
+    })
+
+    it('editing only the title of a 나중에 task keeps it 나중에; adding a date makes it 예정', async () => {
+      const user = userEvent.setup()
+      const created = b.t.repo.create({ title: '언젠가 일' })
+      b.t.repo.moveToSomeday([created.id])
+      renderScreen()
+      await goTo(user, 'someday')
+      await openPanel(user, '언젠가 일')
+      await user.type(within(panel()).getByLabelText(t.detail.titleField), '!')
+      await user.click(saveBtn())
+      await waitFor(() => expect(bucketOf('언젠가 일!')).toBe('someday'))
+
+      await goTo(user, 'someday')
+      await openPanel(user, '언젠가 일!')
+      fireEvent.change(within(panel()).getByLabelText(t.detail.date), { target: { value: '2026-03-25' } })
+      await user.click(saveBtn())
+      await waitFor(() => expect(bucketOf('언젠가 일!')).toBe('scheduled'))
+    })
+
+    it('a repeating task shows its repeat and has no [나중에로]', async () => {
       const user = userEvent.setup()
       b.t.repo.create({ title: '반복 일', date: '2026-03-10', repeat: WEEKLY_MONDAY })
       renderScreen()
       await openPanel(user, '반복 일')
 
-      expect((within(panel()).getByLabelText(t.detail.bucket) as HTMLSelectElement).disabled).toBe(true)
-      expect(within(panel()).getByText(t.detail.repeatLocksBucket)).toBeTruthy()
+      expect(within(panel()).queryByRole('button', { name: t.detail.moveToSomeday })).toBeNull()
       expect((within(panel()).getByLabelText(t.detail.repeat) as HTMLSelectElement).value).toBe('weekly')
       expect(within(panel()).getByRole('button', { name: '월', pressed: true })).toBeTruthy()
     })

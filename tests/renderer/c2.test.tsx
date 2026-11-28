@@ -373,7 +373,7 @@ describe('C2 routines, Google navigation guard and routines screen', () => {
     await user.click(await within(dialog).findByRole('button', { name: m.editButton('아침 스트레칭') }))
     const editor = within(dialog).getByRole('complementary', { name: ko.tasks.detail.title })
     expect((editor.querySelector('#task-date') as HTMLInputElement).disabled).toBe(true)
-    expect((editor.querySelector('#task-bucket') as HTMLSelectElement).disabled).toBe(true)
+    expect(editor.querySelector('#task-bucket')).toBeNull()
   })
 
   it('C2-10: when Google is not connected the day detail has no Google section or connect button (connecting is on the Arms screen)', async () => {

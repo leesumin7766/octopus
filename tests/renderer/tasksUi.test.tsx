@@ -217,15 +217,13 @@ describe('tasks screen: list grouping, cancel/undo and repeat editing', () => {
       expect(b.t.repo.get(task.id)?.repeat).toEqual({ freq: 'daily', interval: 1 })
     })
 
-    it('choosing 없음 removes the repeat and unlocks the bucket', async () => {
+    it('choosing 없음 removes the repeat', async () => {
       const user = userEvent.setup()
       const task = b.t.repo.create({ title: '반복 끄기', date: '2026-03-10', repeat: { freq: 'daily', interval: 1 } })
       renderScreen()
       await openPanel(user, '반복 끄기')
-      expect((within(panel()).getByLabelText(t.detail.bucket) as HTMLSelectElement).disabled).toBe(true)
 
       fireEvent.change(within(panel()).getByLabelText(t.detail.repeat), { target: { value: 'none' } })
-      expect((within(panel()).getByLabelText(t.detail.bucket) as HTMLSelectElement).disabled).toBe(false)
       await user.click(within(panel()).getByRole('button', { name: t.detail.save }))
 
       await waitFor(() => expect(b.t.repo.get(task.id)?.repeat).toBeNull())

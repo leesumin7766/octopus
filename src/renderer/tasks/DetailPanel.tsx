@@ -104,7 +104,6 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
 export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedMemo, onDirtyChange }: DetailPanelProps) {
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes)
-  const [bucket, setBucket] = useState<TaskBucket>(task.bucket)
   const [date, setDate] = useState(task.date ?? '')
   const [time, setTime] = useState(task.time ?? '')
   const [deadline, setDeadline] = useState(task.deadline ?? '')
@@ -127,7 +126,6 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
   const dirty =
     title !== task.title ||
     notes !== task.notes ||
-    bucket !== task.bucket ||
     date !== (task.date ?? '') ||
     time !== (task.time ?? '') ||
     deadline !== (task.deadline ?? '') ||
@@ -139,29 +137,42 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
     onDirtyChange?.(dirty)
   }, [dirty, onDirtyChange])
 
-  // 루틴 항목은 그날 날짜에 묶여 있어서 날짜·보관함·반복을 바꿀 수 없다.
+  // 루틴 항목은 그날 날짜에 묶여 있어서 날짜·반복을 바꿀 수 없다.
   const fromRoutine = task.routineId !== null
   const built = buildRule(kind, everyN, weekdays, monthDay)
-  // 반복을 켜면 보관함은 예정(날짜 필요)으로 고정된다.
   const repeating = kind !== 'none'
 
-  // 날짜를 넣으면 예정, 날짜를 지우면 수신함으로 맞춰 준다(보관함과 날짜는 서로 맞아야 저장된다).
-  function changeDate(value: string): void {
-    setDate(value)
-    if (value !== '' && bucket !== 'scheduled') setBucket('scheduled')
-    if (value === '' && bucket === 'scheduled') setBucket('inbox')
-  }
-
-  function changeBucket(value: TaskBucket): void {
-    setBucket(value)
-    if (value !== 'scheduled') {
-      setDate('')
-      setTime('')
-    }
+  // 보관함은 사용자가 고르지 않는다: 반복·날짜가 있으면 예정, 없으면 수신함. 이미 '나중에'면 날짜를 넣지 않는 한 그대로 둔다.
+  function bucketFor(hasRepeat: boolean, hasDate: boolean): TaskBucket {
+    if (hasRepeat || hasDate) return 'scheduled'
+    return task.bucket === 'someday' ? 'someday' : 'inbox'
   }
 
   function toggleWeekday(day: number): void {
     setWeekdays((current) => (current.includes(day) ? current.filter((d) => d !== day) : [...current, day]))
+  }
+
+  // [나중에로]: 날짜·시각을 비우고 '나중에'로 저장한다.
+  async function handleSomeday(): Promise<void> {
+    if (saving) return
+    setSaving(true)
+    try {
+      const result = await onSave({
+        title,
+        notes,
+        bucket: 'someday',
+        date: null,
+        time: null,
+        deadline: deadline === '' ? null : deadline,
+        priority: Number(priority) as TaskPriority,
+        project: project.trim() === '' ? null : project.trim(),
+        tags: splitTags(tags),
+        repeat: null
+      })
+      if (!result.ok && result.error.code === 'invalid_input') setErrors(fieldErrorsFrom(result.error.fields))
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleSave(event: FormEvent): Promise<void> {
@@ -180,7 +191,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
     if (wantsRepeat && date === '') setDate(effectiveDate)
     // 새로 만들거나 바꾼 반복은 이 날짜를 기준일로 삼는다(매년이면 그 월·일도 규칙에 넣는다). 그대로 둔 반복은 기준일도 그대로.
     const repeatRule = fromRoutine ? task.repeat : finalizeRule(built.rule, task.repeat, effectiveDate)
-    const effectiveBucket: TaskBucket = repeatRule !== null ? 'scheduled' : bucket
+    const effectiveBucket = bucketFor(repeatRule !== null, effectiveDate !== '')
 
     setSaving(true)
     try {
@@ -238,24 +249,6 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
           />
         </Field>
 
-        <Field id="task-bucket" label={t.bucket} error={errors.bucket}>
-          <select
-            id="task-bucket"
-            value={bucket}
-            disabled={repeating || fromRoutine}
-            onChange={(e) => changeBucket(e.target.value as TaskBucket)}
-            className={inputClass}
-          >
-            {(['inbox', 'scheduled', 'someday'] as const).map((name) => (
-              <option key={name} value={name}>
-                {t.buckets[name]}
-              </option>
-            ))}
-          </select>
-          {repeating && !fromRoutine && <p className="mt-1 text-xs text-slate-500">{t.repeatLocksBucket}</p>}
-          {fromRoutine && <p className="mt-1 text-xs text-slate-500">{t.routineLocksDate}</p>}
-        </Field>
-
         <div className="grid grid-cols-2 gap-2">
           <Field id="task-date" label={t.date} error={errors.date}>
             <input
@@ -263,7 +256,7 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
               type="date"
               value={date}
               disabled={fromRoutine}
-              onChange={(e) => changeDate(e.target.value)}
+              onChange={(e) => setDate(e.target.value)}
               className={inputClass}
             />
           </Field>
@@ -271,6 +264,8 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
             <input id="task-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} />
           </Field>
         </div>
+
+        {fromRoutine && <p className="text-xs text-slate-500">{t.routineLocksDate}</p>}
 
         <Field id="task-repeat" label={t.repeat} error={errors.repeat ?? (!fromRoutine ? built.error?.message : undefined)}>
           <select
@@ -404,6 +399,16 @@ export function DetailPanel({ task, onSave, onRemove, onCancel, onClose, linkedM
               className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
             >
               {t.cancelTask}
+            </button>
+          )}
+          {!fromRoutine && !repeating && task.bucket !== 'someday' && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void handleSomeday()}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              {t.moveToSomeday}
             </button>
           )}
           {fromRoutine ? (
