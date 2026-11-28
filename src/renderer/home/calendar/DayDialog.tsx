@@ -1,8 +1,9 @@
-import { useEffect, useId, useImperativeHandle, useRef, useState, type FormEvent, type KeyboardEvent, type Ref } from 'react'
+import { useEffect, useId, useImperativeHandle, useRef, useState, type KeyboardEvent, type Ref, type RefObject } from 'react'
 import { groupDayTasks } from '../../../shared/calendar/day'
 import type { CalendarEvent, CalendarToday } from '../../../shared/calendar/types'
 import type { IpcResult } from '../../../shared/ipc'
 import { addDays } from '../../../shared/tasks/dates'
+import type { QuickParseOptions } from '../../../shared/tasks/quickParse'
 import type { Task, TaskFields } from '../../../shared/tasks/types'
 import { notifyDataChanged } from '../../dataEvents'
 import { ko } from '../../i18n/ko'
@@ -10,6 +11,7 @@ import { useLeaveGuard } from '../../leaveGuard'
 import { safeInvoke } from '../../safeInvoke'
 import { DetailPanel } from '../../tasks/DetailPanel'
 import { errorMessage } from '../../tasks/errors'
+import { QuickInput } from '../../tasks/QuickInput'
 import { Checkbox } from '../../ui/Checkbox'
 import { Icon } from '../../ui/Icon'
 import { formatDayTitle } from './format'
@@ -18,6 +20,8 @@ import { useTasksInRange } from './useTasksInRange'
 const t = ko.home.dialogs
 const c = ko.home.calendar
 const m = ko.home.localCalendar
+
+const PREVIEW_DEBOUNCE_MS = 250
 
 const FOCUSABLE =
   'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -75,9 +79,10 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
   const { state, retry } = useTasksInRange(date, date, `${refreshKey}|${today}`)
 
   // 추가 입력
-  const [draftTitle, setDraftTitle] = useState('')
-  const [draftTime, setDraftTime] = useState('')
-  const draftRef = useRef({ title: '', time: '' })
+  // 입력칸(QuickInput)이 글·시각을 들고 있다. 여기서는 쓰던 내용이 있는지만 안다. resetKey 를 바꾸면 입력칸이 비워진다.
+  const [addDirty, setAddDirty] = useState(false)
+  const [resetKey, setResetKey] = useState(0)
+  const addInputRef = useRef<HTMLInputElement>(null)
   const [addStatus, setAddStatus] = useState<'idle' | 'saving' | 'failed' | 'saved'>('idle')
   const [addError, setAddError] = useState<string | null>(null)
   const addInFlight = useRef(false)
@@ -98,7 +103,6 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
   const [notice, setNotice] = useState<string | null>(null)
 
   const busy = addStatus === 'saving' || editSaving
-  const addDirty = draftTitle.trim() !== '' || draftTime !== ''
   const dirty = addDirty || (editingId !== null && editDirty)
   // 작성 중이거나 편집 중인 내용이 있으면 화면을 옮기기 전에 묻는다.
   useLeaveGuard(dirty)
@@ -127,10 +131,9 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
     }
   }, [editingId, state])
 
-  function setDraft(title: string, time: string): void {
-    draftRef.current = { title, time }
-    setDraftTitle(title)
-    setDraftTime(time)
+  function clearDraft(): void {
+    setResetKey((key) => key + 1)
+    setAddDirty(false)
   }
 
   function moveTo(next: string): void {
@@ -184,32 +187,29 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
   /** 확인에서 "버리기": 잃는 내용만 지운 뒤 나간다. 편집만 닫는 경우에는 추가 입력을 지우지 않는다. */
   function discardAndLeave(next: Leave): void {
     setLeaving(null)
-    if (next.kind !== 'leaveEdit' && next.kind !== 'edit') setDraft('', '')
+    if (next.kind !== 'leaveEdit' && next.kind !== 'edit') clearDraft()
     setEditDirty(false)
     perform(next)
   }
 
-  async function addTask(event?: FormEvent): Promise<void> {
-    event?.preventDefault()
-    const title = draftRef.current.title.trim()
-    if (title === '' || addInFlight.current || busy) return
+  /** 입력칸의 추가. true 를 돌려주면 입력칸이 비워진다. 실패하면 입력은 그대로 둔다. */
+  async function addTask(text: string, options?: QuickParseOptions): Promise<boolean> {
+    if (text.trim() === '' || addInFlight.current || busy) return false
     addInFlight.current = true
-    const day = date // 저장 날짜는 누른 순간의 선택 날짜로 고정한다
-    const time = draftRef.current.time
+    const day = date // 저장 날짜는 누른 순간의 선택 날짜로 고정한다(문장에 날짜가 있으면 문장이 이긴다)
     setAddStatus('saving')
     setAddError(null)
-    const result = await safeInvoke(() => window.octopus.tasks.create({ title, date: day, time: time === '' ? null : time, bucket: 'scheduled' }))
+    const result = await safeInvoke(() => window.octopus.tasks.quickAdd(text, { ...options, defaultDate: day }))
     addInFlight.current = false
-    if (!mounted.current) return
+    if (!mounted.current) return false
     if (result.ok) {
       setAddStatus('saved')
-      // 저장하는 동안 적은 내용이 바뀌었으면 그 내용은 남긴다.
-      if (draftRef.current.title.trim() === title && draftRef.current.time === time) setDraft('', '')
       notifyDataChanged()
-    } else {
-      setAddStatus('failed')
-      setAddError(m.addFailed)
+      return true
     }
+    setAddStatus('failed')
+    setAddError(m.addFailed)
+    return false
   }
 
   async function toggle(task: Task): Promise<void> {
@@ -342,6 +342,21 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
             </div>
           )}
 
+          <div hidden={editing !== undefined}>
+            <AddForm
+              inputRef={addInputRef}
+              date={date}
+              resetKey={resetKey}
+              status={addStatus}
+              error={addError}
+              onDirtyChange={setAddDirty}
+              onSubmit={addTask}
+              onEdited={() => {
+                if (addStatus !== 'saving') setAddStatus('idle')
+              }}
+            />
+          </div>
+
           {editing !== undefined ? (
             <div className="flex flex-col gap-2">
               {editError && (
@@ -361,20 +376,6 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
             </div>
           ) : (
             <>
-              <AddForm
-                date={date}
-                today={today}
-                title={draftTitle}
-                time={draftTime}
-                status={addStatus}
-                error={addError}
-                onTitle={(value) => {
-                  setDraft(value, draftRef.current.time)
-                  if (addStatus !== 'saving') setAddStatus('idle')
-                }}
-                onTime={(value) => setDraft(draftRef.current.title, value)}
-                onSubmit={() => void addTask()}
-              />
               {notice && (
                 <p role="status" className="mb-2 text-sm text-accent-strong">
                   {notice}
@@ -427,64 +428,43 @@ export function DayDialog({ startDate, onDateChange, today, now, calendar, refre
 }
 
 function AddForm({
+  inputRef,
   date,
-  today,
-  title,
-  time,
+  resetKey,
   status,
   error,
-  onTitle,
-  onTime,
-  onSubmit
+  onDirtyChange,
+  onSubmit,
+  onEdited
 }: {
+  inputRef: RefObject<HTMLInputElement | null>
   date: string
-  today: string
-  title: string
-  time: string
+  resetKey: number
   status: 'idle' | 'saving' | 'failed' | 'saved'
   error: string | null
-  onTitle: (value: string) => void
-  onTime: (value: string) => void
-  onSubmit: () => void
+  onDirtyChange: (dirty: boolean) => void
+  onSubmit: (text: string, options?: QuickParseOptions) => Promise<boolean>
+  onEdited: () => void
 }) {
-  const empty = title.trim() === ''
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit()
-      }}
-      className="mb-4 flex flex-col gap-2 border-b border-line pb-4"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          aria-label={m.addLabel}
-          placeholder={m.addPlaceholder}
-          value={title}
-          onChange={(event) => onTitle(event.target.value)}
-          className="min-w-[10rem] flex-1 rounded-lg border border-line px-2.5 py-1.5 text-sm outline-none focus:border-accent"
-        />
-        <input
-          type="time"
-          aria-label={m.addTimeLabel}
-          value={time}
-          onChange={(event) => onTime(event.target.value)}
-          className="rounded-lg border border-line px-2 py-1.5 text-sm outline-none focus:border-accent"
-        />
-        <button
-          type="submit"
-          disabled={empty || status === 'saving'}
-          className="min-h-8 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-50"
-        >
-          {m.addButton}
-        </button>
-      </div>
+    <div className="mb-4 flex flex-col gap-2 border-b border-line pb-4" onChange={onEdited}>
+      <QuickInput
+        key={resetKey}
+        inputRef={inputRef}
+        debounceMs={PREVIEW_DEBOUNCE_MS}
+        placeholder={m.addPlaceholder}
+        label={m.addLabel}
+        defaultDate={date}
+        showTimeField
+        onDirtyChange={onDirtyChange}
+        onSubmit={onSubmit}
+      />
       {status === 'failed' && error && (
         <p role="alert" className="text-sm text-[#7d2a21]">
           {error}
         </p>
       )}
-    </form>
+    </div>
   )
 }
 

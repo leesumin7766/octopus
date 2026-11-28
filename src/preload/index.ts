@@ -14,7 +14,8 @@ const api: OctopusApi = {
     list: (view) => ipcRenderer.invoke(IPC.tasksList, view),
     listRange: (from, to) => ipcRenderer.invoke(IPC.tasksListRange, from, to),
     listCanceled: () => ipcRenderer.invoke(IPC.tasksListCanceled),
-    quickAdd: (text) => ipcRenderer.invoke(IPC.tasksQuickAdd, text),
+    quickAdd: (text, options) =>
+      options === undefined ? ipcRenderer.invoke(IPC.tasksQuickAdd, text) : ipcRenderer.invoke(IPC.tasksQuickAdd, text, options),
     create: (input) => ipcRenderer.invoke(IPC.tasksCreate, input),
     update: (id, patch) => ipcRenderer.invoke(IPC.tasksUpdate, id, patch),
     setStatus: (id, status) => ipcRenderer.invoke(IPC.tasksSetStatus, id, status),
@@ -23,7 +24,8 @@ const api: OctopusApi = {
     moveToToday: (ids) => ipcRenderer.invoke(IPC.tasksMoveToToday, ids),
     moveToSomeday: (ids) => ipcRenderer.invoke(IPC.tasksMoveToSomeday, ids),
     reschedule: (ids, date) => ipcRenderer.invoke(IPC.tasksReschedule, ids, date),
-    parsePreview: (text) => ipcRenderer.invoke(IPC.tasksParsePreview, text)
+    parsePreview: (text, options) =>
+      options === undefined ? ipcRenderer.invoke(IPC.tasksParsePreview, text) : ipcRenderer.invoke(IPC.tasksParsePreview, text, options)
   },
   routines: {
     list: () => ipcRenderer.invoke(IPC.routinesList),

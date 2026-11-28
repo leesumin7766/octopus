@@ -12,6 +12,15 @@ export interface QuickParseResult {
   priority: TaskPriority
   repeat: RepeatRule | null
   bucket: 'inbox' | 'scheduled'
+  /** 날짜가 어디서 왔는지: 문장 / 호출한 쪽이 준 기본 날짜 / 날짜 없음 */
+  dateFrom: 'text' | 'default' | null
+}
+
+export interface QuickParseOptions {
+  /** 문장에 날짜가 없을 때 쓸 날짜(YYYY-MM-DD) */
+  defaultDate?: string
+  /** 문장에 시각이 없을 때 쓸 시각(HH:MM) */
+  defaultTime?: string
 }
 
 type Kind = 'date' | 'time' | 'project' | 'priority' | 'repeat'
@@ -214,8 +223,9 @@ function matchPriority(tokens: string[], i: number): Match | null {
  * - 알아본 낱말은 제목에서 빼고, 같은 종류가 또 나오면 첫 번째만 쓰고 나머지는 제목에 남긴다.
  * - 제목이 비면 원문 전체를 제목으로 쓴다(날짜 등은 그대로 적용).
  * - today 는 YYYY-MM-DD. 시계를 읽지 않는 순수 함수다.
+ * - options.defaultDate·defaultTime 은 문장에 날짜·시각이 없을 때만 쓴다(문장이 이긴다).
  */
-export function parseQuickInput(text: string, today: string): QuickParseResult {
+export function parseQuickInput(text: string, today: string, options?: QuickParseOptions): QuickParseResult {
   const original = text.trim()
   const tokens = original === '' ? [] : original.split(/\s+/)
 
@@ -248,10 +258,18 @@ export function parseQuickInput(text: string, today: string): QuickParseResult {
     i += match.consumed
   }
 
+  const defaultDate = options?.defaultDate ?? null
+  const time = state.time ?? options?.defaultTime ?? null
   let date = state.date
+  let dateFrom: QuickParseResult['dateFrom'] = date === null ? null : 'text'
   if (date === null) {
-    if (state.repeat) date = firstOccurrence(state.repeat, today)
-    else if (state.time) date = today
+    if (state.repeat) {
+      date = firstOccurrence(state.repeat, defaultDate ?? today)
+      dateFrom = defaultDate !== null && date === defaultDate ? 'default' : null
+    } else if (defaultDate !== null) {
+      date = defaultDate
+      dateFrom = 'default'
+    } else if (time) date = today
   }
 
   // 날짜 없이 "매월" 만 쓴 경우: 정해진 날짜의 일을 매월 날짜로 삼는다(31일이 짧은 달에 밀려도 돌아오도록).
@@ -265,10 +283,11 @@ export function parseQuickInput(text: string, today: string): QuickParseResult {
   return {
     title: titleWords.length > 0 ? titleWords.join(' ') : original,
     date,
-    time: state.time,
+    time,
     project: state.project,
     priority: state.priority,
     repeat,
-    bucket: date === null ? 'inbox' : 'scheduled'
+    bucket: date === null ? 'inbox' : 'scheduled',
+    dateFrom
   }
 }

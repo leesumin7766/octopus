@@ -5,6 +5,8 @@ import {
   type TaskStatus,
   type TaskView
 } from '../tasks/types'
+import type { QuickParseOptions } from '../tasks/quickParse'
+import { isValidDateString } from './task'
 
 // 렌더러에서 IPC 로 들어오는 값을 사용 전에 검사한다. 입력은 타입을 믿을 수 없다.
 
@@ -74,4 +76,19 @@ export function parseTaskInput(value: unknown): Parsed<TaskInput> {
 export function parseTaskPatch(value: unknown): Parsed<Partial<TaskFields>> {
   if (!isPlainObject(value) || !hasOnlyKnownFields(value)) return bad('patch')
   return good(value as Partial<TaskFields>)
+}
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** 빠른 입력의 기본값. 없으면 undefined. 모르는 필드나 틀린 형식은 거부한다. */
+export function parseQuickOptions(value: unknown): Parsed<QuickParseOptions | undefined> {
+  if (value === undefined) return good(undefined)
+  if (!isPlainObject(value) || !Object.keys(value).every((key) => key === 'defaultDate' || key === 'defaultTime')) return bad('options')
+  const { defaultDate, defaultTime } = value
+  if (defaultDate !== undefined && !isValidDateString(defaultDate)) return bad('defaultDate')
+  if (defaultTime !== undefined && !(typeof defaultTime === 'string' && TIME_PATTERN.test(defaultTime))) return bad('defaultTime')
+  return good({
+    ...(defaultDate !== undefined ? { defaultDate } : {}),
+    ...(defaultTime !== undefined ? { defaultTime: defaultTime as string } : {})
+  })
 }

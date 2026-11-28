@@ -57,22 +57,54 @@ describe('C2 day actions', () => {
   const addButton = (dialog: HTMLElement): HTMLElement => within(dialog).getByRole('button', { name: m.addButton })
 
   describe('adding (C2-01, C2-02, C2-03)', () => {
-    it('C2-01: adds one task on the selected day with that exact date; the title is not read for dates', async () => {
+    it('C2-01: adds one task on the selected day with the time field; the day is the one open', async () => {
       const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
-      await user.type(titleField(dialog), '내일 회의')
+      await user.type(titleField(dialog), '회의')
       fireEvent.change(within(dialog).getByLabelText(m.addTimeLabel), { target: { value: '10:30' } })
       await user.click(addButton(dialog))
 
-      await waitFor(() => expect(rowsIn(T1)).toContain('내일 회의'))
-      expect(rowsIn(T2)).not.toContain('내일 회의')
-      const saved = b.t.repo.listRange(T1, T1).find((x) => x.title === '내일 회의')
+      await waitFor(() => expect(rowsIn(T1)).toContain('회의'))
+      const saved = b.t.repo.listRange(T1, T1).find((x) => x.title === '회의')
       expect(saved?.date).toBe(T1)
       expect(saved?.time).toBe('10:30')
-      expect(b.tasks.create).toHaveBeenCalledWith(expect.objectContaining({ title: '내일 회의', date: T1 }))
+      expect(b.tasks.quickAdd).toHaveBeenCalledWith('회의', { defaultDate: T1, defaultTime: '10:30' })
       // 따로 "추가했어요" 문구 없이, 입력칸이 비고 목록에 바로 나타난다
-      expect(await within(dialog).findByText('내일 회의')).toBeTruthy()
+      expect(await within(dialog).findByText('회의')).toBeTruthy()
       expect(titleField(dialog).value).toBe('')
       expect(within(dialog).queryByText(m.addSaved)).toBeNull()
+    })
+
+    it('F1: "3시 회의" on a day becomes 15:00 on that day', async () => {
+      const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
+      await user.type(titleField(dialog), '3시 회의')
+      await user.click(addButton(dialog))
+      await waitFor(() => expect(rowsIn(T1)).toContain('회의'))
+      expect(b.t.repo.listRange(T1, T1).find((x) => x.title === '회의')?.time).toBe('15:00')
+    })
+
+    it('F1: "모레 회의" shows the date from the text in the preview and is saved for that date', async () => {
+      const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
+      await user.type(titleField(dialog), '모레 회의')
+      expect(await within(dialog).findByText(ko.tasks.chip.fromText('11/26 (목)'))).toBeTruthy()
+      await user.click(addButton(dialog))
+      await waitFor(() => expect(rowsIn(T2)).toContain('회의'))
+      expect(rowsIn(T1)).not.toContain('회의')
+    })
+
+    it('F1: a plain title shows "이 날짜"; the time field is the default but the sentence time wins', async () => {
+      const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
+      fireEvent.change(within(dialog).getByLabelText(m.addTimeLabel), { target: { value: '10:00' } })
+      await user.type(titleField(dialog), '점검')
+      expect(await within(dialog).findByText(ko.tasks.chip.thisDate)).toBeTruthy()
+      await user.click(addButton(dialog))
+      await waitFor(() => expect(rowsIn(T1)).toContain('점검'))
+      expect(b.t.repo.listRange(T1, T1).find((x) => x.title === '점검')?.time).toBe('10:00')
+
+      fireEvent.change(within(dialog).getByLabelText(m.addTimeLabel), { target: { value: '10:00' } })
+      await user.type(titleField(dialog), '3시 보고')
+      await user.click(addButton(dialog))
+      await waitFor(() => expect(rowsIn(T1)).toContain('보고'))
+      expect(b.t.repo.listRange(T1, T1).find((x) => x.title === '보고')?.time).toBe('15:00')
     })
 
     it('C2-01: the month count and the day list agree with the saved task', async () => {
@@ -85,18 +117,18 @@ describe('C2 day actions', () => {
 
     it('C2-02: pressing add twice (and Enter) while saving creates one task only', async () => {
       const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
-      const real = b.tasks.create.getMockImplementation()!
+      const real = b.tasks.quickAdd.getMockImplementation()!
       let release!: () => void
       const gate = new Promise<void>((resolve) => (release = resolve))
-      b.tasks.create.mockImplementationOnce(async (input: unknown) => {
+      b.tasks.quickAdd.mockImplementationOnce(async (text: unknown, options?: unknown) => {
         await gate
-        return real(input as never)
+        return real(text as never, options as never)
       })
       await user.type(titleField(dialog), '중복 검사')
       await user.click(addButton(dialog))
       await user.click(addButton(dialog))
       await user.type(titleField(dialog), '{Enter}')
-      expect(b.tasks.create).toHaveBeenCalledTimes(1)
+      expect(b.tasks.quickAdd).toHaveBeenCalledTimes(1)
 
       await act(async () => release())
       await waitFor(() => expect(rowsIn(T1).filter((t) => t === '중복 검사')).toHaveLength(1))
@@ -104,7 +136,7 @@ describe('C2 day actions', () => {
 
     it('C2-03: a failed save keeps the text, says so, and a retry saves it once', async () => {
       const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
-      b.tasks.create.mockResolvedValueOnce({ ok: false, error: { code: 'internal' } })
+      b.tasks.quickAdd.mockResolvedValueOnce({ ok: false, error: { code: 'internal' } })
       await user.type(titleField(dialog), '재시도 대상')
       await user.click(addButton(dialog))
 
@@ -163,7 +195,7 @@ describe('C2 day actions', () => {
 
     it('after a failed save, closing still asks first instead of closing silently', async () => {
       const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
-      b.tasks.create.mockResolvedValueOnce({ ok: false, error: { code: 'internal' } })
+      b.tasks.quickAdd.mockResolvedValueOnce({ ok: false, error: { code: 'internal' } })
       await user.type(titleField(dialog), '실패 뒤 닫기')
       await user.click(addButton(dialog))
       await within(dialog).findByRole('alert')
@@ -174,11 +206,11 @@ describe('C2 day actions', () => {
 
     it('while a save is running the day cannot be moved', async () => {
       const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
-      const real = b.tasks.create.getMockImplementation()!
+      const real = b.tasks.quickAdd.getMockImplementation()!
       let release!: () => void
-      b.tasks.create.mockImplementationOnce(async (input: unknown) => {
+      b.tasks.quickAdd.mockImplementationOnce(async (text: unknown, options?: unknown) => {
         await new Promise<void>((resolve) => (release = resolve))
-        return real(input as never)
+        return real(text as never, options as never)
       })
       await user.type(titleField(dialog), '저장 중 이동')
       await user.click(addButton(dialog))
@@ -318,11 +350,11 @@ describe('C2 day actions', () => {
       await user.type(screen.getByLabelText(ko.home.memo.quickLabel), '메모 초안')
       await user.click(cell(T))
       const dialog = await dialogFor('2026년 11월 24일 (화) · 오늘')
-      await user.type(titleField(dialog), '오늘 추가');
+      await user.type(titleField(dialog), '카드 확인');
       await user.click(addButton(dialog))
-      await waitFor(() => expect(rowsIn(T)).toContain('오늘 추가'))
+      await waitFor(() => expect(rowsIn(T)).toContain('카드 확인'))
       await user.keyboard('{Escape}')
-      expect(screen.getByRole('region', { name: ko.home.cards.todo }).textContent).toContain('오늘 추가')
+      expect(screen.getByRole('region', { name: ko.home.cards.todo }).textContent).toContain('카드 확인')
       expect((screen.getByLabelText(ko.home.memo.quickLabel) as HTMLTextAreaElement).value).toBe('메모 초안')
     })
 

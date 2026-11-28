@@ -409,8 +409,11 @@ export const ko = {
       time: '시각',
       project: '프로젝트',
       priority: '우선순위',
-      repeat: '반복'
+      repeat: '반복',
+      thisDate: '이 날짜',
+      fromText: (date: string) => `${date}(문장)`
     },
+    timeFieldLabel: '시각(선택)',
 
     loading: '불러오는 중이에요…',
     listLabel: '할 일 목록',

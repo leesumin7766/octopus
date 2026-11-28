@@ -6,6 +6,7 @@ import { dateRangeIssues } from '../../shared/validation/task'
 import {
   parseId,
   parseIds,
+  parseQuickOptions,
   parseStatus,
   parseTaskInput,
   parseTaskPatch,
@@ -33,7 +34,7 @@ export interface TaskHandlers {
   list(view: unknown): IpcResult<TodayView | Task[]>
   listRange(from: unknown, to: unknown): IpcResult<Task[]>
   listCanceled(): IpcResult<Task[]>
-  quickAdd(text: unknown): IpcResult<Task>
+  quickAdd(text: unknown, options?: unknown): IpcResult<Task>
   create(input: unknown): IpcResult<Task>
   update(id: unknown, patch: unknown): IpcResult<Task>
   setStatus(id: unknown, status: unknown): IpcResult<Task>
@@ -42,7 +43,7 @@ export interface TaskHandlers {
   moveToToday(ids: unknown): IpcResult<Task[]>
   moveToSomeday(ids: unknown): IpcResult<Task[]>
   reschedule(ids: unknown, date: unknown): IpcResult<Task[]>
-  parsePreview(text: unknown): IpcResult<QuickParseResult>
+  parsePreview(text: unknown, options?: unknown): IpcResult<QuickParseResult>
 }
 
 export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
@@ -80,11 +81,13 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
       return withRepository(IPC.tasksListCanceled, (repo) => repo.listCanceled())
     },
 
-    quickAdd(text) {
+    quickAdd(text, options) {
       const parsed = parseText(text)
       if (!parsed.ok) return invalidInput(parsed.field)
+      const opts = parseQuickOptions(options)
+      if (!opts.ok) return invalidInput(opts.field)
       return withRepository(IPC.tasksQuickAdd, (repo) => {
-        const p = parseQuickInput(parsed.value, today())
+        const p = parseQuickInput(parsed.value, today(), opts.value)
         return repo.create({
           title: p.title,
           date: p.date,
@@ -156,11 +159,13 @@ export function createTaskHandlers(deps: TaskHandlerDeps): TaskHandlers {
       return withRepository(IPC.tasksReschedule, (repo) => repo.reschedule(parsed.value, date as string))
     },
 
-    parsePreview(text) {
+    parsePreview(text, options) {
       const parsed = parseText(text)
       if (!parsed.ok) return invalidInput(parsed.field)
+      const opts = parseQuickOptions(options)
+      if (!opts.ok) return invalidInput(opts.field)
       // 저장하지 않으므로 DB 가 없어도 동작한다.
-      return guarded(IPC.tasksParsePreview, () => parseQuickInput(parsed.value, today()))
+      return guarded(IPC.tasksParsePreview, () => parseQuickInput(parsed.value, today(), opts.value))
     }
   }
 }
@@ -170,7 +175,7 @@ export function registerTaskHandlers(ipc: IpcMainLike, handlers: TaskHandlers): 
   ipc.handle(IPC.tasksList, (_event, view) => handlers.list(view))
   ipc.handle(IPC.tasksListRange, (_event, from, to) => handlers.listRange(from, to))
   ipc.handle(IPC.tasksListCanceled, () => handlers.listCanceled())
-  ipc.handle(IPC.tasksQuickAdd, (_event, text) => handlers.quickAdd(text))
+  ipc.handle(IPC.tasksQuickAdd, (_event, text, options) => handlers.quickAdd(text, options))
   ipc.handle(IPC.tasksCreate, (_event, input) => handlers.create(input))
   ipc.handle(IPC.tasksUpdate, (_event, id, patch) => handlers.update(id, patch))
   ipc.handle(IPC.tasksSetStatus, (_event, id, status) => handlers.setStatus(id, status))
@@ -179,5 +184,5 @@ export function registerTaskHandlers(ipc: IpcMainLike, handlers: TaskHandlers): 
   ipc.handle(IPC.tasksMoveToToday, (_event, ids) => handlers.moveToToday(ids))
   ipc.handle(IPC.tasksMoveToSomeday, (_event, ids) => handlers.moveToSomeday(ids))
   ipc.handle(IPC.tasksReschedule, (_event, ids, date) => handlers.reschedule(ids, date))
-  ipc.handle(IPC.tasksParsePreview, (_event, text) => handlers.parsePreview(text))
+  ipc.handle(IPC.tasksParsePreview, (_event, text, options) => handlers.parsePreview(text, options))
 }

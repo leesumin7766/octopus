@@ -18,7 +18,8 @@ describe('parseQuickInput', () => {
         project: null,
         priority: 0,
         repeat: null,
-        bucket: 'inbox'
+        bucket: 'inbox',
+        dateFrom: null
       })
     })
 
@@ -193,7 +194,8 @@ describe('parseQuickInput', () => {
         project: null,
         priority: 0,
         repeat: { freq: 'daily', interval: 1, anchor: '2026-11-22' }, // 새 반복의 기준일은 그 할 일의 날짜
-        bucket: 'scheduled'
+        bucket: 'scheduled',
+        dateFrom: null
       })
     })
 
@@ -308,7 +310,8 @@ describe('parseQuickInput', () => {
         project: '업무',
         priority: 3,
         repeat: null,
-        bucket: 'scheduled'
+        bucket: 'scheduled',
+        dateFrom: 'text'
       })
     })
 
@@ -324,7 +327,8 @@ describe('parseQuickInput', () => {
         project: '팀',
         priority: 0,
         repeat: { freq: 'weekly', interval: 1, byWeekday: [1], anchor: '2026-11-23' },
-        bucket: 'scheduled'
+        bucket: 'scheduled',
+        dateFrom: null
       })
     })
   })

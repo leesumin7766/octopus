@@ -79,11 +79,11 @@ describe('calendar screen', () => {
     const day = await panel('2026년 11월 28일 (토)')
     expect(cell('2026-11-28').getAttribute('aria-pressed')).toBe('true')
 
-    await user.type(within(day).getByLabelText(m.addLabel), '토요일 장보기{Enter}')
+    await user.type(within(day).getByLabelText(m.addLabel), '장보기{Enter}')
     await waitFor(() => expect(cell('2026-11-28').getAttribute('aria-label')).toContain(m.dayCount(1, 0)))
-    expect(b.t.repo.listRange('2026-11-28', '2026-11-28').map((task) => task.title)).toEqual(['토요일 장보기'])
+    expect(b.t.repo.listRange('2026-11-28', '2026-11-28').map((task) => task.title)).toEqual(['장보기'])
     expect(cell('2026-11-28').getAttribute('aria-pressed')).toBe('true')
-    expect(within(await panel('2026년 11월 28일 (토)')).getByText('토요일 장보기')).toBeTruthy()
+    expect(within(await panel('2026년 11월 28일 (토)')).getByText('장보기')).toBeTruthy()
   })
 
   it('with a draft typed, clicking another day asks first and keeps the draft when you keep writing', async () => {

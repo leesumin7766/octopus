@@ -136,6 +136,18 @@ describe('task IPC handlers', () => {
       expect(data(handlers.quickAdd('우유 사기'))).toMatchObject({ title: '우유 사기', bucket: 'inbox', date: null })
     })
 
+    it('quickAdd / parsePreview use defaultDate and defaultTime; bad options are invalid_input', () => {
+      const { handlers } = s()
+      const added = data(handlers.quickAdd('회의', { defaultDate: '2026-03-20', defaultTime: '10:00' }))
+      expect(added).toMatchObject({ title: '회의', date: '2026-03-20', time: '10:00', bucket: 'scheduled' })
+      expect(data(handlers.parsePreview('3시 회의', { defaultDate: '2026-03-20', defaultTime: '10:00' }))).toMatchObject({ date: '2026-03-20', time: '15:00', dateFrom: 'default' })
+
+      for (const bad of [{ defaultDate: '2026-13-01' }, { defaultTime: '9:00' }, { extra: 1 }, 'x']) {
+        expect(handlers.quickAdd('회의', bad)).toMatchObject({ ok: false, error: { code: 'invalid_input' } })
+        expect(handlers.parsePreview('회의', bad)).toMatchObject({ ok: false, error: { code: 'invalid_input' } })
+      }
+    })
+
     it('parsePreview returns the parse result without saving anything', () => {
       const { t, handlers } = s()
 
@@ -146,7 +158,8 @@ describe('task IPC handlers', () => {
         project: null,
         priority: 1,
         repeat: null,
-        bucket: 'scheduled'
+        bucket: 'scheduled',
+        dateFrom: 'text'
       })
       expect(t.db.prepare('SELECT COUNT(*) AS n FROM tasks').get()).toEqual({ n: 0 })
     })

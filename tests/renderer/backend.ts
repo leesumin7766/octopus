@@ -351,7 +351,7 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
 
   const tasks = {
     list: vi.fn(async (view: unknown) => taskHandlers.list(view)),
-    quickAdd: vi.fn(async (text: unknown) => taskHandlers.quickAdd(text)),
+    quickAdd: vi.fn(async (text: unknown, options?: unknown) => taskHandlers.quickAdd(text, options)),
     create: vi.fn(async (input: unknown) => taskHandlers.create(input)),
     update: vi.fn(async (id: unknown, patch: unknown) => taskHandlers.update(id, patch)),
     setStatus: vi.fn(async (id: unknown, status: unknown) => taskHandlers.setStatus(id, status)),
@@ -362,7 +362,7 @@ export function installBackend(initialView: OctopusApi['initialView'] = null): B
     reschedule: vi.fn(async (ids: unknown, date: unknown) => taskHandlers.reschedule(ids, date)),
     listRange: vi.fn(async (from: unknown, to: unknown) => taskHandlers.listRange(from, to)),
     listCanceled: vi.fn(async () => taskHandlers.listCanceled()),
-    parsePreview: vi.fn(async (text: unknown) => taskHandlers.parsePreview(text))
+    parsePreview: vi.fn(async (text: unknown, options?: unknown) => taskHandlers.parsePreview(text, options))
   } as unknown as TaskSpies
 
   const routines = {
