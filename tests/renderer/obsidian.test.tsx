@@ -205,7 +205,8 @@ describe('Obsidian settings screen', () => {
 
       b.obsidianConfirm.mockResolvedValueOnce(false)
       await user.click(button)
-      expect(b.obsidianConfirm).toHaveBeenCalledWith({ path: join(b.vault, '.gitignore'), line: IGNORE_LINE })
+      // 누른 뒤 확인 요청까지 비동기 단계가 있어, 부하가 큰 전체 실행에서는 바로 보면 아직 안 불렸을 수 있다.
+      await waitFor(() => expect(b.obsidianConfirm).toHaveBeenCalledWith({ path: join(b.vault, '.gitignore'), line: IGNORE_LINE }))
       expect(existsSync(join(b.vault, '.gitignore'))).toBe(false) // 거부하면 아무것도 쓰지 않는다
 
       const again = (): HTMLButtonElement => within(section).getByRole('button', { name: t.gitAdd(IGNORE_LINE) }) as HTMLButtonElement
