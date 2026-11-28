@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { IpcError, IpcResult } from '../../shared/ipc'
 import type { Memo } from '../../shared/memos/types'
 import type { Task } from '../../shared/tasks/types'
@@ -13,6 +13,7 @@ import { highlightMatches } from './highlight'
 import { leftoverAfterSave } from './leftoverAfterSave'
 import { safeInvoke } from '../safeInvoke'
 import { ActionNotice } from '../ui/ActionNotice'
+import { MultilineInput } from '../ui/MultilineInput'
 
 const t = ko.memos
 
@@ -30,11 +31,6 @@ interface MemosScreenProps {
   onOpenTask?: (task: Task) => void
   /** 검색어 입력을 멈춘 뒤 검색하기까지의 대기 시간 */
   searchDebounceMs?: number
-}
-
-/** Ctrl(또는 Cmd)+Enter, 단 한글 조합 중에는 제외 */
-function isSaveShortcut(event: KeyboardEvent): boolean {
-  return event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing
 }
 
 export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: MemosScreenProps) {
@@ -205,38 +201,19 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
   return (
     <div className="flex h-full min-w-0 flex-col bg-page text-ink">
       <header className="space-y-2 border-b border-line bg-white px-5 py-3">
-        <textarea
+        <MultilineInput
           value={body}
-          rows={3}
-          maxLength={MAX_MEMO_LENGTH}
-          aria-label={t.newLabel}
-          placeholder={t.newPlaceholder}
-          onChange={(event) => {
-            setBody(event.target.value)
+          onChange={(value) => {
+            setBody(value)
             setBodyError(false)
           }}
-          onKeyDown={(event) => {
-            if (!isSaveShortcut(event)) return
-            event.preventDefault()
-            void saveNew()
-          }}
-          className="w-full resize-y rounded-md border border-[#dad9d4] bg-white px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-        />
-        {bodyError && (
-          <p role="alert" className="text-xs text-red-600">
-            {t.fieldErrors.body}
-          </p>
-        )}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            disabled={body.trim() === '' || savingNew}
-            onClick={() => void saveNew()}
-            title={t.hint}
-            className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-white hover:bg-accent-strong disabled:opacity-40"
-          >
-            {t.save}
-          </button>
+          onSave={() => void saveNew()}
+          label={t.newLabel}
+          placeholder={t.newPlaceholder}
+          maxLength={MAX_MEMO_LENGTH}
+          error={bodyError ? t.fieldErrors.body : null}
+          saveDisabled={body.trim() === '' || savingNew}
+        >
           <input
             type="search"
             value={query}
@@ -246,7 +223,7 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
             onChange={(event) => setQuery(event.target.value)}
             className="ml-auto w-56 rounded-md border border-[#dad9d4] bg-white px-3 py-1 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
-        </div>
+        </MultilineInput>
       </header>
 
       {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
@@ -297,48 +274,26 @@ export function MemosScreen({ focus, onOpenTask, searchDebounceMs = 250 }: Memos
                 className={`group rounded-lg border bg-white p-3 ${memo.pinned ? 'border-amber-300' : 'border-line'} ${highlightId === memo.id ? 'ring-2 ring-accent' : ''}`}
               >
                 {editing?.id === memo.id ? (
-                  <div className="space-y-2">
-                    <textarea
-                      autoFocus
-                      value={editing.text}
-                      rows={5}
-                      maxLength={MAX_MEMO_LENGTH}
-                      aria-label={t.editLabel}
-                      onChange={(event) => setEditing({ id: memo.id, text: event.target.value, invalid: false })}
-                      onKeyDown={(event) => {
-                        if (isSaveShortcut(event)) {
-                          event.preventDefault()
-                          void saveEdit()
-                        } else if (event.key === 'Escape') {
-                          event.preventDefault()
-                          setEditing(null)
-                        }
-                      }}
-                      className="w-full resize-y rounded-md border border-[#dad9d4] px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                    />
-                    {editing.invalid && (
-                      <p role="alert" className="text-xs text-red-600">
-                        {t.fieldErrors.body}
-                      </p>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={savingEdit}
-                        onClick={() => void saveEdit()}
-                        className="rounded-md bg-accent px-3 py-1 text-sm font-medium text-white hover:bg-accent-strong disabled:opacity-40"
-                      >
-                        {t.save}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditing(null)}
-                        className="rounded-md border border-[#dad9d4] px-3 py-1 text-sm text-[#4a4945] hover:bg-black/5"
-                      >
-                        {t.cancel}
-                      </button>
-                    </div>
-                  </div>
+                  <MultilineInput
+                    autoFocus
+                    value={editing.text}
+                    onChange={(value) => setEditing({ id: memo.id, text: value, invalid: false })}
+                    onSave={() => void saveEdit()}
+                    onEscape={() => setEditing(null)}
+                    label={t.editLabel}
+                    rows={5}
+                    maxLength={MAX_MEMO_LENGTH}
+                    error={editing.invalid ? t.fieldErrors.body : null}
+                    saveDisabled={savingEdit}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setEditing(null)}
+                      className="min-h-9 rounded-lg border border-[#dad9d4] px-3 text-sm text-[#4a4945] hover:bg-black/5"
+                    >
+                      {t.cancel}
+                    </button>
+                  </MultilineInput>
                 ) : (
                   <>
                     {memo.pinned && (

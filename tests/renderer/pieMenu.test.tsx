@@ -503,7 +503,7 @@ describe('pie menu', () => {
       fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true, isComposing: true })
 
       expect(backend.memos.create).not.toHaveBeenCalled()
-      expect((within(memo).getByRole('button', { name: ko.home.dialogs.save }) as HTMLButtonElement).disabled).toBe(false)
+      expect((within(memo).getByRole('button', { name: ko.multiline.save }) as HTMLButtonElement).disabled).toBe(false)
     })
 
     it('Esc, the close button and a click on the backdrop close a dialog', async () => {

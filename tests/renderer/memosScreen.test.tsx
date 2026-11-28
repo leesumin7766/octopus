@@ -74,7 +74,7 @@ describe('memos screen', () => {
       const user = userEvent.setup()
       renderScreen()
       await screen.findByText(t.empty)
-      const save = screen.getAllByRole('button', { name: t.save })[0] as HTMLButtonElement
+      const save = screen.getAllByRole('button', { name: ko.multiline.save })[0] as HTMLButtonElement
       expect(save.disabled).toBe(true)
 
       await user.type(input(), '   ')

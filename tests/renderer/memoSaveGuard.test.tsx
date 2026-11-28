@@ -104,7 +104,7 @@ describe('save guard: memos screen', () => {
     await screen.findByLabelText(t.newLabel)
   }
   const input = (): HTMLTextAreaElement => screen.getByLabelText(t.newLabel) as HTMLTextAreaElement
-  const saveButton = (): HTMLButtonElement => screen.getByRole('button', { name: t.save }) as HTMLButtonElement
+  const saveButton = (): HTMLButtonElement => screen.getByRole('button', { name: ko.multiline.save }) as HTMLButtonElement
   const ctrlEnter = (el: HTMLElement): void => {
     fireEvent.keyDown(el, { key: 'Enter', ctrlKey: true })
   }
@@ -163,7 +163,7 @@ describe('save guard: memos screen', () => {
 
     ctrlEnter(editBox)
     ctrlEnter(editBox)
-    fireEvent.click(within(screen.getByRole('listitem')).getByRole('button', { name: t.save }))
+    fireEvent.click(within(screen.getByRole('listitem')).getByRole('button', { name: ko.multiline.save }))
     expect(b.memos.update).toHaveBeenCalledTimes(1)
     expect(b.memos.update).toHaveBeenCalledWith(memo.id, '기존 글 고침')
 
@@ -186,7 +186,7 @@ describe('save guard: memo quick dialog', () => {
   })
 
   const box = (): HTMLTextAreaElement => screen.getByLabelText(dialog.memoLabel) as HTMLTextAreaElement
-  const saveButton = (): HTMLButtonElement => screen.getByRole('button', { name: dialog.save }) as HTMLButtonElement
+  const saveButton = (): HTMLButtonElement => screen.getByRole('button', { name: ko.multiline.save }) as HTMLButtonElement
   const ctrlEnter = (el: HTMLElement): void => {
     fireEvent.keyDown(el, { key: 'Enter', ctrlKey: true })
   }

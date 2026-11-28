@@ -243,8 +243,7 @@ export const ko = {
       memoTitle: '메모 추가',
       close: '닫기',
       memoLabel: '메모 내용',
-      memoPlaceholder: '메모를 적고 Ctrl+Enter 로 저장하세요.',
-      save: '저장',
+      memoPlaceholder: '메모를 적어 주세요',
       taskAdded: '할 일을 추가했어요.',
       memoSaved: '메모를 저장했어요.'
     },
@@ -318,11 +317,15 @@ export const ko = {
     }
   },
 
+  // 여러 줄 입력 공통(메모 화면·원형 메뉴의 메모 추가)
+  multiline: {
+    save: '저장',
+    keyHint: 'Enter 줄바꿈 · Ctrl+Enter 저장'
+  },
+
   memos: {
     newLabel: '새 메모',
-    newPlaceholder: '메모 (Ctrl+Enter 로 저장)',
-    hint: 'Ctrl+Enter 로 저장',
-    save: '저장',
+    newPlaceholder: '메모를 적어 주세요',
     searchLabel: '메모 검색',
     searchPlaceholder: '메모 검색',
     listLabel: '메모 목록',

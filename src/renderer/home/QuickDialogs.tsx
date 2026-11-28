@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { IpcError } from '../../shared/ipc'
 import { MAX_MEMO_LENGTH } from '../../shared/validation/memo'
 import { ko } from '../i18n/ko'
 import { errorMessage } from '../tasks/errors'
 import { safeInvoke } from '../safeInvoke'
 import { QuickInput } from '../tasks/QuickInput'
+import { MultilineInput } from '../ui/MultilineInput'
 import { leftoverAfterSave } from '../memos/leftoverAfterSave'
 
 const t = ko.home.dialogs
@@ -103,7 +104,7 @@ interface MemoQuickDialogProps {
   onSaved: (remaining: string) => void
 }
 
-/** 원형 메뉴의 "메모": 작은 대화상자에서 메모 쓰기(Ctrl+Enter 로 저장). */
+/** 원형 메뉴의 "메모 추가": 작은 대화상자에서 메모 추가(여러 줄 입력: Ctrl+Enter 로 저장). */
 export function MemoQuickDialog({ onClose, onSaved }: MemoQuickDialogProps) {
   const [body, setBody] = useState('')
   const [error, setError] = useState<IpcError | null>(null)
@@ -146,41 +147,20 @@ export function MemoQuickDialog({ onClose, onSaved }: MemoQuickDialogProps) {
     onSaved(remaining)
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
-    // 한글 입력 중에는 글자를 확정하는 Enter 라서 저장하지 않는다.
-    if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || event.nativeEvent.isComposing) return
-    event.preventDefault()
-    void save()
-  }
-
   return (
     <DialogShell label={t.memoTitle} onClose={onClose}>
-      <textarea
+      <MultilineInput
         autoFocus
         rows={4}
         value={body}
-        maxLength={MAX_MEMO_LENGTH}
-        aria-label={t.memoLabel}
+        onChange={setBody}
+        onSave={() => void save()}
+        label={t.memoLabel}
         placeholder={t.memoPlaceholder}
-        onChange={(event) => setBody(event.target.value)}
-        onKeyDown={handleKeyDown}
-        className="w-full resize-y rounded-lg border border-[#dad9d4] px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+        maxLength={MAX_MEMO_LENGTH}
+        error={error ? errorMessage(error) : null}
+        saveDisabled={body.trim() === '' || saving}
       />
-      {error && (
-        <p role="alert" className="text-xs text-red-700">
-          {errorMessage(error)}
-        </p>
-      )}
-      <div>
-        <button
-          type="button"
-          disabled={body.trim() === '' || saving}
-          onClick={() => void save()}
-          className="min-h-9 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong disabled:opacity-40"
-        >
-          {t.save}
-        </button>
-      </div>
     </DialogShell>
   )
 }
