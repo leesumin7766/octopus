@@ -19,6 +19,8 @@ async function browse(port: number, pathAndQuery: string, headers: Record<string
       return await browseOnce(port, pathAndQuery, headers)
     } catch (error) {
       if (attempt >= 6 || (error as NodeJS.ErrnoException).code !== 'EFAULT') throw error
+      // 전체 실행처럼 부하가 클 때 바로 다시 하면 연달아 거절되므로 조금씩 더 기다린다(canConnect 와 같은 방식).
+      await new Promise((r) => setTimeout(r, 20 * (attempt + 1)))
     }
   }
 }
