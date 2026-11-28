@@ -8,10 +8,12 @@ import { ErrorBanner } from '../ErrorBanner'
 import { useDataChanged } from '../dataEvents'
 import { useLeaveGuard, UnsavedStrip } from '../leaveGuard'
 import { safeInvoke } from '../safeInvoke'
+import { ActionNotice, NOTICE_MS } from '../ui/ActionNotice'
+import { viewOf } from '../../shared/tasks/viewOf'
 import { ko } from '../i18n/ko'
 import { CandidatesSection } from './CandidatesSection'
 import { DetailPanel } from './DetailPanel'
-import { dayHeading, formatClock, formatHomeDate, msUntilNextMidnight, todayString } from './format'
+import { addedMessage, dayHeading, formatClock, formatHomeDate, msUntilNextMidnight, todayString } from './format'
 import { OverdueSection } from './OverdueSection'
 import { QuickInput } from './QuickInput'
 import { Sidebar } from './Sidebar'
@@ -20,7 +22,7 @@ import { TaskRow } from './TaskRow'
 const t = ko.tasks
 
 /** 되돌리기 알림이 떠 있는 시간(ms) */
-const UNDO_MS = 6000
+const UNDO_MS = NOTICE_MS
 
 interface Lists {
   inbox: Task[]
@@ -97,7 +99,16 @@ const api = (): TasksApi => window.octopus.tasks
 
 const GROUP_HEADING = 'mb-1 mt-2 text-[13px] font-semibold text-[#4A4945]'
 
+/** 어떤 할 일을 찾아 연다: 보기를 바꾸고 그 할 일을 선택한다. nonce 가 바뀔 때마다 한 번씩 처리한다. */
+export interface TasksFocus {
+  taskId: string
+  view: TaskView
+  nonce: number
+}
+
 interface TasksScreenProps {
+  /** 다른 화면의 [보기]에서 온 요청 */
+  focus?: TasksFocus
   /** 처음 보여 줄 보기(기본 오늘) */
   initialView?: TaskView
   /** 완료 체크 뒤 목록에서 사라지기까지 흐려지는 시간 */
@@ -108,8 +119,8 @@ interface TasksScreenProps {
   openFirst?: boolean
 }
 
-export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250, openFirst = false }: TasksScreenProps) {
-  const [view, setView] = useState<TaskView>(initialView ?? 'today')
+export function TasksScreen({ focus, initialView, fadeMs = 350, previewDebounceMs = 250, openFirst = false }: TasksScreenProps) {
+  const [view, setView] = useState<TaskView>(focus?.view ?? initialView ?? 'today')
   const [lists, setLists] = useState<Lists | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -117,6 +128,8 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
   const [dayTick, setDayTick] = useState(0)
   const [linkedMemo, setLinkedMemo] = useState<Memo | null>(null)
   const [undo, setUndo] = useState<Undo | null>(null)
+  /** 지금 보기에 안 나오는 곳으로 추가된 할 일의 안내 */
+  const [added, setAdded] = useState<Task | null>(null)
   /** 완료 보기 안에서 끝낸 것을 볼지, 안 하기로 한 것을 볼지 */
   const [doneFilter, setDoneFilter] = useState<'done' | 'canceled'>('done')
   /** 상세 패널에서 저장하지 않은 고침이 있는지(패널이 알려 준다). */
@@ -220,6 +233,16 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     else move()
   }
 
+  // 다른 화면의 [보기]: 요청마다 한 번 보기를 바꾸고 그 할 일을 선택한다.
+  const handledFocus = useRef<number | null>(null)
+  useEffect(() => {
+    if (!focus || handledFocus.current === focus.nonce) return
+    handledFocus.current = focus.nonce
+    setView(focus.view)
+    requestSelect(focus.taskId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus])
+
   function fail(failure: IpcError): void {
     setError(failure)
     if (failure.code === 'not_found') void refresh()
@@ -227,6 +250,7 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
 
   /** 되돌리기 알림을 띄운다. 몇 초 뒤 저절로 사라진다. */
   function showUndo(next: Undo): void {
+    setAdded(null)
     setUndo(next)
     window.clearTimeout(undoTimer.current)
     undoTimer.current = window.setTimeout(() => setUndo(null), UNDO_MS)
@@ -289,7 +313,18 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
     }
     setError(null)
     await refresh()
+    if (mounted.current && viewOf(result.data, todayString()) !== view) {
+      window.clearTimeout(undoTimer.current)
+      setUndo(null)
+      setAdded(result.data)
+    } else setAdded(null)
     return true
+  }
+
+  /** 그 할 일이 보이는 보기로 바꾸고 선택한다(쓰던 상세 편집이 있으면 먼저 묻는다). */
+  function openTask(task: Task): void {
+    setView(viewOf(task, todayString()))
+    requestSelect(task.id)
   }
 
   async function moveTasks(run: () => Promise<IpcResult<Task[]>>): Promise<boolean> {
@@ -506,6 +541,21 @@ export function TasksScreen({ initialView, fadeMs = 350, previewDebounceMs = 250
           {view === 'inbox' && <CandidatesSection onChanged={() => void refresh()} />}
           {renderContent()}
         </section>
+
+        {added && (
+          <ActionNotice
+            key={added.id}
+            message={addedMessage(added, today)}
+            actionLabel={t.added.view}
+            onAction={() => {
+              const task = added
+              setAdded(null)
+              openTask(task)
+            }}
+            onExpire={() => setAdded(null)}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 !rounded-[10px] !px-4 !py-3 !text-sm"
+          />
+        )}
 
         {undo && (
           <div role="status" className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-[10px] bg-[#1f1f1d] px-4 py-3 text-sm text-[#f6f6f3]">

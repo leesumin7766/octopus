@@ -402,6 +402,12 @@ export const ko = {
       button: '되돌리기',
       dismiss: '닫기'
     },
+    added: {
+      inbox: '수신함에 추가했어요',
+      someday: '나중에 보기에 추가했어요',
+      on: (date: string) => `${date} 일정으로 추가했어요`,
+      view: '보기'
+    },
     quickInputPlaceholder: '할 일 추가 · 예: 내일 3시 보고서 #업무 !높음',
     previewLabel: '인식한 내용',
     chip: {

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { TaskView } from '../shared/tasks/types'
+import { useEffect, useRef, useState } from 'react'
+import type { Task, TaskView } from '../shared/tasks/types'
 import { CommandDialog } from './command/CommandDialog'
 import { useModelStatus } from './command/useModelStatus'
 import { HomeScreen } from './home/HomeScreen'
@@ -15,7 +15,9 @@ import { ObsidianScreen } from './arms/ObsidianScreen'
 import { RoutinesScreen } from './routines/RoutinesScreen'
 import { SettingsScreen } from './settings/SettingsScreen'
 import { useSetting } from './settings/useSetting'
-import { TasksScreen } from './tasks/TasksScreen'
+import { TasksScreen, type TasksFocus } from './tasks/TasksScreen'
+import { todayString } from './tasks/format'
+import { viewOf } from '../shared/tasks/viewOf'
 import { useNarrowWindow } from './layout/useNarrowWindow'
 
 type InitialView = NonNullable<typeof window.octopus.initialView>
@@ -53,7 +55,10 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
   const models = useModelStatus()
   const [commandOpen, setCommandOpen] = useState(initial === 'command' || initial === 'command-nokey' || initial === 'command-streaming')
   // 화면을 옮기려는데 쓰던 내용이 있으면 먼저 묻는다. 값은 옮길 화면.
-  const [leaveAsk, setLeaveAsk] = useState<Screen | null>(null)
+  const [leaveAsk, setLeaveAsk] = useState<{ screen: Screen; focus: TasksFocus | null } | null>(null)
+  // 다른 화면에서 할 일 하나를 찾아 열라는 요청(할 일 화면이 받는다)
+  const [focus, setFocus] = useState<TasksFocus | null>(null)
+  const focusSeq = useRef(0)
 
   // 날짜 상세(큰 대화상자)가 열려 있는지. 열려 있으면 지시하기 단축키를 무시해 모달이 겹치지 않게 한다.
   const [dayDialogOpen, setDayDialogOpen] = useState(false)
@@ -73,8 +78,9 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
   const taskView: TaskView | undefined = initialScreen(initial) === 'tasks' ? (initial === 'task-detail' ? 'today' : (initial as TaskView)) : undefined
 
   /** 실제로 화면을 옮긴다(확인이 끝난 뒤이거나, 확인할 것이 없을 때). */
-  function go(next: Screen): void {
+  function go(next: Screen, nextFocus: TasksFocus | null = null): void {
     setScreen(next)
+    setFocus(nextFocus)
     // 배치 모드는 홈에서만 의미가 있다.
     if (next !== 'home') setArranging(false)
   }
@@ -82,10 +88,21 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
   /** 화면 옮기기 요청. 쓰던 내용이 있으면 확인 띠를 먼저 띄운다. */
   function navigate(next: Screen): void {
     if (next !== screen && guard.isDirty()) {
-      setLeaveAsk(next)
+      setLeaveAsk({ screen: next, focus: null })
       return
     }
     go(next)
+  }
+
+  /** 할 일 하나를 그 할 일이 보이는 보기에서 연다. 다른 화면에서 오면 쓰던 내용을 먼저 묻는다. 할 일 화면 안에서는 화면이 직접 처리한다(상세 편집이 있으면 묻는다). */
+  function openTask(task: Task): void {
+    const request: TasksFocus = { taskId: task.id, view: viewOf(task, todayString()), nonce: ++focusSeq.current }
+    if (screen === 'tasks') return setFocus(request)
+    if (guard.isDirty()) {
+      setLeaveAsk({ screen: 'tasks', focus: request })
+      return
+    }
+    go('tasks', request)
   }
 
   // 안내를 보일지 정한다: 설정을 못 읽거나 끝냈다고 기록돼 있으면 안 보이고(앱을 막지 않는다),
@@ -178,10 +195,11 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
               pieDemo={initial === 'home-pie' ? { hover: 1 } : undefined}
               dayDemo={initial === 'home-day'}
               onDayDialogChange={setDayDialogOpen}
+              onOpenTask={openTask}
             />
           )}
           {screen === 'calendar' && <CalendarScreen />}
-          {screen === 'tasks' && <TasksScreen initialView={taskView} openFirst={initial === 'task-detail'} />}
+          {screen === 'tasks' && <TasksScreen focus={focus ?? undefined} initialView={taskView} openFirst={initial === 'task-detail'} />}
           {screen === 'routines' && <RoutinesScreen />}
           {screen === 'memos' && <MemosScreen />}
           {screen === 'arms' && <ArmsScreen scrollToMcp={initial === 'arms-mcp'} onOpenSettings={(name) => name === 'obsidian' && navigate('obsidian')} />}
@@ -197,7 +215,7 @@ function AppBody({ guard }: { guard: LeaveGuardStore }) {
               onKeep={() => setLeaveAsk(null)}
               onDiscard={() => {
                 setLeaveAsk(null)
-                go(leaveAsk)
+                go(leaveAsk.screen, leaveAsk.focus)
               }}
             />
           </div>

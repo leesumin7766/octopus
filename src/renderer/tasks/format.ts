@@ -1,5 +1,6 @@
 import { diffDays, localDateString, parseDate, weekdayOf } from '../../shared/tasks/dates'
-import type { RepeatRule } from '../../shared/tasks/types'
+import type { RepeatRule, Task } from '../../shared/tasks/types'
+import { viewOf } from '../../shared/tasks/viewOf'
 import { ko } from '../i18n/ko'
 
 const t = ko.tasks
@@ -101,4 +102,12 @@ export function formatTimestamp(iso: string, today: string = todayString()): str
 /** "a, b, ,a" → ["a", "b"] */
 export function splitTags(text: string): string[] {
   return [...new Set(text.split(',').map((tag) => tag.trim()).filter((tag) => tag !== ''))]
+}
+
+/** 새로 추가한 할 일이 지금 보는 곳에 안 보일 때 알려 줄 글. */
+export function addedMessage(task: Task, today: string): string {
+  const view = viewOf(task, today)
+  if (view === 'inbox') return ko.tasks.added.inbox
+  if (view === 'someday') return ko.tasks.added.someday
+  return ko.tasks.added.on(formatDate(task.date ?? today, today))
 }

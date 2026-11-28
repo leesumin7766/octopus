@@ -3,13 +3,16 @@ import type { IpcError, IpcResult } from '../../../shared/ipc'
 import type { Task, TodayView } from '../../../shared/tasks/types'
 import { ko } from '../../i18n/ko'
 import { errorMessage } from '../../tasks/errors'
+import { addedMessage, todayString } from '../../tasks/format'
 import { QuickInput } from '../../tasks/QuickInput'
+import { viewOf } from '../../../shared/tasks/viewOf'
+import { ActionNotice, NOTICE_MS } from '../../ui/ActionNotice'
 import { Checkbox } from '../../ui/Checkbox'
 
 const t = ko.home.todo
 
 /** 되돌리기 알림이 떠 있는 시간(ms). 할 일 탭과 같다. */
-const UNDO_MS = 6000
+const UNDO_MS = NOTICE_MS
 
 interface UndoNotice {
   id: string
@@ -24,10 +27,12 @@ interface TodoCardProps {
   fadeMs: number
   previewDebounceMs: number
   onOpenTasks: () => void
+  /** 추가 안내의 [보기]: 그 할 일이 보이는 보기를 열고 선택한다. */
+  onOpenTask?: (task: Task) => void
 }
 
 /** 오늘 할 일: 지난 할 일 개수 한 줄, 맨 위 빠른 입력, 체크할 수 있는 오늘 목록(루틴 항목 포함). */
-export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, onOpenTasks }: TodoCardProps) {
+export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, onOpenTasks, onOpenTask }: TodoCardProps) {
   const [view, setView] = useState<TodayView | null>(null)
   const [error, setError] = useState<IpcError | null>(null)
   const [fading, setFading] = useState<ReadonlySet<string>>(new Set())
@@ -38,6 +43,8 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
   const [undo, setUndo] = useState<UndoNotice | null>(null)
   const undoTimer = useRef<number | undefined>(undefined)
   const undoing = useRef(false)
+  // 추가했는데 오늘 목록에 안 보이는 할 일의 안내. 되돌리기 알림과 같은 자리에 하나만 뜬다.
+  const [added, setAdded] = useState<Task | null>(null)
 
   const refresh = useCallback(async (): Promise<void> => {
     const seq = ++loadSeq.current
@@ -75,6 +82,11 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
     }
     setError(null)
     await refresh()
+    if (mounted.current && viewOf(result.data, todayString()) !== 'today') {
+      window.clearTimeout(undoTimer.current)
+      setUndo(null)
+      setAdded(result.data)
+    } else setAdded(null)
     return true
   }
 
@@ -102,6 +114,7 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
 
   /** 되돌리기 알림을 띄운다. 몇 초 뒤 저절로 사라진다. 새 알림이 오면 이전 알림은 밀려난다. */
   function showUndo(next: UndoNotice): void {
+    setAdded(null)
     setUndo(next)
     window.clearTimeout(undoTimer.current)
     undoTimer.current = window.setTimeout(() => setUndo(null), UNDO_MS)
@@ -177,6 +190,21 @@ export function TodoCard({ dayKey, refreshKey = 0, fadeMs, previewDebounceMs, on
             </li>
           ))}
         </ul>
+      )}
+
+      {added && (
+        <ActionNotice
+          key={added.id}
+          message={addedMessage(added, todayString())}
+          actionLabel={ko.tasks.added.view}
+          onAction={() => {
+            const task = added
+            setAdded(null)
+            onOpenTask?.(task)
+          }}
+          onExpire={() => setAdded(null)}
+          className="mt-auto max-w-full self-start"
+        />
       )}
 
       {undo && (

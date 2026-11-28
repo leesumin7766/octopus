@@ -11,6 +11,7 @@ import {
 } from '../../shared/home/layout'
 import { shortcutIdOf } from '../../shared/pie/actions'
 import type { Shortcut } from '../../shared/shortcuts/types'
+import type { Task } from '../../shared/tasks/types'
 import { ko } from '../i18n/ko'
 import { safeInvoke } from '../safeInvoke'
 import type { Screen } from '../nav/NavMenu'
@@ -70,6 +71,8 @@ interface HomeScreenProps {
   dayDemo?: boolean
   /** 날짜 상세가 열리고 닫힐 때 알린다(지시하기 단축키를 막는 데 쓴다). */
   onDayDialogChange?: (open: boolean) => void
+  /** 추가 안내의 [보기]: 할 일 하나를 그 보기에서 연다. */
+  onOpenTask?: (task: Task) => void
 }
 
 interface Notice {
@@ -87,7 +90,8 @@ export function HomeScreen({
   previewDebounceMs = 250,
   pieDemo,
   dayDemo = false,
-  onDayDialogChange
+  onDayDialogChange,
+  onOpenTask
 }: HomeScreenProps) {
   const { value: layout, setLocal, persist, saveFailed: layoutSaveFailed, saving: layoutSaving, retry: retryLayout } = useSetting('home.layout')
   const pie = useSetting('pie.slots')
@@ -261,6 +265,7 @@ export function HomeScreen({
             fadeMs={fadeMs}
             previewDebounceMs={previewDebounceMs}
             onOpenTasks={() => onNavigate('tasks')}
+            onOpenTask={onOpenTask}
           />
         )
       case 'calendar':
