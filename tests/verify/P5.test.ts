@@ -198,8 +198,8 @@ it.each([
 async function editFirst() {
   const memo = backend.memoRepo.create('기존 메모')
   await mount('screen')
-  fireEvent.click(await screen.findByRole('button', { name: '수정: 기존 메모' }))
-  return { memo, input: screen.getByRole<HTMLTextAreaElement>('textbox', { name: '메모 수정' }) }
+  fireEvent.click(await screen.findByRole('button', { name: '편집: 기존 메모' }))
+  return { memo, input: screen.getByRole<HTMLTextAreaElement>('textbox', { name: '메모 편집' }) }
 }
 it('edit slow save keeps newer edits; retry updates the same id and then closes', async () => {
   const { memo, input } = await editFirst()
@@ -212,7 +212,7 @@ it('edit slow save keeps newer edits; retry updates the same id and then closes'
   await act(async () => pending.resolve({ ok: true, data: backend.memoRepo.update(memo.id, '수정 1') }))
   expect(input.value).toBe('수정 2')
   save(input)
-  await waitFor(() => expect(screen.queryByRole('textbox', { name: '메모 수정' })).toBeNull())
+  await waitFor(() => expect(screen.queryByRole('textbox', { name: '메모 편집' })).toBeNull())
   expect(backend.memos.update.mock.calls).toEqual([[memo.id, '수정 1'], [memo.id, '수정 2']])
   expect(backend.memoRepo.list().map(m => m.body)).toEqual(['수정 2'])
 })
@@ -230,7 +230,7 @@ it('edit failure preserves newer text and cancel prevents late response reopenin
   save(input)
   fireEvent.keyDown(input, { key: 'Escape' })
   await act(async () => late.resolve({ ok: false, error: { code: 'invalid_input' } }))
-  expect(screen.queryByRole('textbox', { name: '메모 수정' })).toBeNull()
+  expect(screen.queryByRole('textbox', { name: '메모 편집' })).toBeNull()
 })
 it.each(['card', 'screen'] as const)('%s ignores stale list response after saved memo refresh', async (surface) => {
   await mount(surface)
@@ -252,7 +252,7 @@ async function home() {
 }
 async function openMemo() {
   fireEvent.click(screen.getByRole('button', { name: 'Octopus 메뉴' }))
-  fireEvent.click(await screen.findByRole('menuitem', { name: '메모 쓰기' }))
+  fireEvent.click(await screen.findByRole('menuitem', { name: '메모 추가' }))
   return screen.getByRole<HTMLTextAreaElement>('textbox', { name: '메모 내용' })
 }
 it.each([false, true])('home success refreshes list and notifies; appended=%s controls closing', async (appended) => {
