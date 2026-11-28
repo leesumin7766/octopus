@@ -1,15 +1,13 @@
 // 화면 문구 (한국어). 새 문구는 여기에 추가한다.
 export const ko = {
   appTitle: 'Octopus',
-  dbOpenFailed:
-    '할 일과 메모를 저장하는 곳을 열지 못했어요. 앱을 완전히 종료한 뒤 다시 실행해 보세요. 계속되면 앱 데이터 폴더의 octopus.db 파일을 백업해 두세요.',
 
   // 제목 줄의 알림 표시(ATDT 와 같은 자리). 알림이 있을 때만 보이고, 누르면 그 안에서 바로 처리한다.
   notices: {
     button: (count: number) => `알림 ${count}`,
     buttonLabel: (count: number) => `알림 ${count}개 보기`,
     panel: '알림',
-    later: '나중에',
+    later: '다시 알림',
     update: {
       available: (version: string) => `새 버전 ${version}`,
       downloading: (version: string) => `새 버전 ${version} 받는 중`,
@@ -56,10 +54,10 @@ export const ko = {
       'nav:memos': '메모 보기',
       'nav:settings': '설정',
       'task:quickAdd': '할 일 추가',
-      'memo:quickAdd': '메모 쓰기',
+      'memo:quickAdd': '메모 추가',
       command: '지시하기',
-      'arm:google-calendar': '구글 캘린더',
-      'calendar:local': '캘린더',
+      'arm:google-calendar': 'Google 캘린더',
+      'calendar:local': '달력',
       'arm:obsidian': '옵시디언',
       arms: 'Arms'
     },
@@ -71,22 +69,22 @@ export const ko = {
       'nav:memos': '메모 화면',
       'nav:settings': '설정 화면',
       'task:quickAdd': '할 일 바로 추가',
-      'memo:quickAdd': '메모 바로 쓰기',
+      'memo:quickAdd': '메모 바로 추가',
       command: '지시하기',
-      'arm:google-calendar': '구글 캘린더 (Arm 연결 필요)',
-      'calendar:local': '캘린더 (로컬, 연결 필요 없음)',
+      'arm:google-calendar': 'Google 캘린더 (Arm 연결 필요)',
+      'calendar:local': '달력 (연결 필요 없음)',
       'arm:obsidian': '옵시디언 (Arm 연결 필요)',
       arms: 'Arms 관리'
     },
     // 지금 쓸 수 없는 칸에 가리키면 보이는 이유
     reasons: {
       command: '설정의 "모델 연결"에서 키나 서버 주소를 넣으면 쓸 수 있어요.',
-      'arm:google-calendar': '캘린더 Arm 을 연결하면 쓸 수 있어요.',
+      'arm:google-calendar': 'Google 캘린더 Arm 을 연결하면 쓸 수 있어요.',
       'arm:obsidian': '옵시디언 Arm 을 연결하면 쓸 수 있어요.',
       arms: 'Arms 화면은 곧 준비돼요.'
     },
-    deletedShortcut: '지워진 바로가기',
-    deletedShortcutReason: '지워진 바로가기예요. 설정에서 다른 동작을 골라 주세요.',
+    deletedShortcut: '삭제된 바로가기',
+    deletedShortcutReason: '삭제된 바로가기예요. 설정에서 다른 동작을 골라 주세요.',
     shortcutLong: (label: string) => `바로가기: ${label}`
   },
 
@@ -139,9 +137,9 @@ export const ko = {
       saveKey: '키 저장',
       saved: '저장됨',
       notSaved: '저장된 키 없음',
-      clearKey: '키 지우기',
-      clearConfirm: '저장된 키를 지울까요? 지우면 지시하기를 쓸 수 없어요.',
-      clearYes: '지우기',
+      clearKey: '키 삭제',
+      clearConfirm: '저장된 키를 삭제할까요? 삭제하면 지시하기를 쓸 수 없어요.',
+      clearYes: '삭제',
       clearNo: '취소',
       modelLabel: '모델',
       baseUrlLabel: '서버 주소',
@@ -150,7 +148,7 @@ export const ko = {
       saveServer: '서버 저장',
       serverSaved: '서버 설정을 저장했어요.',
       keySaved: '키를 저장했어요.',
-      keyCleared: '키를 지웠어요.',
+      keyCleared: '키를 삭제했어요.',
       errors: {
         baseUrl: '주소는 http:// 또는 https:// 로 시작해야 해요.',
         modelName: '모델 이름을 적어 주세요.',
@@ -163,7 +161,7 @@ export const ko = {
     dateHeading: (month: number, day: number, weekday: string) => `${month}월 ${day}일 ${weekday}요일`,
     cards: {
       todo: '오늘 할 일',
-      calendar: '캘린더',
+      calendar: '달력',
       memo: '메모',
       shortcuts: '바로가기'
     },
@@ -172,10 +170,9 @@ export const ko = {
     arrows: { up: '↑', down: '↓', left: '←', right: '→' },
     arranging: '화면 배치 중 — 화살표로 카드 자리를 바꾸고, 카드 사이 경계를 끌어 크기를 바꿔요. 경계를 두 번 누르면 반반으로 돌아와요.',
     resetLayout: '기본 배치',
-    doneArranging: '완료',
+    doneArranging: '배치 끝',
     columnSeparator: '왼쪽·오른쪽 카드 너비 조절',
     rowSeparator: '위·아래 카드 높이 조절',
-    centerSpot: 'Octopus 메뉴 자리',
     todo: {
       overdue: (n: number) => `지난 할 일 ${n}개`,
       inputPlaceholder: '할 일 추가 · 예: 내일 오후 3시 보고서',
@@ -183,8 +180,8 @@ export const ko = {
       viewAll: '전체 보기 →'
     },
     calendar: {
-      empty: '연결된 캘린더가 없어요.',
-      connect: '캘린더 연결하기',
+      empty: '연결된 Google 캘린더가 없어요.',
+      connect: 'Google 캘린더 연결하기',
       loading: '일정을 불러오는 중…',
       connecting: '연결 중…',
       noEvents: '오늘 일정이 없어요.',
@@ -192,8 +189,6 @@ export const ko = {
       now: '진행 중',
       reconnect: '다시 연결',
       notConfigured: 'Google 캘린더 연결은 아직 준비 중이에요.',
-      notConfiguredHelp: 'Arms 화면에서 확인할 수 있어요.',
-      openArms: 'Arms 화면 열기',
       eventLabel: (title: string) => `일정 열기: ${title}`,
       openFailed: '일정을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.',
       loadFailed: '일정을 불러오지 못했어요. 잠시 뒤 자동으로 다시 시도해요.'
@@ -218,15 +213,9 @@ export const ko = {
       loading: '할 일을 불러오는 중…',
       loadFailed: '할 일을 불러오지 못했어요.',
       googleSection: 'Google 일정',
-      googleOtherDays: '다른 날짜의 Google 일정은 아직 볼 수 없어요. 오늘 날짜에서 확인할 수 있어요.',
       addLabel: '새 할 일 제목',
-      addPlaceholder: '제목을 적고 Enter',
-      addTimeLabel: '시각(선택)',
-      addButton: '추가',
-      addSaving: '저장하는 중이에요…',
-      addSaved: '추가했어요.',
+      addPlaceholder: '할 일 추가 · 예: 3시 회의',
       addFailed: '저장하지 못했어요. 입력한 내용은 그대로 있어요. 다시 시도해 주세요.',
-      saveDate: (text: string) => `저장 날짜: ${text}`,
       toggleLabel: (title: string) => `완료 표시: ${title}`,
       rowFailed: '완료 상태를 바꾸지 못했어요. 다시 시도해 주세요. 표시는 그대로예요.',
       editText: '편집',
@@ -239,8 +228,8 @@ export const ko = {
       busyNav: '저장이 끝난 뒤에 옮길 수 있어요.',
       movedNotice: (text: string) => `${text}로 옮겼어요.`,
       movedAway: '날짜 없는 곳으로 옮겼어요. 이 날짜 목록에서는 사라져요.',
-      editFailed: '수정하지 못했어요. 입력한 내용은 그대로 있어요.',
-      removeFailed: '지우지 못했어요. 다시 시도해 주세요.',
+      editFailed: '저장하지 못했어요. 입력한 내용은 그대로 있어요.',
+      removeFailed: '삭제하지 못했어요. 다시 시도해 주세요.',
       cancelFailed: '안 하기로 하지 못했어요. 다시 시도해 주세요.'
     },
     memo: {
@@ -251,7 +240,7 @@ export const ko = {
     },
     dialogs: {
       taskTitle: '할 일 추가',
-      memoTitle: '메모 쓰기',
+      memoTitle: '메모 추가',
       close: '닫기',
       memoLabel: '메모 내용',
       memoPlaceholder: '메모를 적고 Ctrl+Enter 로 저장하세요.',
@@ -273,7 +262,7 @@ export const ko = {
       cancel: '취소',
       manage: '편집',
       doneManage: '편집 끝',
-      editHint: '편집 중에는 눌러도 열리지 않아요. 이름·순서를 바꾸거나 지울 수 있어요.',
+      editHint: '편집 중에는 눌러도 열리지 않아요. 이름·순서를 바꾸거나 삭제할 수 있어요.',
       saving: '저장 중…',
       loadFailed: '바로가기 목록을 불러오지 못했어요. 다시 시도해 주세요.',
       retry: '다시 시도',
@@ -283,7 +272,7 @@ export const ko = {
       moveUp: (name: string) => `위로 옮기기: ${name}`,
       moveDown: (name: string) => `아래로 옮기기: ${name}`,
       remove: '삭제',
-      confirmRemove: '이 바로가기를 지울까요? (파일이나 폴더는 지워지지 않아요.)',
+      confirmRemove: '이 바로가기를 삭제할까요? (파일이나 폴더는 삭제되지 않아요.)',
       confirmRemoveYes: '삭제',
       kinds: { url: '링크', file: '파일', folder: '폴더' },
       errors: {
@@ -294,10 +283,10 @@ export const ko = {
   },
 
   routines: {
-    todayTitle: '오늘의 체크리스트',
-    todayEmpty: '오늘 해당하는 루틴이 없어요. 아래에서 루틴을 추가해 보세요.',
-    manageTitle: '루틴',
-    nameLabel: '루틴 이름',
+    todayTitle: '오늘 체크리스트',
+    todayEmpty: '오늘 해당하는 체크리스트 항목이 없어요. 아래에서 항목을 추가해 보세요.',
+    manageTitle: '체크리스트 항목',
+    nameLabel: '항목 이름',
     namePlaceholder: '예: 아침 스트레칭 (Enter 로 추가)',
     daysLabel: '반복 요일',
     everyDay: '매일',
@@ -313,11 +302,11 @@ export const ko = {
     turnOn: '켜기',
     remove: '삭제',
     off: '꺼짐',
-    confirmRemove: '이 루틴을 삭제할까요? 오늘 이후의 미완료 항목만 지워지고, 지난 기록은 남아요.',
+    confirmRemove: '이 체크리스트 항목을 삭제할까요? 오늘 이후의 미완료 항목만 삭제되고, 지난 기록은 남아요.',
     confirmRemoveYes: '삭제',
-    empty: '아직 루틴이 없어요. 위에서 이름과 요일을 정해 추가해 보세요.',
+    empty: '아직 체크리스트 항목이 없어요. 위에서 이름과 요일을 정해 추가해 보세요.',
     historyTitle: (days: number) => `최근 ${days}일 기록`,
-    historyEmpty: '루틴을 추가하면 기록이 여기에 쌓여요.',
+    historyEmpty: '체크리스트 항목을 추가하면 기록이 여기에 쌓여요.',
     cell: { done: '완료', missed: '못 함', pending: '진행 중', closed: '앱을 안 켠 날', none: '해당 없음' },
     legend: '✓ 완료   ✕ 못 함   ○ 오늘 진행 중   – 앱을 안 켠 날   · 해당 없음',
     moveUp: '위로 옮기기',
@@ -344,13 +333,13 @@ export const ko = {
     unpin: '고정 해제',
     toTask: '할 일로 만들기',
     hasTask: '할 일 있음',
-    edit: '수정',
-    editLabel: '메모 수정',
+    edit: '편집',
+    editLabel: '메모 편집',
     remove: '삭제',
     confirmRemove: '이 메모를 삭제할까요? 연결된 할 일은 그대로 남아요.',
     confirmRemoveYes: '삭제',
     cancel: '취소',
-    updated: (when: string) => `수정 ${when}`,
+    updated: (when: string) => `저장 ${when}`,
     madeTask: '할 일로 만들었어요',
     madeTaskView: '보기',
     fieldErrors: { body: '메모 내용을 입력해 주세요.' }
@@ -358,21 +347,21 @@ export const ko = {
 
   tasks: {
     candidates: {
-      title: (n: number) => `들어온 후보 (${n})`,
-      help: '연결된 도구에서 온 할 일 후보예요. 넣기 전에는 할 일이 되지 않아요.',
-      accept: '수신함에 넣기',
+      title: (n: number) => `들어온 할 일 (${n})`,
+      help: '연결된 도구에서 온 할 일이에요. 추가하기 전에는 내 할 일이 되지 않아요.',
+      accept: '수신함에 추가',
       dismiss: '무시',
-      acceptAll: '전체 넣기',
+      acceptAll: '전체 추가',
       dismissAll: '전체 무시',
       openSource: '원본 열기',
       from: (name: string) => `출처: ${name}`,
       due: (date: string) => `마감 ${date}`,
-      acceptLabel: (title: string) => `수신함에 넣기: ${title}`,
+      acceptLabel: (title: string) => `수신함에 추가: ${title}`,
       dismissLabel: (title: string) => `무시: ${title}`,
       openLabel: (title: string) => `원본 열기: ${title}`
     },
     viewsNavLabel: '보기',
-    routineBadge: '루틴',
+    routineBadge: '체크리스트',
     views: {
       inbox: '수신함',
       today: '오늘',
@@ -460,7 +449,7 @@ export const ko = {
       reschedule: '날짜…',
       dateLabel: '옮길 날짜',
       repeatBlocksSomeday: '반복하는 할 일은 나중에로 보낼 수 없어요.',
-      routineBlocksSomeday: '루틴 항목은 체크리스트에서 관리해요. 나중에로 보낼 수 없어요.'
+      routineBlocksSomeday: '체크리스트 항목은 체크리스트에서 관리해요. 나중에로 보낼 수 없어요.'
     },
 
     empty: {
@@ -475,7 +464,7 @@ export const ko = {
     detail: {
       title: '할 일 상세',
       titleField: '제목',
-      notes: '메모',
+      notes: '설명',
       moveToSomeday: '나중에로',
       date: '날짜',
       time: '시각',
@@ -491,8 +480,8 @@ export const ko = {
       confirmRemoveYes: '삭제',
       close: '닫기',
       linkedMemo: '연결된 메모',
-      routineLocksDate: '루틴 항목은 날짜를 바꿀 수 없어요. 체크리스트 화면에서 루틴 설정을 바꿔 주세요.',
-      routineManage: '루틴 항목은 체크리스트에서 관리해요.',
+      routineLocksDate: '체크리스트 항목은 날짜를 바꿀 수 없어요. 체크리스트 화면에서 설정을 바꿔 주세요.',
+      routineManage: '체크리스트 항목은 체크리스트에서 관리해요.',
       cancelTask: '안 하기',
       cancelHelp: '안 하기로 한 할 일은 완료 보기에서 다시 열 수 있어요.',
       repeatEdit: {
@@ -507,14 +496,13 @@ export const ko = {
           weekdays: '요일을 하나 이상 골라 주세요.',
           monthDay: '날짜는 1일부터 31일 사이로 골라 주세요.'
         },
-        routineLocked: '루틴 항목은 반복을 바꿀 수 없어요. 체크리스트에서 설정해 주세요.'
+        routineLocked: '체크리스트 항목은 반복을 바꿀 수 없어요. 체크리스트에서 설정해 주세요.'
       }
     },
 
     fieldErrors: {
       title: '제목을 입력해 주세요.',
-      notes: '메모를 확인해 주세요.',
-      bucket: '날짜를 확인해 주세요.',
+      notes: '설명을 확인해 주세요.',
       date: '날짜를 확인해 주세요.',
       time: '시각을 확인해 주세요. 예: 15:30',
       deadline: '마감일을 확인해 주세요.',
@@ -533,7 +521,7 @@ export const ko = {
       textTooLong: '입력이 너무 길어요. 줄여서 다시 시도해 주세요.',
       invalid_input: '입력한 내용을 확인한 뒤 다시 시도해 주세요.',
       not_found: '이미 삭제되었거나 찾을 수 없는 항목이에요. 목록을 새로 불러왔어요.',
-      not_found_path: '파일이 없어요. 바로가기를 고치거나 지우세요.',
+      not_found_path: '파일이 없어요. 바로가기를 편집하거나 삭제하세요.',
       db_unavailable:
         '저장소를 열지 못했어요. 앱을 완전히 종료한 뒤 다시 시작해 주세요. 계속되면 octopus.db 파일을 백업해 두세요.',
       secure_unavailable: '이 PC 에서는 키를 안전하게 저장할 수 없어요. Windows 에 로그인한 상태인지 확인한 뒤 다시 시도해 주세요.',
@@ -549,9 +537,9 @@ export const ko = {
     newChat: '새 대화',
     recentChats: '최근 대화',
     noChats: '아직 대화가 없어요.',
-    deleteChat: (title: string) => `대화 지우기: ${title}`,
-    deleteConfirm: '이 대화를 지울까요?',
-    deleteYes: '지우기',
+    deleteChat: (title: string) => `대화 삭제: ${title}`,
+    deleteConfirm: '이 대화를 삭제할까요?',
+    deleteYes: '삭제',
     deleteNo: '취소',
     modelLabel: '모델',
     inputLabel: '지시 내용',
@@ -585,7 +573,7 @@ export const ko = {
     unknownTool: (name: string) => `${name} 도구`,
     toolLabels: {
       add_task: '할 일 추가',
-      update_task: '할 일 고치기',
+      update_task: '할 일 편집',
       complete_task: '할 일 완료',
       add_memo: '메모 추가'
     } as Record<string, string>,
@@ -619,7 +607,6 @@ export const ko = {
   arms: {
     title: 'Arms',
     subtitle: '다리',
-    intro: '쓰는 도구를 끼우고 빼세요. 로그인 한 번이면 돼요. Arm 을 빼도 할 일은 Octopus 에 그대로 남아요.',
     listLabel: 'Arm 목록',
     empty: '아직 연결할 수 있는 Arm 이 없어요.',
     statuses: { off: '연결 안 됨', connecting: '연결 중…', on: '연결됨', error: '문제가 있어요' },
@@ -628,12 +615,11 @@ export const ko = {
     reconnect: '다시 연결',
     settings: '설정',
     disconnect: '연결 끊기',
-    disconnectConfirm: '저장된 로그인 정보가 지워져요. 할 일은 그대로 남아요.',
+    disconnectConfirm: '저장된 로그인 정보가 삭제돼요. 할 일은 그대로 남아요.',
     disconnectYes: '연결 끊기',
     disconnectNo: '취소',
-    autoAccept: '들어온 후보를 확인 없이 수신함에 넣기',
+    autoAccept: '들어온 할 일을 확인 없이 수신함에 추가',
     cardLabel: (name: string) => `${name} Arm`,
-    auth: { none: '로그인 없음', oauth: '로그인 한 번으로 연결', apiKey: 'API 키로 연결', folder: '폴더를 골라 연결', mcp: 'MCP 서버' } as Record<string, string>,
     capabilities: {
       'tasks.import': '할 일 가져오기',
       'tasks.export': '할 일 내보내기',
@@ -660,7 +646,7 @@ export const ko = {
       envName: '이름',
       envValue: '값',
       envAdd: '+ 환경 변수',
-      envRemove: '환경 변수 지우기',
+      envRemove: '환경 변수 삭제',
       envHelp: '값은 이 PC 에 암호화해 저장하고 화면에는 다시 보여 주지 않아요.',
       add: '추가',
       adding: '추가하는 중…',
@@ -674,7 +660,7 @@ export const ko = {
       write: '쓰기(승인 필요)',
       reconnect: '다시 연결',
       remove: '삭제',
-      removeConfirm: '이 서버와의 연결을 끊고 목록에서 지워요. 저장된 환경 변수도 함께 지워져요.',
+      removeConfirm: '이 서버와의 연결을 끊고 목록에서 삭제해요. 저장된 환경 변수도 함께 삭제돼요.',
       removeYes: '삭제',
       removeNo: '취소',
       serverLabel: (name: string) => `MCP 서버 ${name}`,
@@ -691,12 +677,12 @@ export const ko = {
       summary: '고급',
       title: '내 OAuth 클라이언트 쓰기',
       googleFallbackHint: '고급에서 직접 만든 OAuth 클라이언트로 연결할 수 있어요.',
-      help: '기본 방법이 아니에요. Google Cloud 에서 직접 만든 데스크톱 클라이언트를 쓰려는 경우에만 쓰세요. 입력한 값은 이 PC 에 암호화해 저장하고 화면에는 다시 보여 주지 않아요. 연결을 끊으면 함께 지워져요.',
+      help: '기본 방법이 아니에요. Google Cloud 에서 직접 만든 데스크톱 클라이언트를 쓰려는 경우에만 쓰세요. 입력한 값은 이 PC 에 암호화해 저장하고 화면에는 다시 보여 주지 않아요. 연결을 끊으면 함께 삭제돼요.',
       clientId: '클라이언트 ID',
       clientSecret: '클라이언트 시크릿 (선택)',
       save: '저장',
       saved: '내 클라이언트 저장됨',
-      clear: '지우기',
+      clear: '삭제',
       errors: { clientId: '클라이언트 ID 는 8~200자의 영문·숫자·점·하이픈으로 적어 주세요.', clientSecret: '시크릿에 쓸 수 없는 글자가 있어요.' }
     }
   },
@@ -719,8 +705,8 @@ export const ko = {
     saveFile: '저장',
     fileSaved: '저장했어요.',
     fileError: '경로가 올바르지 않아요. 볼트 안의 경로(예: Octopus/할 일.md)로 .md 파일을 적어 주세요. 볼트 밖을 가리키는 경로(../ 나 C:\\ 로 시작하는 전체 경로)는 쓸 수 없어요.',
-    daily: '오늘 일일노트 맨 끝에 이 파일 링크 한 줄 넣기',
-    dailyHelp: '기본은 꺼짐. 켜도 오늘 일일노트가 이미 있을 때만, 하루에 한 번만 넣고 새 노트는 만들지 않아요.',
+    daily: '오늘 일일노트 맨 끝에 이 파일 링크 한 줄 추가',
+    dailyHelp: '기본은 꺼짐. 켜도 오늘 일일노트가 이미 있을 때만, 하루에 한 번만 추가하고 새 노트는 만들지 않아요.',
     lastExport: (time: string) => `마지막으로 내보낸 시각 ${time}`,
     neverExported: '아직 내보내지 않았어요.',
     exportNow: '지금 내보내기',
@@ -730,7 +716,7 @@ export const ko = {
     gitOk: '볼트를 버전 관리(git)하고 있어요. 옵시디언의 작업 영역 파일은 이미 제외되어 있어요.',
     gitMissing: '볼트를 버전 관리(git)하는데, 옵시디언이 계속 바꾸는 작업 영역 파일이 제외되어 있지 않아요(충돌이 자주 생겨요).',
     gitAdd: (line: string) => `제외 목록에 추가: ${line}`,
-    gitHelp: '누르면 추가할 줄을 보여 주고 확인을 받아요. 자동으로 고치지 않아요.',
+    gitHelp: '누르면 추가할 줄을 보여 주고 확인을 받아요. 자동으로 바꾸지 않아요.',
     previewTitle: '옵시디언에 보이는 모습',
     previewHelp: '지금 할 일로 만든 내용이에요. 할 일을 바꾸면 몇 초 안에 파일에도 반영돼요.',
     noPreview: '연결하면 미리보기가 보여요.'

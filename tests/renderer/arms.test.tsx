@@ -49,7 +49,7 @@ describe('Arms screen', () => {
     expect(within(c).getByText(t.statuses.off)).toBeTruthy()
     expect(within(c).getByText('설명 한 줄')).toBeTruthy()
     expect(within(c).queryByText(t.capabilities['tasks.import'])).toBeNull()
-    expect(within(c).queryByText(t.auth.oauth)).toBeNull()
+    expect(within(c).queryByText('로그인 한 번으로 연결')).toBeNull()
     expect(screen.getAllByRole('article')).toHaveLength(1)
   })
 
@@ -113,7 +113,7 @@ describe('Arms screen', () => {
     expect(within(c).queryByRole('alert')).toBeNull()
   })
 
-  it('disconnecting asks first ("저장된 로그인 정보가 지워져요. 할 일은 그대로 남아요."); cancel keeps it, confirm disconnects', async () => {
+  it('disconnecting asks first ("저장된 로그인 정보가 삭제돼요. 할 일은 그대로 남아요."); cancel keeps it, confirm disconnects', async () => {
     const user = userEvent.setup()
     const backend = prepare()
     backend.armManager.register(fakeArm({ manifest: { name: '예시 하나' }, connect: async (ctx) => ctx.secrets.set('token', 'T') }))
@@ -124,7 +124,7 @@ describe('Arms screen', () => {
     await waitFor(() => expect(within(c).getByText(t.statuses.on)).toBeTruthy())
 
     await user.click(within(c).getByRole('button', { name: t.disconnect }))
-    expect(within(c).getByRole('alert').textContent).toContain('저장된 로그인 정보가 지워져요. 할 일은 그대로 남아요.')
+    expect(within(c).getByRole('alert').textContent).toContain('저장된 로그인 정보가 삭제돼요. 할 일은 그대로 남아요.')
     expect(backend.arms.disconnect).not.toHaveBeenCalled()
     await user.click(within(c).getByRole('button', { name: t.disconnectNo }))
     expect(within(c).getByText(t.statuses.on)).toBeTruthy()

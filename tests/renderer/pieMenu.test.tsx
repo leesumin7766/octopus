@@ -9,7 +9,7 @@ import { DEAD_ZONE_PX, slotCenterPoint } from '../../src/shared/pie/geometry'
 import { installBackend, type Backend } from './backend'
 
 const t = ko.pie
-const LABELS = ['지시하기', '할 일 추가', '캘린더', '할 일 보기', '메모 쓰기', '체크리스트', '옵시디언', 'Arms']
+const LABELS = ['지시하기', '할 일 추가', '달력', '할 일 보기', '메모 추가', '체크리스트', '옵시디언', 'Arms']
 
 describe('pie menu', () => {
   let b: Backend
@@ -80,7 +80,7 @@ describe('pie menu', () => {
       fireEvent.pointerMove(circle, { pointerId: 1, ...at(1) })
 
       expect(wedge('할 일 추가').className).toContain('text-white') // 가리킨 칸 강조
-      expect(wedge('캘린더').className).not.toContain('text-white')
+      expect(wedge('달력').className).not.toContain('text-white')
 
       fireEvent.pointerUp(circle, { pointerId: 1, ...at(1) })
 
@@ -183,7 +183,7 @@ describe('pie menu', () => {
       expect(circle.getAttribute('aria-expanded')).toBe('true')
       expect(menu()).toBeTruthy()
 
-      await user.click(wedge('메모 쓰기'))
+      await user.click(wedge('메모 추가'))
 
       expect(await dialog(ko.home.dialogs.memoTitle)).toBeTruthy()
       expect(screen.queryByRole('menu')).toBeNull()
@@ -237,7 +237,7 @@ describe('pie menu', () => {
         expect(wedge(name).getAttribute('aria-disabled'), name).toBe('true')
         expect(wedge(name).className).toContain('opacity-50')
       }
-      for (const name of ['할 일 추가', '할 일 보기', '메모 쓰기', '체크리스트', '캘린더', 'Arms']) expect(wedge(name).getAttribute('aria-disabled'), name).toBeNull()
+      for (const name of ['할 일 추가', '할 일 보기', '메모 추가', '체크리스트', '달력', 'Arms']) expect(wedge(name).getAttribute('aria-disabled'), name).toBeNull()
     })
 
     it('pointing at one shows why, and the reason goes away when pointing elsewhere', async () => {
@@ -247,7 +247,7 @@ describe('pie menu', () => {
       await user.click(circle)
       vi.spyOn(menu(), 'getBoundingClientRect').mockReturnValue(new DOMRect(340, 140, 320, 320))
 
-      fireEvent.pointerMove(menu(), at(2)) // 캘린더
+      fireEvent.pointerMove(menu(), at(2)) // 달력
       expect(within(menu()).getByRole('status').textContent).toBe(t.reasons['arm:google-calendar'])
       fireEvent.pointerMove(menu(), at(0)) // 지시하기
       expect(within(menu()).getByRole('status').textContent).toBe(t.reasons.command)
@@ -262,7 +262,7 @@ describe('pie menu', () => {
       await user.click(circle)
 
       expect(wedge('옵시디언').getAttribute('title')).toContain(t.reasons['arm:obsidian'])
-      expect(wedge('구글 캘린더').getAttribute('title')).toContain(t.reasons['arm:google-calendar'])
+      expect(wedge('Google 캘린더').getAttribute('title')).toContain(t.reasons['arm:google-calendar'])
     })
 
     it('releasing a drag over one does nothing, and the menu stays open so the reason can be read', async () => {
@@ -340,7 +340,7 @@ describe('pie menu', () => {
       await user.keyboard('{ArrowRight}')
       expect(document.activeElement).toBe(wedge('할 일 추가'))
       await user.keyboard('{ArrowDown}')
-      expect(document.activeElement).toBe(wedge('캘린더'))
+      expect(document.activeElement).toBe(wedge('달력'))
       await user.keyboard('{Tab}')
       expect(document.activeElement).toBe(wedge('할 일 보기'))
       await user.keyboard('{ArrowLeft}{ArrowUp}')
@@ -551,7 +551,7 @@ describe('pie menu', () => {
       await user.click(circle)
 
       expect(within(menu()).getAllByRole('menuitem').map((el) => el.getAttribute('aria-label'))).toEqual([
-        '설정', '홈', '할 일 보기', '체크리스트', '메모 보기', '할 일 추가', '메모 쓰기', '옵시디언'
+        '설정', '홈', '할 일 보기', '체크리스트', '메모 보기', '할 일 추가', '메모 추가', '옵시디언'
       ])
       expect(wedge('설정').getAttribute('aria-disabled')).toBeNull()
       expect(wedge('옵시디언').getAttribute('aria-disabled')).toBe('true')

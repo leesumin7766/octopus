@@ -52,7 +52,7 @@ describe('C1 independent acceptance review', () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(await screen.findByRole('button', { name: ko.pie.menuLabel }))
-    const calendar = screen.getByRole('menuitem', { name: /캘린더|로컬 달력/ })
+    const calendar = screen.getByRole('menuitem', { name: /달력/ })
     expect(calendar.getAttribute('aria-disabled')).not.toBe('true')
     await user.click(calendar)
     expect(await screen.findByRole('dialog', { name: /2026년 11월 24일/ })).toBeTruthy()

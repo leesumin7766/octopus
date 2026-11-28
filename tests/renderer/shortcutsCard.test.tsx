@@ -98,7 +98,7 @@ describe('shortcuts card', () => {
 
       const alert = await screen.findByRole('alert')
       expect(alert.textContent).toBe(ko.tasks.errors.not_found_path)
-      expect(alert.textContent).toContain('바로가기를 고치거나 지우세요')
+      expect(alert.textContent).toContain('바로가기를 편집하거나 삭제하세요')
       expect(backend.platform.openPath).not.toHaveBeenCalled()
     })
 

@@ -366,7 +366,7 @@ describe('local calendar: pie menu access (C1-15)', () => {
     render(<App />)
     const circle = await screen.findByRole('button', { name: ko.pie.menuLabel })
     await user.click(circle)
-    await user.click(screen.getByRole('menuitem', { name: '캘린더' }))
+    await user.click(screen.getByRole('menuitem', { name: '달력' }))
 
     expect(await screen.findByRole('dialog', { name: '2026년 3월 10일 (화) · 오늘' })).toBeTruthy()
     expect(b.settingsRepo.get('pie.slots')).toEqual(slots)

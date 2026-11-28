@@ -54,13 +54,13 @@ describe('C2 day actions', () => {
 
   const rowsIn = (date: string): string[] => b.t.repo.listRange(date, date).map((x) => x.title)
   const titleField = (dialog: HTMLElement): HTMLInputElement => within(dialog).getByLabelText(m.addLabel) as HTMLInputElement
-  const addButton = (dialog: HTMLElement): HTMLElement => within(dialog).getByRole('button', { name: m.addButton })
+  const addButton = (dialog: HTMLElement): HTMLElement => within(dialog).getByRole('button', { name: ko.tasks.quickAddButton })
 
   describe('adding (C2-01, C2-02, C2-03)', () => {
     it('C2-01: adds one task on the selected day with the time field; the day is the one open', async () => {
       const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
       await user.type(titleField(dialog), '회의')
-      fireEvent.change(within(dialog).getByLabelText(m.addTimeLabel), { target: { value: '10:30' } })
+      fireEvent.change(within(dialog).getByLabelText(ko.tasks.timeFieldLabel), { target: { value: '10:30' } })
       await user.click(addButton(dialog))
 
       await waitFor(() => expect(rowsIn(T1)).toContain('회의'))
@@ -71,7 +71,7 @@ describe('C2 day actions', () => {
       // 따로 "추가했어요" 문구 없이, 입력칸이 비고 목록에 바로 나타난다
       expect(await within(dialog).findByText('회의')).toBeTruthy()
       expect(titleField(dialog).value).toBe('')
-      expect(within(dialog).queryByText(m.addSaved)).toBeNull()
+      expect(within(dialog).queryByText('추가했어요.')).toBeNull()
     })
 
     it('F1: "3시 회의" on a day becomes 15:00 on that day', async () => {
@@ -93,14 +93,14 @@ describe('C2 day actions', () => {
 
     it('F1: a plain title shows "이 날짜"; the time field is the default but the sentence time wins', async () => {
       const { dialog, user } = await openDay(T1, '2026년 11월 25일 (수)')
-      fireEvent.change(within(dialog).getByLabelText(m.addTimeLabel), { target: { value: '10:00' } })
+      fireEvent.change(within(dialog).getByLabelText(ko.tasks.timeFieldLabel), { target: { value: '10:00' } })
       await user.type(titleField(dialog), '점검')
       expect(await within(dialog).findByText(ko.tasks.chip.thisDate)).toBeTruthy()
       await user.click(addButton(dialog))
       await waitFor(() => expect(rowsIn(T1)).toContain('점검'))
       expect(b.t.repo.listRange(T1, T1).find((x) => x.title === '점검')?.time).toBe('10:00')
 
-      fireEvent.change(within(dialog).getByLabelText(m.addTimeLabel), { target: { value: '10:00' } })
+      fireEvent.change(within(dialog).getByLabelText(ko.tasks.timeFieldLabel), { target: { value: '10:00' } })
       await user.type(titleField(dialog), '3시 보고')
       await user.click(addButton(dialog))
       await waitFor(() => expect(rowsIn(T1)).toContain('보고'))
@@ -144,7 +144,7 @@ describe('C2 day actions', () => {
       expect(within(dialog).getByRole('alert').textContent).toBe(m.addFailed)
       expect(titleField(dialog).value).toBe('재시도 대상')
       expect(rowsIn(T1)).not.toContain('재시도 대상')
-      expect(within(dialog).queryByText(m.addSaved)).toBeNull()
+      expect(within(dialog).queryByText('추가했어요.')).toBeNull()
 
       await user.click(addButton(dialog))
       await waitFor(() => expect(rowsIn(T1).filter((t) => t === '재시도 대상')).toHaveLength(1))
