@@ -101,7 +101,8 @@ describe('C1 (Opus)', () => {
     await user.click(cell('2026-11-30'))
     const day = await panel('2026년 11월 30일 (월)')
     let release!: (v: IpcResult<Task>) => void
-    b.tasks.create.mockImplementationOnce(() => new Promise<IpcResult<Task>>((resolve) => (release = resolve)))
+    // F1 이후 날짜 상세의 추가는 tasks.quickAdd(문장, { defaultDate }) 로 저장한다.
+    b.tasks.quickAdd.mockImplementationOnce(() => new Promise<IpcResult<Task>>((resolve) => (release = resolve)))
     await user.type(within(day).getByLabelText(m.addLabel), '저장 중{Enter}')
     await user.click(within(grid()).getByRole('button', { name: m.nextMonth }))
     month('2026년 12월')
