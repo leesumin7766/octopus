@@ -326,7 +326,8 @@ export const ko = {
   // 여러 줄 입력 공통(메모 화면·원형 메뉴의 메모 추가)
   multiline: {
     save: '저장',
-    keyHint: 'Enter 줄바꿈 · Ctrl+Enter 저장'
+    keyHint: 'Enter 줄바꿈 · Ctrl+Enter 저장',
+    keyHintMac: 'Enter 줄바꿈 · ⌘+Enter 저장'
   },
 
   memos: {

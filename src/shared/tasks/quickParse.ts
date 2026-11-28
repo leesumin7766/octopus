@@ -77,10 +77,19 @@ function matchDate(tokens: string[], i: number, today: string): Match | null {
   if (token === '내일') return dateMatch(1, addDays(today, 1))
   if (token === '모레') return dateMatch(1, addDays(today, 2))
 
-  // 요일: 오늘을 포함해 가장 가까운 그 요일
+  // 요일: 오늘을 포함해 가장 가까운 그 요일. 한 글자 '일' 혼자는 날짜가 아니라 제목의 낱말이다("청소 일").
+  // '일요일'과, 다음주·이번주 뒤의 '일'은 일요일이다.
   const weekday = weekdayOfToken(token)
-  if (weekday !== null) {
+  if (weekday !== null && token !== '일') {
     return dateMatch(1, addDays(today, (weekday - weekdayOf(today) + 7) % 7))
+  }
+
+  // 이번주 월: 이번 주(월요일 시작)의 그 요일
+  if (token === '이번주') {
+    const target = weekdayOfToken(tokens[i + 1])
+    if (target === null) return null
+    const thisMonday = addDays(today, -mondayIndex(weekdayOf(today)))
+    return dateMatch(2, addDays(thisMonday, mondayIndex(target)))
   }
 
   // 다음주 월: 다음 주(월요일 시작)의 그 요일
@@ -178,18 +187,37 @@ function matchRepeat(tokens: string[], i: number): Match | null {
   if (token === '평일') return set({ freq: 'weekly', interval: 1, byWeekday: [1, 2, 3, 4, 5] }, 1)
   if (token === '매년') return set({ freq: 'yearly', interval: 1 }, 1)
 
-  if (token === '매주') {
+  // 요일 낱말들(월 수, 또는 평일)이 이어지면 모아서 매주 규칙을 만든다. 첫 요일 낱말은 tokens[from].
+  const weekly = (interval: number, from: number, used: number): Match => {
+    if (tokens[from] === '평일') {
+      return set({ freq: 'weekly', interval, byWeekday: [1, 2, 3, 4, 5] }, used + 1)
+    }
     const weekdays: number[] = []
-    let next = weekdayOfToken(tokens[i + 1 + weekdays.length])
+    let next = weekdayOfToken(tokens[from + weekdays.length])
     while (next !== null) {
       weekdays.push(next)
-      next = weekdayOfToken(tokens[i + 1 + weekdays.length])
+      next = weekdayOfToken(tokens[from + weekdays.length])
     }
     const unique = [...new Set(weekdays)].sort((a, b) => a - b)
     return set(
-      unique.length > 0 ? { freq: 'weekly', interval: 1, byWeekday: unique } : { freq: 'weekly', interval: 1 },
-      1 + weekdays.length
+      unique.length > 0 ? { freq: 'weekly', interval, byWeekday: unique } : { freq: 'weekly', interval },
+      used + weekdays.length
     )
+  }
+
+  if (token === '매주') return weekly(1, i + 1, 1)
+  if (token === '격주') return weekly(2, i + 1, 1)
+
+  // "3주마다 월 수", "2일마다", "3개월마다", "2년마다" (간격 1~99)
+  const every = /^(\d{1,2})(주|일|개월|년)마다$/.exec(token)
+  if (every) {
+    const interval = Number(every[1])
+    if (interval >= 1 && interval <= 99) {
+      if (every[2] === '주') return weekly(interval, i + 1, 1)
+      if (every[2] === '일') return set({ freq: 'daily', interval }, 1)
+      if (every[2] === '개월') return set({ freq: 'monthly', interval }, 1)
+      return set({ freq: 'yearly', interval }, 1)
+    }
   }
 
   if (token === '매월') {

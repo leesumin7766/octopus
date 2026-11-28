@@ -58,7 +58,8 @@ describe('parseQuickInput', () => {
       expect(parse('월 회의').date).toBe('2026-11-23') // 일요일 기준
       expect(parse('수요일 회의')).toMatchObject({ title: '회의', date: '2026-11-25' })
       expect(parse('금 회의').date).toBe('2026-11-27')
-      expect(parse('일 회의').date).toBe('2026-11-22') // 오늘이 일요일이면 오늘
+      expect(parse('일요일 회의').date).toBe('2026-11-22') // 오늘이 일요일이면 오늘
+      expect(parse('일 회의')).toMatchObject({ title: '일 회의', date: null }) // 한 글자 '일' 혼자는 날짜가 아니다
       expect(parse('월 회의', MONDAY).date).toBe('2026-11-23') // 오늘이 월요일이면 오늘
       expect(parse('일요일 회의', MONDAY).date).toBe('2026-11-29')
     })

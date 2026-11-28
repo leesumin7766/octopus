@@ -3,6 +3,11 @@ import { ko } from '../i18n/ko'
 
 const t = ko.multiline
 
+/** Mac 이면 키 안내에 ⌘ 를 쓴다(저장 키는 Ctrl·Cmd 둘 다 동작한다). */
+function isMac(): boolean {
+  return typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+}
+
 interface MultilineInputProps {
   value: string
   onChange: (value: string) => void
@@ -81,7 +86,7 @@ export function MultilineInput({
         >
           {t.save}
         </button>
-        <span className="text-xs text-[#5e5d58]">{t.keyHint}</span>
+        <span className="text-xs text-[#5e5d58]">{isMac() ? t.keyHintMac : t.keyHint}</span>
         {children}
       </div>
     </div>

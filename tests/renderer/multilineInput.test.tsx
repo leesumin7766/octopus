@@ -38,6 +38,23 @@ describe('MultilineInput', () => {
     expect(onSave).toHaveBeenCalledTimes(3)
   })
 
+  it('the key hint says ⌘ on a Mac and Ctrl otherwise', () => {
+    const original = Object.getOwnPropertyDescriptor(Navigator.prototype, 'platform')
+    try {
+      Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+      render(<Harness onSave={vi.fn()} />)
+      expect(screen.getByText(ko.multiline.keyHintMac)).toBeTruthy()
+      expect(screen.queryByText(ko.multiline.keyHint)).toBeNull()
+      cleanup()
+      Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+      render(<Harness onSave={vi.fn()} />)
+      expect(screen.getByText(ko.multiline.keyHint)).toBeTruthy()
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>)['platform']
+      if (original) Object.defineProperty(Navigator.prototype, 'platform', original)
+    }
+  })
+
   it('Ctrl+Enter during Korean composition does not save', () => {
     const onSave = vi.fn()
     render(<Harness onSave={onSave} />)
